@@ -1,0 +1,161 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ---------------------------------------------------------
+    // 0. Global Safety Net & Catch-All
+    // ---------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // 1. Primitive Helpers
+    // ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.token.email in [
+          'atomichvacsolutions@gmail.com',
+          'mustakansari9582@gmail.com',
+          'atomichvacsolution@gmail.com'
+        ]
+      );
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // ---------------------------------------------------------
+    // 2. Entity Validation Helpers
+    // ---------------------------------------------------------
+    function isValidUser(data) {
+      return data.uid is string && 
+             data.name is string && data.name.size() <= 100 &&
+             data.phone is string && data.phone.size() <= 20;
+    }
+
+    function isValidBooking(data) {
+      return data.userId is string && 
+             data.serviceName is string &&
+             data.status in ['Pending', 'Accepted', 'Rejected', 'Completed'] &&
+             data.bookingDate is string;
+    }
+
+    function isValidReport(data) {
+      return data.userId is string && 
+             data.title is string && data.title.size() <= 200 &&
+             data.status in ['Pending', 'In Progress', 'Resolved'];
+    }
+
+    // ---------------------------------------------------------
+    // 3. Collection Rules
+    // ---------------------------------------------------------
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isOwner(userId) && isValidUser(incoming()) && !incoming().get('isAdmin', false);
+      allow update: if (isOwner(userId) || isAdmin()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'address', 'whatsappNumber', 'email']) &&
+                    isValidUser(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Admins Collection (Explicit RBAC)
+    match /admins/{adminId} {
+      allow read: if isSignedIn();
+      allow write: if false; // Only manageable via Firebase Console or Admin SDK
+    }
+
+    // Bookings Collection
+    match /bookings/{bookingId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidBooking(incoming());
+      allow update: if isSignedIn() && (
+        // User can cancel or update their own if pending
+        (isOwner(existing().userId) && existing().status == 'Pending' && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['bookingDate', 'timeSlot', 'description'])) ||
+        // Admin can update status and notes
+        (isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNote', 'price', 'assignedTo']))
+      ) && isValidBooking(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // Services Collection
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Categories Collection
+    match /categories/{catId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Settings Collection
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Gallery Collection
+    match /gallery/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Invoices Collection
+    match /invoices/{invoiceId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Reports Collection
+    match /reports/{reportId} {
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && incoming().userId == request.auth.uid && isValidReport(incoming());
+      allow update: if isAdmin() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'adminNote', 'updatedAt']);
+      allow delete: if isAdmin();
+    }
+
+    // Notifications Collection
+    match /notifications/{notifId} {
+      allow get, update, delete: if isOwner(resource.data.userId);
+      allow list: if isOwner(resource.data.userId); // Handled by simple field check
+      allow create: if isAdmin() || (isSignedIn() && incoming().userId == 'admin');
+    }
+
+    // Reviews Collection
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+  }
+}
