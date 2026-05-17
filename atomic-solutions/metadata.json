@@ -1,0 +1,6 @@
+{
+  "name": "Atomic Solutions",
+  "description": "Professional Maintenance and Construction services in Deoghar. All-in-one solutions for home and business.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,164 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // -------------------------------------------------------------------------
+    // 1. THE MASTER GATE (Identity & Admin Helpers)
+    // -------------------------------------------------------------------------
+    
+    function isSignedIn() { return request.auth != null; }
+    
+    // Verify email and verification status
+    function isVerified() { 
+      return isSignedIn() && (
+        request.auth.token.email_verified == true || 
+        // Allow fallback for some providers if necessary, but keep it tight
+        request.auth.token.firebase.sign_in_provider == 'google.com'
+      ); 
+    }
+    
+    function isOwner(userId) { 
+      return isVerified() && request.auth.uid == userId; 
+    }
+    
+    // Hardcoded Admin check (safe for list rules)
+    function isHardcodedAdmin() {
+      return isSignedIn() && 
+             request.auth.token.email_verified == true && 
+             request.auth.token.email.lower() in [
+               'mustakansari9582@gmail.com',
+               'atomichvacsolutions@gmail.com'
+             ];
+    }
+
+    // Full Admin check (can be used in get/write rules)
+    function isAdmin() { 
+      return isHardcodedAdmin() || (
+        isSignedIn() && 
+        request.auth.token.email_verified == true &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
+      ); 
+    }
+
+    function isStaff() {
+      return isVerified() && (
+        isAdmin() || 
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isStaff == true)
+      );
+    }
+
+    function isValidId(id) { 
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); 
+    }
+    
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    // -------------------------------------------------------------------------
+    // 0. GLOBAL SAFETY NET
+    // -------------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. ENTITY PILLARS (Collection Rules)
+    // -------------------------------------------------------------------------
+
+    // --- USERS ---
+    match /users/{userId} {
+      function isValidUser(data) {
+        return data.uid == userId && 
+               data.name is string && data.name.size() <= 200 &&
+               (!('phone' in data) || (data.phone is string && data.phone.size() <= 30)) &&
+               (!('address' in data) || (data.address is string && data.address.size() <= 1000)) &&
+               (!('email' in data) || (data.email is string && data.email.size() <= 200));
+      }
+
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Allow all admins to list users
+      allow create: if isOwner(userId) && isValidUser(incoming()) && 
+                    !incoming().keys().hasAny(['isAdmin', 'isStaff']);
+      allow update: if (isOwner(userId) || isAdmin()) && (
+        // Owner updates (cannot touch roles)
+        (isOwner(userId) && !isAdmin() && !incoming().diff(existing()).affectedKeys().hasAny(['isAdmin', 'isStaff']) && isValidUser(incoming())) ||
+        // Admin updates or Owner updates if already admin
+        (isAdmin() && isValidUser(incoming()))
+      );
+    }
+
+    // --- BOOKINGS ---
+    match /bookings/{bookingId} {
+      function isValidBooking(data) {
+        return data.userId is string && data.userId.size() <= 128 &&
+               data.userName is string && data.userName.size() <= 200 &&
+               data.status in ['Pending', 'Accepted', 'In Progress', 'Rejected', 'Completed'] &&
+               (!('price' in data) || data.price is number) &&
+               (!('timestamp' in data) || data.timestamp is string || data.timestamp is timestamp);
+      }
+
+      allow get: if isVerified() && (isOwner(existing().userId) || existing().staffId == request.auth.uid || isAdmin());
+      allow list: if isVerified() && (resource.data.userId == request.auth.uid || resource.data.staffId == request.auth.uid || isAdmin());
+      allow create: if isOwner(incoming().userId) && isValidBooking(incoming());
+      
+      allow update: if isVerified() && isValidBooking(incoming()) && (
+        isAdmin() || 
+        // Action: Staff accepting/updating job
+        (existing().staffId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'workDescription', 'completionDate', 'location'])) ||
+        // Action: User cancelling
+        (isOwner(existing().userId) && incoming().status == 'Rejected' && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'feedback', 'reviews']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // --- SERVICES & CATEGORIES ---
+    match /services/{serviceId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- NOTIFICATIONS ---
+    match /notifications/{notifId} {
+      allow get: if isVerified() && (existing().userId == request.auth.uid || (existing().userId == 'admin' && isAdmin()));
+      allow list: if isVerified() && (resource.data.userId == request.auth.uid || (resource.data.userId == 'admin' && isAdmin()));
+      allow create: if isVerified();
+      allow update: if isVerified() && (existing().userId == request.auth.uid || isAdmin()) && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isAdmin() || (isVerified() && existing().userId == request.auth.uid);
+    }
+
+    // --- GALLERY ---
+    match /gallery/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // --- INVOICES ---
+    match /invoices/{invoiceId} {
+      allow get: if isVerified() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isVerified() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // --- SETTINGS ---
+    match /settings/{settingId} {
+      // Public settings (logo, contact info) are readable by all
+      // Sensitive config (password, setup) is ONLY readable by hardcoded admins
+      allow read: if (settingId != 'admin_config') || isHardcodedAdmin();
+      allow write: if isHardcodedAdmin();
+    }
+
+    // --- REPORTS ---
+    match /reports/{reportId} {
+      allow get: if isVerified() && (isOwner(existing().userId) || isAdmin());
+      allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow create: if isOwner(incoming().userId);
+      allow update: if isAdmin();
+    }
+  }
+}
