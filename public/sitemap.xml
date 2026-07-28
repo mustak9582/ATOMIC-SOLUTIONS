@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://atomicsolutions.in/</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://atomicsolutions.in/store</loc><changefreq>weekly</changefreq><priority>0.7</priority></url>
+  <url><loc>https://atomicsolutions.in/service/hvac</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://atomicsolutions.in/service/electrical</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://atomicsolutions.in/service/construction</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://atomicsolutions.in/service/plumbing</loc><changefreq>monthly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://atomicsolutions.in/service/false-ceiling</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/tiles-marble</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/painting</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/doors-windows</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/carpentry</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/deep-cleaning</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+  <url><loc>https://atomicsolutions.in/service/home-planning</loc><changefreq>monthly</changefreq><priority>0.8</priority></url>
+</urlset>

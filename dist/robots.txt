@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /dashboard
+Disallow: /professional
+Disallow: /billing
+Disallow: /invoice/
+Disallow: /login
+
+Sitemap: https://atomicsolutions.in/sitemap.xml
