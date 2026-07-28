@@ -194,63 +194,44 @@ function AtomicBotInner() {
 
   const fetchAIResponse = async (userText: string) => {
     try {
-      let adminContext = "";
-      if (isAdmin) {
-        try {
-          const bookings = await dataService.getCollection('bookings');
-          const invoices = await dataService.getCollection('invoices');
-          const todayStr = new Date().toDateString();
-          
-          const todaysBookings = bookings.filter((b: any) => new Date(b.createdAt || b.date).toDateString() === todayStr);
-          const todaysInvoices = invoices.filter((i: any) => new Date(i.createdAt || i.date).toDateString() === todayStr);
-          
-          adminContext = `
-          [CRITICAL SYSTEM INFO: THE USER TALKING TO YOU IS THE ADMIN / OWNER OF ATOMIC SOLUTIONS]
-          - You must address them as Admin or Boss.
-          - LIVE DATA FOR TODAY (${todayStr}):
-          - Total Bookings Today: ${todaysBookings.length}
-          - Total Invoices Generated Today: ${todaysInvoices.length}
-          - Total All-Time Bookings: ${bookings.length}
-          - Total All-Time Invoices: ${invoices.length}
-          If the admin asks for stats or details (e.g. "aaj kitni booking hui", "kitne bill baney"), use this live data to answer them proudly!
-          `;
-        } catch (e) {
-          console.error("Failed to fetch admin stats for bot", e);
-        }
+      // Artificial delay to feel like a real bot thinking
+      await new Promise(resolve => setTimeout(resolve, 800));
+
+      const text = userText.toLowerCase();
+
+      if (text.includes('price') || text.includes('cost') || text.includes('how much') || text.includes('pricing') || text.includes('packages')) {
+        return "Our pricing depends on the service and tier you choose (Basic, Premium, or Enterprise). For specific pricing, please check the Services tab or contact us on WhatsApp for a custom quote!";
+      }
+      
+      if (text.includes('book') || text.includes('hire') || text.includes('appointment') || text.includes('schedule')) {
+        return "You can easily book a service by clicking the 'Book Now' or 'Hire Us' buttons anywhere on the website! We will assign a professional right away.";
       }
 
-      const prompt = `You are Atomic Bot, the official AI assistant for Atomic Solutions, a premium home maintenance, construction, and HVAC company in India.
-      ${adminContext}
-      
-      The user is asking: "${userText}"
-      
-      Instructions:
-      1. Act as a master technician, civil engineer, and expert consultant.
-      2. If they ask about processes (like AC gas refilling, painting, brickwork, etc.), provide a highly detailed, step-by-step professional guide so the customer is fully aware of how genuine work is done.
-      3. If they ask for material calculations (e.g., how much cement/bricks for a foundation), provide a structured, realistic estimation formula or calculation.
-      4. Always add a friendly note at the end suggesting that for the best quality and hassle-free experience, they can book a professional from Atomic Solutions.
-      5. Write clearly using bullet points for steps. Keep it easy to read but technically accurate. Respond in the same language they asked (Hindi/English).`;
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
-      });
-
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || 'AI service unavailable');
+      if (text.includes('location') || text.includes('where') || text.includes('address') || text.includes('city') || text.includes('office')) {
+        return "We are based locally, but we provide services across the entire city. Feel free to contact us on WhatsApp to confirm your specific area!";
       }
 
-      if (data.text) {
-        return data.text.replace(/\*\*/g, '').trim();
-      } else {
-        throw new Error('Invalid response from AI');
+      if (text.includes('contact') || text.includes('help') || text.includes('support') || text.includes('whatsapp') || text.includes('phone') || text.includes('call')) {
+        return `You can reach us immediately via WhatsApp using the button on the bottom left, or call us directly!`;
       }
+
+      if (text.includes('admin') || text.includes('login') || text.includes('dashboard') || text.includes('staff')) {
+        return "If you are an admin or staff member, please use the login page to access your dashboard.";
+      }
+
+      if (text.includes('hi') || text.includes('hello') || text.includes('hey') || text.includes('namaste')) {
+        return "Hello! How can I assist you with Atomic Solutions today? You can ask about our services, pricing, or how to book.";
+      }
+
+      if (text.includes('service') || text.includes('what do you do') || text.includes('features') || text.includes('about')) {
+        return "Atomic Solutions is a premium home maintenance, construction, and HVAC company. We offer everything from AC servicing and plumbing to full home renovations. Check our Services page for the full list!";
+      }
+
+      // Default Fallback
+      return "I am currently running in offline FAQ mode. I might not understand complex questions right now! For detailed answers, please check our Services page or contact us directly on WhatsApp!";
     } catch (error: any) {
-      console.error("AI Chat Error:", error);
-      return `⚠️ Sorry, my AI brain encountered an error: ${error.message}. Please try again later.`;
+      console.error("Bot Error:", error);
+      return `⚠️ Sorry, my brain encountered an error: ${error.message}.`;
     }
   };
 
