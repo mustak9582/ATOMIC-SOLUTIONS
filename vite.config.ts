@@ -19,20 +19,6 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       emptyOutDir: true,
-      rollupOptions: {
-        output: {
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              if (id.includes('firebase')) return 'vendor-firebase';
-              if (id.includes('lucide')) return 'vendor-icons';
-              if (id.includes('motion')) return 'vendor-motion';
-              if (id.includes('jspdf')) return 'vendor-pdf';
-              if (id.includes('react-quill-new')) return 'vendor-quill';
-              return 'vendor';
-            }
-          },
-        },
-      },
       chunkSizeWarningLimit: 1000,
     },
     resolve: {

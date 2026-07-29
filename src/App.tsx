@@ -7,16 +7,11 @@ import Hero from './components/Hero';
 import Footer from './components/Footer';
 import AppErrorBoundary from './components/ErrorBoundary';
 import WhatsAppButton from './components/WhatsAppButton';
-import Pricing from './components/Pricing';
-import HomePlanningSection from './components/HomePlanningSection';
-import AtomicBot from './components/AtomicBot';
 import { LayoutDashboard } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { WHATSAPP_NUMBER } from './constants';
 import { AnimatePresence, motion } from 'motion/react';
 import Seo from './components/Seo';
-import SplashScreen from './components/SplashScreen';
-
 // Lazy-loaded route components for code splitting
 const UserDashboard = React.lazy(() => import('./components/UserDashboard'));
 const StaffDashboard = React.lazy(() => import('./components/StaffDashboard'));
@@ -28,6 +23,9 @@ const CompleteProfileModal = React.lazy(() => import('./components/CompleteProfi
 const ServiceDetailPage = React.lazy(() => import('./components/ServiceDetailPage'));
 const Gallery = React.lazy(() => import('./components/Gallery'));
 const StoreFront = React.lazy(() => import('./components/StoreFront'));
+const Pricing = React.lazy(() => import('./components/Pricing'));
+const HomePlanningSection = React.lazy(() => import('./components/HomePlanningSection'));
+const AtomicBot = React.lazy(() => import('./components/AtomicBot'));
 
 const ScrollToTop: React.FC = () => {
   const { pathname, hash } = useLocation();
@@ -58,20 +56,9 @@ const AppContent: React.FC = () => {
   // 1. ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP
   const authContext = useAuth();
   const { user, profile, loading, isAdmin, isStaff, isBlocked, viewAsCustomer, logout } = authContext;
-  const [showSplash, setShowSplash] = useState(true);
-  const [isSplashLeaving, setIsSplashLeaving] = useState(false);
   
   const location = useLocation();
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const beginExit = window.setTimeout(() => setIsSplashLeaving(true), 1250);
-    const removeSplash = window.setTimeout(() => setShowSplash(false), 1800);
-    return () => {
-      window.clearTimeout(beginExit);
-      window.clearTimeout(removeSplash);
-    };
-  }, []);
 
   useEffect(() => {
     if (user && isStaff && !isAdmin && location.pathname === '/') {
@@ -154,9 +141,11 @@ const AppContent: React.FC = () => {
                 className="pb-24"
               >
                 <Hero />
-                <HomePlanningSection />
-                <Pricing />
-                <Gallery />
+                <Suspense fallback={<div className="py-20 flex items-center justify-center"><div className="w-8 h-8 border-4 border-teal border-t-transparent rounded-full animate-spin" /></div>}>
+                  <HomePlanningSection />
+                  <Pricing />
+                  <Gallery />
+                </Suspense>
               </motion.div>
             )} />
             
@@ -187,8 +176,7 @@ const AppContent: React.FC = () => {
 
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <WhatsAppButton />}
-      {!shouldHideUI && <AtomicBot />}
-      {showSplash && <SplashScreen isLeaving={isSplashLeaving} />}
+      {!shouldHideUI && <Suspense fallback={null}><AtomicBot /></Suspense>}
     </div>
   );
 };
