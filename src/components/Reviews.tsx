@@ -86,9 +86,12 @@ export default function Reviews() {
                   <div className="flex items-center space-x-4 mb-8">
                     <img 
                       src={review.userImage || 'https://via.placeholder.com/150'} 
-                      alt={review.userName} 
+                      alt={`${review.userName} profile photo`}
                       className="w-16 h-16 rounded-2xl object-cover border-2 border-teal"
                       referrerPolicy="no-referrer"
+                      loading="lazy"
+                      width={64}
+                      height={64}
                     />
                     <div>
                       <h4 className="text-white font-black uppercase tracking-tight">{review.userName}</h4>

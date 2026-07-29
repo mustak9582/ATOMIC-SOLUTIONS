@@ -25,10 +25,17 @@ export default function Hero() {
       {/* Background with Professional Image and Overlay */}
       <div className="absolute inset-0 z-0">
         <img 
-          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=80&w=1600&auto=format&fit=crop" 
-          alt="Premium finished home interior" 
+          src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=75&w=1200&auto=format&fit=crop&fm=webp" 
+          srcSet="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=75&w=640&auto=format&fit=crop&fm=webp 640w, https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=75&w=1200&auto=format&fit=crop&fm=webp 1200w, https://images.unsplash.com/photo-1600585154340-be6161a56a0c?q=75&w=1600&auto=format&fit=crop&fm=webp 1600w"
+          sizes="100vw"
+          alt="Premium finished home interior showcasing Atomic Solutions quality" 
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
+          fetchPriority="high"
+          loading="eager"
+          width={1200}
+          height={800}
+          decoding="async"
         />
         <div className="absolute inset-0 bg-gradient-to-r from-navy via-navy/82 to-navy/10" />
         <div className="absolute inset-0 bg-gradient-to-t from-navy via-transparent to-transparent" />

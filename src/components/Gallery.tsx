@@ -53,9 +53,12 @@ export default function Gallery() {
               >
                 <img 
                   src={img} 
-                  alt="Work Portfolio" 
+                  alt={`Atomic Solutions work portfolio item ${idx + 1}`}
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  width={400}
+                  height={400}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 
@@ -77,9 +80,11 @@ export default function Gallery() {
                 className="group relative rounded-lg overflow-hidden shadow-[0_20px_40px_-15px_rgba(15,23,42,0.12)] hover:shadow-[0_26px_55px_-24px_rgba(15,23,42,0.24)] transition-all cursor-pointer aspect-square bg-navy"
               >
                 <iframe 
-                  src={`https://www.youtube.com/embed/${video.url}`} 
+                  src={`https://www.youtube-nocookie.com/embed/${video.url}`} 
                   className="w-full h-full pointer-events-none" 
                   title={video.title}
+                  loading="lazy"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 />
                 <div className="absolute inset-0 bg-navy/60 group-hover:bg-navy/20 transition-all flex items-center justify-center">
                    <div className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110">
@@ -128,11 +133,14 @@ export default function Gallery() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            role="dialog"
+            aria-label="Image viewer"
             className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-navy/90 backdrop-blur-xl" 
             onClick={() => setSelectedImage(null)}
           >
             <button 
               onClick={() => setSelectedImage(null)}
+              aria-label="Close image viewer"
               className="absolute top-6 right-6 z-10 w-12 h-12 bg-white/10 hover:bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white transition-all shadow-xl"
             >
               <X size={24} />

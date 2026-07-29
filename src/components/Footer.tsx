@@ -23,11 +23,11 @@ export default function Footer() {
               Atomic Solutions is your premium partner for HVAC, construction, interiors, and essential home services.
             </p>
             <div className="flex space-x-4">
-              <SocialLink href={FACEBOOK_URL} icon={<Facebook size={22} />} />
-              <SocialLink href={INSTAGRAM_URL} icon={<Instagram size={22} />} />
-              <SocialLink href={YOUTUBE_URL} icon={<Youtube size={22} />} />
-              <SocialLink href={formatWhatsAppLink(WHATSAPP_NUMBER)} icon={<Phone size={22} />} />
-              <SocialLink href={`tel:${PHONE_NUMBER.replace(/\s+/g, '')}`} icon={<PhoneCall size={22} />} />
+              <SocialLink href={FACEBOOK_URL} icon={<Facebook size={22} />} label="Facebook" />
+              <SocialLink href={INSTAGRAM_URL} icon={<Instagram size={22} />} label="Instagram" />
+              <SocialLink href={YOUTUBE_URL} icon={<Youtube size={22} />} label="YouTube" />
+              <SocialLink href={formatWhatsAppLink(WHATSAPP_NUMBER)} icon={<Phone size={22} />} label="WhatsApp" />
+              <SocialLink href={`tel:${PHONE_NUMBER.replace(/\s+/g, '')}`} icon={<PhoneCall size={22} />} label="Call us" />
             </div>
           </motion.div>
 
@@ -65,10 +65,12 @@ export default function Footer() {
               <div className="absolute -top-5 bg-teal text-white font-bold text-[10px] uppercase tracking-[0.2em] px-6 py-2 rounded-full">Scan contact</div>
               <div className="w-48 h-48 bg-white rounded-lg mb-6 flex items-center justify-center p-4 overflow-hidden border border-slate-100">
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`BEGIN:VCARD\nVERSION:3.0\nN:Ansari;Mustak;;;\nFN:Mustak Ansari\nORG:Atomic Solutions\nTEL;TYPE=WORK,VOICE:+919582268658\nTEL;TYPE=CELL,VOICE:+919582268658\nEMAIL;TYPE=PREF,INTERNET:atomichvacsolutions@gmail.com\nURL:https://atomicsolutions.in\nADR;TYPE=WORK:;;Binjha, Sonraithari;Deoghar;JH;814149;India\nEND:VCARD`)}`} 
-                  alt="Atomic Solutions Contact QR" 
+                  src="/qr-code_small.jpeg" 
+                  alt="Scan to save Atomic Solutions contact details" 
                   className="w-full h-full object-contain"
-                  referrerPolicy="no-referrer"
+                  width={192}
+                  height={192}
+                  loading="lazy"
                 />
               </div>
               <p className="text-navy font-extrabold text-xs uppercase tracking-widest leading-tight">
@@ -106,12 +108,13 @@ export default function Footer() {
   );
 }
 
-function SocialLink({ href, icon }: { href: string, icon: React.ReactNode }) {
+function SocialLink({ href, icon, label }: { href: string, icon: React.ReactNode, label: string }) {
   return (
     <a 
       href={href} 
       target="_blank" 
       rel="noopener noreferrer"
+      aria-label={label}
       className="w-12 h-12 bg-white/5 rounded-lg flex items-center justify-center text-white hover:bg-teal hover:text-white transition-all border border-white/10 active:scale-[0.98]"
     >
       {icon}

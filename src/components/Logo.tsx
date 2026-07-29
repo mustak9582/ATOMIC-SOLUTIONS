@@ -11,7 +11,7 @@ interface LogoProps {
 }
 
 export default function Logo({ className = '', size = 'md', variant = 'dark' }: LogoProps) {
-  const [logoUrl, setLogoUrl] = useState<string | null>("https://i.postimg.cc/c1kyVJkv/ATOMIC-LOGO.png");
+  const [logoUrl, setLogoUrl] = useState<string | null>("/logo_small.png");
 
   useEffect(() => {
     const unsub = dataService.subscribe('settings', (data) => {
@@ -26,9 +26,9 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
   }, []);
 
   const sizes = {
-    sm: { box: 'w-8 h-8', text: 'text-base', sub: 'text-[7px]' },
-    md: { box: 'w-12 h-12', text: 'text-xl', sub: 'text-[10px]' },
-    lg: { box: 'w-20 h-20', text: 'text-3xl', sub: 'text-[14px]' }
+    sm: { box: 'w-8 h-8', text: 'text-base', sub: 'text-[7px]', imgSize: 32 },
+    md: { box: 'w-12 h-12', text: 'text-xl', sub: 'text-[10px]', imgSize: 48 },
+    lg: { box: 'w-20 h-20', text: 'text-3xl', sub: 'text-[14px]', imgSize: 80 }
   };
 
   return (
@@ -45,7 +45,7 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
           className={`${sizes[size].box} relative flex items-center justify-center`}
         >
           {logoUrl ? (
-            <img src={logoUrl} alt="Atomic Solutions" className="w-full h-full object-contain" />
+            <img src={logoUrl} alt="Atomic Solutions" className="w-full h-full object-contain" width={sizes[size].imgSize} height={sizes[size].imgSize} />
           ) : (
             <svg viewBox="0 0 100 100" className="w-full h-full">
               <path d="M50 10 L15 85 L35 85 L50 50 L65 85 L85 85 Z" fill="#0f172a" />

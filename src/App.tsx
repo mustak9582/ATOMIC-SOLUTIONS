@@ -1,19 +1,11 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import Footer from './components/Footer';
-import UserDashboard from './components/UserDashboard';
-import StaffDashboard from './components/StaffDashboard';
-import AdminDashboard from './components/AdminDashboard';
-import BillingCenter from './components/BillingCenter';
-import InvoiceViewer from './components/InvoiceViewer';
-import SplashScreen from './components/SplashScreen';
 import AppErrorBoundary from './components/ErrorBoundary';
-import LoginPage from './components/LoginPage';
-import CompleteProfileModal from './components/CompleteProfileModal';
 import WhatsAppButton from './components/WhatsAppButton';
 import Pricing from './components/Pricing';
 import HomePlanningSection from './components/HomePlanningSection';
@@ -21,11 +13,20 @@ import AtomicBot from './components/AtomicBot';
 import { LayoutDashboard } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { WHATSAPP_NUMBER } from './constants';
-import ServiceDetailPage from './components/ServiceDetailPage';
-import Gallery from './components/Gallery';
-import StoreFront from './components/StoreFront';
 import { AnimatePresence, motion } from 'motion/react';
 import Seo from './components/Seo';
+
+// Lazy-loaded route components for code splitting
+const UserDashboard = React.lazy(() => import('./components/UserDashboard'));
+const StaffDashboard = React.lazy(() => import('./components/StaffDashboard'));
+const AdminDashboard = React.lazy(() => import('./components/AdminDashboard'));
+const BillingCenter = React.lazy(() => import('./components/BillingCenter'));
+const InvoiceViewer = React.lazy(() => import('./components/InvoiceViewer'));
+const LoginPage = React.lazy(() => import('./components/LoginPage'));
+const CompleteProfileModal = React.lazy(() => import('./components/CompleteProfileModal'));
+const ServiceDetailPage = React.lazy(() => import('./components/ServiceDetailPage'));
+const Gallery = React.lazy(() => import('./components/Gallery'));
+const StoreFront = React.lazy(() => import('./components/StoreFront'));
 
 const ScrollToTop: React.FC = () => {
   const { pathname, hash } = useLocation();
@@ -57,17 +58,8 @@ const AppContent: React.FC = () => {
   const authContext = useAuth();
   const { user, profile, loading, isAdmin, isStaff, isBlocked, viewAsCustomer, logout } = authContext;
   
-  const [showSplash, setShowSplash] = useState(true);
   const location = useLocation();
   const navigate = useNavigate();
-
-  // 2. ALL EFFECTS
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowSplash(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
 
   useEffect(() => {
     if (user && isStaff && !isAdmin && location.pathname === '/') {
@@ -95,12 +87,8 @@ const AppContent: React.FC = () => {
   const shouldHideUI = location.pathname === '/login' || (isActuallyAdminView && isAdminRoute) || (isActuallyStaffView && isStaffRoute);
 
   // 4. EARLY RETURNS FOR LOADING/SPLASH
-  if (showSplash || (loading && !profile)) {
-    return <SplashScreen />;
-  }
-
   if (shouldBlockWebsiteForStaff) {
-    return <SplashScreen />; // Temporary while redirecting
+    return null; // Redirecting...
   }
 
   // 5. BLOCKED SCREEN RENDERING
@@ -140,48 +128,50 @@ const AppContent: React.FC = () => {
     <div className="min-h-screen bg-slate-app font-sans text-navy selection:bg-teal/15 selection:text-teal">
       <ScrollToTop />
       <Seo />
-      {!shouldHideUI && <CompleteProfileModal />}
+      {!shouldHideUI && <Suspense fallback={null}><CompleteProfileModal /></Suspense>}
       {!shouldHideUI && <Navbar />}
-      <AnimatePresence mode="wait">
-        <Routes location={location}>
-          <Route path="/" element={(
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 8 }}
-              transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
-              className="pb-24"
-            >
-              <Hero />
-              <HomePlanningSection />
-              <Pricing />
-              <Gallery />
-            </motion.div>
-          )} />
-          
-          <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
-          
-          <Route path="/dashboard" element={user ? <UserDashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/professional" element={user && isStaff ? <StaffDashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/dashboard/reports" element={user ? <UserDashboard initialSection="reports" /> : <Navigate to="/login" replace />} />
-          <Route path="/my-account/bookings" element={user ? <UserDashboard initialSection="bookings" /> : <Navigate to="/login" replace />} />
-          <Route path="/my-account/invoices" element={user ? <UserDashboard initialSection="invoices" /> : <Navigate to="/login" replace />} />
-          
-          <Route path="/admin" element={user && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/dashboard" element={user && isAdmin ? <AdminDashboard initialTab="stats" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/invoice-generator" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/bookings" element={user && isAdmin ? <AdminDashboard initialTab="bookings" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/invoices" element={user && isAdmin ? <AdminDashboard initialTab="invoices" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/services" element={user && isAdmin ? <AdminDashboard initialTab="pricing" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/gallery" element={user && isAdmin ? <AdminDashboard initialTab="gallery" /> : <Navigate to="/login" replace />} />
-          
-          <Route path="/billing" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
-          <Route path="/service/:serviceId" element={<ServiceDetailPage />} />
-          <Route path="/invoice/:id" element={<InvoiceViewer />} />
-          <Route path="/store" element={<StoreFront />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </AnimatePresence>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-8 h-8 border-4 border-teal border-t-transparent rounded-full animate-spin" /></div>}>
+        <AnimatePresence mode="wait">
+          <Routes location={location}>
+            <Route path="/" element={(
+              <motion.div
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={{ duration: 0.35, ease: [0.2, 0.8, 0.2, 1] }}
+                className="pb-24"
+              >
+                <Hero />
+                <HomePlanningSection />
+                <Pricing />
+                <Gallery />
+              </motion.div>
+            )} />
+            
+            <Route path="/login" element={user ? <Navigate to="/" replace /> : <LoginPage />} />
+            
+            <Route path="/dashboard" element={user ? <UserDashboard /> : <Navigate to="/login" replace />} />
+            <Route path="/professional" element={user && isStaff ? <StaffDashboard /> : <Navigate to="/login" replace />} />
+            <Route path="/dashboard/reports" element={user ? <UserDashboard initialSection="reports" /> : <Navigate to="/login" replace />} />
+            <Route path="/my-account/bookings" element={user ? <UserDashboard initialSection="bookings" /> : <Navigate to="/login" replace />} />
+            <Route path="/my-account/invoices" element={user ? <UserDashboard initialSection="invoices" /> : <Navigate to="/login" replace />} />
+            
+            <Route path="/admin" element={user && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/dashboard" element={user && isAdmin ? <AdminDashboard initialTab="stats" /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/invoice-generator" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/bookings" element={user && isAdmin ? <AdminDashboard initialTab="bookings" /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/invoices" element={user && isAdmin ? <AdminDashboard initialTab="invoices" /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/services" element={user && isAdmin ? <AdminDashboard initialTab="pricing" /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/gallery" element={user && isAdmin ? <AdminDashboard initialTab="gallery" /> : <Navigate to="/login" replace />} />
+            
+            <Route path="/billing" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
+            <Route path="/service/:serviceId" element={<ServiceDetailPage />} />
+            <Route path="/invoice/:id" element={<InvoiceViewer />} />
+            <Route path="/store" element={<StoreFront />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </AnimatePresence>
+      </Suspense>
 
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <WhatsAppButton />}
