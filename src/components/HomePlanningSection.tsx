@@ -277,7 +277,7 @@ export default function HomePlanningSection() {
             <form onSubmit={handleSubmit} className="space-y-8 relative z-10">
               <div className="space-y-6">
                 <div>
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-3 px-1">What do you need?</label>
+                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block mb-3 px-1">What do you need?</label>
                   <div className="grid grid-cols-2 gap-3">
                     {['House Plan', '3D Design', 'Structural', 'Renovation'].map((type) => (
                       <button
@@ -298,7 +298,7 @@ export default function HomePlanningSection() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label htmlFor="plot-size" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="plot-size" className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1 flex items-center gap-2">
                        Plot Size (e.g. 30x40)
                     </label>
                     <input 
@@ -323,7 +323,7 @@ export default function HomePlanningSection() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label htmlFor="total-sqft" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="total-sqft" className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1 flex items-center gap-2">
                       <Square size={12} className="text-teal" /> Total Sq. Ft.
                     </label>
                     <input 
@@ -340,7 +340,7 @@ export default function HomePlanningSection() {
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label htmlFor="config-rooms" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="config-rooms" className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1 flex items-center gap-2">
                       <Layout size={12} className="text-teal" /> Configuration
                     </label>
                     <select 
@@ -357,7 +357,7 @@ export default function HomePlanningSection() {
                     </select>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1 flex items-center gap-2">
                        Estimated Rate
                     </label>
                     <div className="w-full bg-teal/10 border border-teal/15 rounded-lg px-5 py-4 font-extrabold text-lg text-teal flex items-center justify-between numeric">
@@ -368,7 +368,7 @@ export default function HomePlanningSection() {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="property-address" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Property Address (Deoghar)</label>
+                  <label htmlFor="property-address" className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1">Property Address (Deoghar)</label>
                   <input 
                     id="property-address"
                     required
@@ -380,7 +380,7 @@ export default function HomePlanningSection() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label htmlFor="additional-requirements" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Additional Requirements</label>
+                  <label htmlFor="additional-requirements" className="text-[10px] font-black text-gray-500 uppercase tracking-widest block px-1">Additional Requirements</label>
                   <textarea 
                     id="additional-requirements"
                     rows={3}

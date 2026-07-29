@@ -21,6 +21,9 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       chunkSizeWarningLimit: 1000,
     },
+    esbuild: {
+      drop: mode === 'production' ? ['console', 'debugger'] : [],
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, 'src'),
