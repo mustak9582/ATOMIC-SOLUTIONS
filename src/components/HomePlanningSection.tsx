@@ -298,10 +298,11 @@ export default function HomePlanningSection() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="plot-size" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
                        Plot Size (e.g. 30x40)
                     </label>
                     <input 
+                      id="plot-size"
                       required
                       placeholder="e.g. 30x40 Ft"
                       className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-4 font-semibold text-sm text-navy outline-none focus:bg-white focus:border-teal transition-all"
@@ -322,10 +323,11 @@ export default function HomePlanningSection() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="total-sqft" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
                       <Square size={12} className="text-teal" /> Total Sq. Ft.
                     </label>
                     <input 
+                      id="total-sqft"
                       required
                       type="number"
                       placeholder="e.g. 1200"
@@ -338,10 +340,11 @@ export default function HomePlanningSection() {
 
                 <div className="grid grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
+                    <label htmlFor="config-rooms" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1 flex items-center gap-2">
                       <Layout size={12} className="text-teal" /> Configuration
                     </label>
                     <select 
+                      id="config-rooms"
                       className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-4 font-semibold text-sm text-navy outline-none focus:bg-white focus:border-teal transition-all appearance-none cursor-pointer"
                       value={formData.rooms || ""}
                       onChange={(e) => setFormData({...formData, rooms: e.target.value})}
@@ -365,8 +368,9 @@ export default function HomePlanningSection() {
                 </div>
 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Property Address (Deoghar)</label>
+                  <label htmlFor="property-address" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Property Address (Deoghar)</label>
                   <input 
+                    id="property-address"
                     required
                     placeholder="Full Address / Landmark"
                     className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-4 font-semibold text-sm text-navy outline-none focus:bg-white focus:border-teal transition-all"
@@ -376,8 +380,9 @@ export default function HomePlanningSection() {
                 </div>
                 
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Additional Requirements</label>
+                  <label htmlFor="additional-requirements" className="text-[10px] font-black text-gray-400 uppercase tracking-widest block px-1">Additional Requirements</label>
                   <textarea 
+                    id="additional-requirements"
                     rows={3}
                     placeholder="Describe your vision (e.g. Vastu compliant, Open kitchen, Parking space...)"
                     className="w-full bg-slate-50 border border-slate-100 rounded-lg px-5 py-4 font-semibold text-sm text-navy outline-none focus:bg-white focus:border-teal transition-all resize-none"

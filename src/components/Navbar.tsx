@@ -54,7 +54,7 @@ export default function Navbar() {
           <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
             <Link className="site-nav-link" to="/">Home</Link>
             <div className="relative" onMouseEnter={() => setIsServicesOpen(true)} onMouseLeave={() => setIsServicesOpen(false)}>
-              <button className="site-nav-link flex items-center gap-1" aria-expanded={isServicesOpen}>
+              <button className="site-nav-link flex items-center gap-1" aria-expanded={isServicesOpen} aria-haspopup="true" aria-label="Services menu">
                 Services <ChevronDown size={15} className={isServicesOpen ? 'rotate-180 transition-transform' : 'transition-transform'} />
               </button>
               <AnimatePresence>
