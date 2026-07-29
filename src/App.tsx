@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useRef } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { Toaster } from './components/ui/sonner';
@@ -15,6 +15,7 @@ import { Button } from './components/ui/button';
 import { WHATSAPP_NUMBER } from './constants';
 import { AnimatePresence, motion } from 'motion/react';
 import Seo from './components/Seo';
+import SplashScreen from './components/SplashScreen';
 
 // Lazy-loaded route components for code splitting
 const UserDashboard = React.lazy(() => import('./components/UserDashboard'));
@@ -57,9 +58,20 @@ const AppContent: React.FC = () => {
   // 1. ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP
   const authContext = useAuth();
   const { user, profile, loading, isAdmin, isStaff, isBlocked, viewAsCustomer, logout } = authContext;
+  const [showSplash, setShowSplash] = useState(true);
+  const [isSplashLeaving, setIsSplashLeaving] = useState(false);
   
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const beginExit = window.setTimeout(() => setIsSplashLeaving(true), 1250);
+    const removeSplash = window.setTimeout(() => setShowSplash(false), 1800);
+    return () => {
+      window.clearTimeout(beginExit);
+      window.clearTimeout(removeSplash);
+    };
+  }, []);
 
   useEffect(() => {
     if (user && isStaff && !isAdmin && location.pathname === '/') {
@@ -176,6 +188,7 @@ const AppContent: React.FC = () => {
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <WhatsAppButton />}
       {!shouldHideUI && <AtomicBot />}
+      {showSplash && <SplashScreen isLeaving={isSplashLeaving} />}
     </div>
   );
 };
