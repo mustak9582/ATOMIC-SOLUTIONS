@@ -469,14 +469,14 @@ User asks: "${text}"`;
 
   return (
     <>
-      <div className="fixed bottom-[100px] sm:bottom-6 right-6 z-[9999] flex flex-col items-end">
+      <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 z-[9999] flex flex-col items-end max-w-[calc(100vw-2rem)]">
         <AnimatePresence>
           {isOpen && (
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="bg-white rounded-[24px] shadow-2xl border border-gray-100 w-[340px] sm:w-[380px] h-[580px] mb-4 flex flex-col overflow-hidden"
+              className="bg-white rounded-[24px] shadow-2xl border border-gray-100 w-[calc(100vw-2rem)] sm:w-[380px] h-[75vh] sm:h-[580px] max-h-[620px] mb-3 sm:mb-4 flex flex-col overflow-hidden"
             >
               {/* Header */}
               <div className="p-4 bg-navy text-white flex justify-between items-center rounded-t-[24px] relative overflow-hidden">
@@ -623,7 +623,7 @@ User asks: "${text}"`;
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             onClick={() => setIsOpen(true)}
-            className="bg-navy hover:bg-navy/90 text-white h-14 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex items-center gap-3 px-2 pr-6 group relative overflow-hidden ring-4 ring-white transition-colors"
+            className="bg-navy hover:bg-navy/90 text-white h-12 sm:h-14 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex items-center gap-2.5 sm:gap-3 px-2 pr-4 sm:pr-6 group relative overflow-hidden ring-2 sm:ring-4 ring-white transition-colors"
           >
             <motion.div 
               animate={{ x: ['-100%', '200%'] }}
@@ -634,22 +634,22 @@ User asks: "${text}"`;
             <motion.div 
               animate={{ y: [-3, 3, -3] }} 
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="w-10 h-10 bg-white rounded-full flex items-center justify-center p-1.5 relative z-10 shadow-[0_2px_10px_rgb(0,0,0,0.2)]"
+              className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center p-1 sm:p-1.5 relative z-10 shadow-[0_2px_10px_rgb(0,0,0,0.2)]"
             >
               <img src="/logo_small.png" alt="Atomic Logo" className="w-full h-full object-contain" />
             </motion.div>
 
             <div className="flex flex-col items-start relative z-10">
-              <span className="font-extrabold text-sm tracking-wide leading-none flex items-center gap-1.5">
+              <span className="font-extrabold text-xs sm:text-sm tracking-wide leading-none flex items-center gap-1.5">
                 Atomic Bot <Sparkles size={12} className="text-teal" />
               </span>
-              <span className="text-[9px] text-teal-100 font-medium uppercase tracking-widest mt-0.5">Installation & Technical Guide</span>
+              <span className="hidden sm:inline text-[9px] text-teal-100 font-medium uppercase tracking-widest mt-0.5">Installation & Technical Guide</span>
             </div>
 
             <motion.div 
               animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }} 
               transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute top-3 right-3 w-1.5 h-1.5 bg-teal rounded-full z-10" 
+              className="absolute top-2.5 sm:top-3 right-2.5 sm:right-3 w-1.5 h-1.5 bg-teal rounded-full z-10" 
             />
           </motion.button>
         )}

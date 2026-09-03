@@ -448,7 +448,7 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Menu Toggle */}
-            <div className="md:hidden flex items-center gap-[15px]">
+            <div className="md:hidden flex items-center gap-2 sm:gap-3">
               {appSettings.whatsappNumber && (
                 <motion.a 
                   whileHover={{ scale: 1.1 }}

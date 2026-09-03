@@ -414,34 +414,34 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-32 lg:pb-0">
       {/* Mobile Sidebar Toggle - Hidden on Desktop */}
-      <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy/90 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-full flex gap-8 shadow-2xl">
+      <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-24px)] max-w-md bg-navy/95 backdrop-blur-xl border border-white/10 px-2 sm:px-4 py-2.5 sm:py-3 rounded-full flex justify-around items-center shadow-2xl">
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => navigate('/')} className="text-white/60 hover:text-teal transition-colors flex flex-col items-center gap-1">
-          <Home size={20} />
-          <span className="text-[8px] font-black uppercase">Home</span>
+          <Home size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Home</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('overview')} className={`${activePortalTab === 'overview' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
-          <LayoutGrid size={20} />
-          <span className="text-[8px] font-black uppercase">Dash</span>
+          <LayoutGrid size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Dash</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('history')} className={`${activePortalTab === 'history' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
-          <Clock3 size={20} />
-          <span className="text-[8px] font-black uppercase">Work</span>
+          <Clock3 size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Work</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('services')} className={`${activePortalTab === 'services' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
-          <Calendar size={20} />
-          <span className="text-[8px] font-black uppercase">Service</span>
+          <Calendar size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Service</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('settings')} className={`${activePortalTab === 'settings' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
-          <User size={20} />
-          <span className="text-[8px] font-black uppercase">Profile</span>
+          <User size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Profile</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('reports')} className={`${activePortalTab === 'reports' ? 'text-red-400' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
-          <AlertCircle size={20} />
-          <span className="text-[8px] font-black uppercase">Report</span>
+          <AlertCircle size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Report</span>
         </motion.button>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 py-8 lg:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12">
+      <div className="max-w-[1400px] mx-auto px-4 pt-24 pb-8 lg:py-12 flex flex-col lg:flex-row gap-8 lg:gap-12">
         {/* Desktop Sidebar */}
         <aside className="hidden lg:block lg:w-64 space-y-8 sticky top-24 h-fit">
           <div className="bg-white rounded-[32px] p-6 shadow-xl shadow-gray-100 border border-gray-50 flex flex-col gap-2">

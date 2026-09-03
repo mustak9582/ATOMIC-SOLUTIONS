@@ -312,50 +312,50 @@ const StaffDashboard: React.FC = () => {
   return (
     <div className="min-h-screen bg-[#F8FAFC] pb-20">
       {/* Mobile Bottom Nav */}
-      <div className="lg:hidden fixed bottom-6 left-1/2 -translate-x-1/2 z-[100] bg-navy/90 backdrop-blur-xl border border-white/10 px-6 py-4 rounded-full flex gap-8 shadow-2xl">
+      <div className="lg:hidden fixed bottom-4 left-1/2 -translate-x-1/2 z-[100] w-[calc(100%-24px)] max-w-md bg-navy/95 backdrop-blur-xl border border-white/10 px-3 sm:px-6 py-2.5 sm:py-3 rounded-full flex justify-around items-center shadow-2xl">
         <button 
           onClick={() => handleTabChange('overview')}
           className={`${activeTab === 'overview' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}
         >
-          <BarChart3 size={20} />
-          <span className="text-[8px] font-black uppercase">Stats</span>
+          <BarChart3 size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Stats</span>
         </button>
         <button 
           onClick={() => handleTabChange('active')}
           className={`${activeTab === 'active' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}
         >
-          <Briefcase size={20} />
-          <span className="text-[8px] font-black uppercase">Jobs</span>
+          <Briefcase size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Jobs</span>
         </button>
         <button 
           onClick={() => handleTabChange('history')}
           className={`${activeTab === 'history' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}
         >
-          <Clock size={20} />
-          <span className="text-[8px] font-black uppercase">History</span>
+          <Clock size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">History</span>
         </button>
         <button 
           onClick={() => handleTabChange('notifications')}
           className={`${activeTab === 'notifications' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1 relative`}
         >
-          <Bell size={20} />
+          <Bell size={18} />
           {stats.unreadNotifs > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-[8px] flex items-center justify-center rounded-full font-black animate-bounce">
               {stats.unreadNotifs}
             </span>
           )}
-          <span className="text-[8px] font-black uppercase">Alerts</span>
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Alerts</span>
         </button>
         <button 
           onClick={() => setActiveTab('profile')}
           className={`${activeTab === 'profile' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}
         >
-          <User size={20} />
-          <span className="text-[8px] font-black uppercase">Profile</span>
+          <User size={18} />
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Profile</span>
         </button>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 lg:py-12">
+      <div className="max-w-7xl mx-auto px-4 pt-24 pb-8 lg:py-12">
         {/* Header Section */}
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 bg-navy rounded-[40px] p-8 md:p-12 text-white overflow-hidden relative mb-12">
           <div className="absolute top-0 right-0 w-64 h-64 bg-teal/10 rounded-full blur-3xl -mr-32 -mt-32" />

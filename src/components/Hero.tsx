@@ -75,7 +75,7 @@ export default function Hero() {
       <div className="absolute top-1/3 right-1/4 w-72 h-72 sm:w-96 sm:h-96 bg-teal/15 rounded-full blur-3xl pointer-events-none z-0" />
 
       {/* Main Hero Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full pt-20 pb-16 sm:py-24 my-auto">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full pt-28 pb-16 sm:py-24 my-auto">
         <div className="max-w-3xl space-y-7">
           
           {/* Verified Badge */}

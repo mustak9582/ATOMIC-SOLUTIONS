@@ -27,7 +27,7 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
 
   const sizes = {
     sm: { box: 'w-8 h-8', text: 'text-base', sub: 'text-[7px]' },
-    md: { box: 'w-12 h-12', text: 'text-xl', sub: 'text-[10px]' },
+    md: { box: 'w-9 h-9 sm:w-12 sm:h-12', text: 'text-base sm:text-xl', sub: 'text-[8px] sm:text-[10px]' },
     lg: { box: 'w-20 h-20', text: 'text-3xl', sub: 'text-[14px]' }
   };
 

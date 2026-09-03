@@ -179,7 +179,7 @@ export default function ServiceDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-app font-sans">
-      <main className="pt-10 pb-20">
+      <main className="pt-24 md:pt-32 pb-20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           {/* Breadcrumbs & Back Button */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">

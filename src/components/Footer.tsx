@@ -54,7 +54,7 @@ export default function Footer() {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: 0.1 }}
-            className="md:col-span-4 grid grid-cols-2 gap-8"
+            className="md:col-span-4 grid grid-cols-1 sm:grid-cols-2 gap-8"
           >
             <div>
               <h4 className="text-sm font-black mb-8 uppercase tracking-[0.2em] text-teal">Founder</h4>
@@ -67,7 +67,6 @@ export default function Footer() {
                 <FooterLink href="#" label="Home" />
                 <FooterLink href="#services" label="Services" />
                 <FooterLink href="/dashboard/reports" label="Report a Problem" />
-                <FooterLink href="/admin" label="Admin Portal" />
               </ul>
             </div>
           </motion.div>
