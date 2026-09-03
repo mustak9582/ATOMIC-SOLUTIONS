@@ -90,7 +90,7 @@ const AppContent: React.FC = () => {
     }
   }, [shouldBlockWebsiteForStaff, navigate]);
 
-  const shouldHideUI = location.pathname === '/login' || (isActuallyAdminView && isAdminRoute) || (isActuallyStaffView && isStaffRoute);
+  const shouldHideUI = location.pathname === '/login' || (isAdmin && isAdminRoute) || ((isStaff || activeRole === 'staff') && isStaffRoute);
 
   // 4. EARLY RETURNS FOR LOADING/SPLASH
   if (showSplash || (loading && !profile)) {

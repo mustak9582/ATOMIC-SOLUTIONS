@@ -471,21 +471,46 @@ export default function Navbar() {
                   <PhoneCall size={24} />
                 </motion.a>
               )}
-              {!user && !loading && (
+              {/* Direct Dashboard / Login Button on Mobile Header */}
+              {user ? (
                 <motion.button
-                  whileTap={{ scale: 0.8 }}
-                  onClick={() => navigate('/login')}
-                  className="text-navy hover:text-teal transition-colors p-2"
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => {
+                    if (isAdmin) {
+                      if (viewAsCustomer) toggleAdminView();
+                      navigate('/admin');
+                    } else if (isStaff) {
+                      navigate('/professional');
+                    } else {
+                      navigate('/dashboard');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal text-white rounded-full hover:bg-navy transition-all text-[11px] font-black uppercase tracking-wider shadow-sm"
+                  title="Open Dashboard"
                 >
-                  <UserCircle size={28} />
+                  <LayoutDashboard size={14} />
+                  <span>Dashboard</span>
                 </motion.button>
+              ) : (
+                !loading && (
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => navigate('/login')}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-navy text-white rounded-full hover:bg-teal transition-all text-[11px] font-black uppercase tracking-wider shadow-sm"
+                    title="Sign In"
+                  >
+                    <LogIn size={13} />
+                    <span>Login</span>
+                  </motion.button>
+                )
               )}
               <motion.button 
                 whileTap={{ scale: 0.8 }}
                 onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                className="text-navy p-2 ml-1"
+                className="text-navy p-1.5 ml-0.5"
+                aria-label="Toggle navigation menu"
               >
-                {isMenuOpen ? <X size={28} /> : <Menu size={28} />}
+                {isMenuOpen ? <X size={26} /> : <Menu size={26} />}
               </motion.button>
             </div>
           </div>
@@ -514,59 +539,87 @@ export default function Navbar() {
                         </div>
                         <button 
                           onClick={() => {
-                            toggleAdminView();
+                            if (viewAsCustomer) {
+                              toggleAdminView();
+                            }
                             setIsMenuOpen(false);
+                            navigate('/admin');
                           }}
                           className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                            viewAsCustomer ? 'bg-teal text-navy' : 'bg-white/10 text-white'
+                            viewAsCustomer ? 'bg-teal text-navy font-black' : 'bg-white/10 text-white'
                           }`}
                         >
-                          {viewAsCustomer ? 'Enter Admin Control' : 'Back to Website'}
+                          {viewAsCustomer ? 'Enter Admin Control' : 'Open Admin Panel'}
                         </button>
                       </div>
                       
-                      {!viewAsCustomer && (
-                        <div className="grid grid-cols-2 gap-2">
-                          <Link 
-                            to="/admin#bookings" 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                          >
-                            <Calendar size={16} className="text-teal mb-1" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Bookings</span>
-                          </Link>
-                          <Link 
-                            to="/admin#billing" 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                          >
-                            <FileText size={16} className="text-teal mb-1" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Invoices</span>
-                          </Link>
-                          <Link 
-                            to="/admin#reports" 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                          >
-                            <Settings size={16} className="text-red-400 mb-1" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Reports</span>
-                          </Link>
-                          <Link 
-                            to="/admin#pricing" 
-                            onClick={() => setIsMenuOpen(false)}
-                            className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
-                          >
-                            <IndianRupee size={16} className="text-teal mb-1" />
-                            <span className="text-[9px] font-black uppercase tracking-widest">Pricing</span>
-                          </Link>
-                        </div>
-                      )}
+                      <div className="grid grid-cols-2 gap-2">
+                        <Link 
+                          to="/admin/bookings" 
+                          onClick={() => {
+                            if (viewAsCustomer) toggleAdminView();
+                            setIsMenuOpen(false);
+                          }}
+                          className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                        >
+                          <Calendar size={16} className="text-teal mb-1" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Bookings</span>
+                        </Link>
+                        <Link 
+                          to="/billing" 
+                          onClick={() => {
+                            if (viewAsCustomer) toggleAdminView();
+                            setIsMenuOpen(false);
+                          }}
+                          className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                        >
+                          <FileText size={16} className="text-teal mb-1" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Invoices</span>
+                        </Link>
+                        <Link 
+                          to="/admin/dashboard" 
+                          onClick={() => {
+                            if (viewAsCustomer) toggleAdminView();
+                            setIsMenuOpen(false);
+                          }}
+                          className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                        >
+                          <LayoutDashboard size={16} className="text-teal mb-1" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Overview</span>
+                        </Link>
+                        <Link 
+                          to="/admin/services" 
+                          onClick={() => {
+                            if (viewAsCustomer) toggleAdminView();
+                            setIsMenuOpen(false);
+                          }}
+                          className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
+                        >
+                          <IndianRupee size={16} className="text-teal mb-1" />
+                          <span className="text-[9px] font-black uppercase tracking-widest">Pricing</span>
+                        </Link>
+                      </div>
                     </div>
                   )}
 
                   <div className="space-y-1">
                     <Link to="/" onClick={() => setIsMenuOpen(false)} className="block py-4 text-3xl font-black text-navy uppercase tracking-tighter hover:text-teal transition-all">
                       Home
+                    </Link>
+
+                    <Link 
+                      to={isAdmin ? '/admin' : isStaff ? '/professional' : user ? '/dashboard' : '/login'} 
+                      onClick={() => {
+                        if (isAdmin && viewAsCustomer) toggleAdminView();
+                        setIsMenuOpen(false);
+                      }} 
+                      className="flex items-center justify-between py-4 text-3xl font-black text-teal uppercase tracking-tighter hover:text-navy transition-all"
+                    >
+                      <span className="flex items-center gap-3">
+                        <LayoutDashboard size={26} className="text-teal" />
+                        Dashboard
+                      </span>
+                      <ChevronRight size={22} className="text-gray-300" />
                     </Link>
 
                     <div className="space-y-1">
@@ -693,7 +746,24 @@ export default function Navbar() {
                       </div>
 
                       <div className="grid grid-cols-1 gap-2">
-                              {isStaff ? (
+                              {isAdmin ? (
+                                <Link 
+                                  to="/admin" 
+                                  onClick={() => {
+                                    if (viewAsCustomer) toggleAdminView();
+                                    setIsMenuOpen(false);
+                                  }}
+                                  className="flex items-center gap-4 p-4 bg-teal/10 border border-teal/20 rounded-2xl transition-all hover:bg-teal group"
+                                >
+                                  <div className="w-10 h-10 bg-teal text-white rounded-xl flex items-center justify-center shadow-sm group-hover:bg-white group-hover:text-teal transition-all">
+                                     <LayoutDashboard size={20} />
+                                  </div>
+                                  <div className="flex flex-col">
+                                    <span className="text-xs font-black text-navy group-hover:text-white uppercase tracking-widest">Admin Dashboard</span>
+                                    <span className="text-[9px] text-teal font-bold uppercase tracking-wider group-hover:text-white/80">Management &amp; Controls</span>
+                                  </div>
+                                </Link>
+                              ) : isStaff ? (
                                 <Link 
                                   to="/professional" 
                                   onClick={() => setIsMenuOpen(false)}

@@ -101,6 +101,16 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const navigate = useNavigate();
 
   const [activeTab, setActiveTab] = useState(propInitialTab || 'bookings');
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  useEffect(() => {
+    if (propInitialTab) {
+      setActiveTab(propInitialTab);
+    } else if (window.location.hash) {
+      const hashTab = window.location.hash.replace('#', '');
+      if (hashTab) setActiveTab(hashTab);
+    }
+  }, [propInitialTab]);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [userRoleFilter, setUserRoleFilter] = useState<'All' | 'Admin' | 'Staff' | 'Customer'>('All');
   const [staffFilter, setStaffFilter] = useState<'All' | 'Pending' | 'Approved'>('All');
@@ -1140,12 +1150,19 @@ By: *Atomic Solutions*`;
             >
               <ArrowLeft size={18} />
             </button>
-            <Sheet>
+            <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
               <SheetTrigger render={<Button variant="ghost" size="icon" className="lg:hidden rounded-xl bg-white shadow-sm border border-gray-100" />}>
                 <Menu size={20} />
               </SheetTrigger>
               <SheetContent side="left" className="p-0 border-none w-72">
-                <AdminSidebar activeTab={activeTab} onTabChange={handleTabChange} />
+                <AdminSidebar 
+                  activeTab={activeTab} 
+                  onTabChange={(t) => {
+                    handleTabChange(t);
+                    setIsMobileNavOpen(false);
+                  }}
+                  onClose={() => setIsMobileNavOpen(false)}
+                />
               </SheetContent>
             </Sheet>
             
