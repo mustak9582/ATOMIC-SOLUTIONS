@@ -3,16 +3,6 @@ import { motion, AnimatePresence } from 'motion/react';
 import Logo from './Logo';
 
 const SplashScreen: React.FC = () => {
-  useEffect(() => {
-    // Proactively request location on splash screen to get permissions early
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        () => console.log('Location access granted on splash'),
-        (err) => console.log('Location access denied or unavailable on splash:', err.message),
-        { enableHighAccuracy: false, timeout: 5000 }
-      );
-    }
-  }, []);
 
   return (
     <div className="fixed inset-0 bg-navy z-[9999] flex flex-col items-center justify-center overflow-hidden">

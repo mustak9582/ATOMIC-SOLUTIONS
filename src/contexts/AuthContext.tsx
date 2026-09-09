@@ -33,6 +33,7 @@ interface AuthContextType {
   viewAsCustomer: boolean;
   toggleAdminView: () => void;
   switchToAdmin: () => void;
+  switchToStaff: () => void;
   switchToCustomer: () => void;
   refreshProfile: () => Promise<void>;
   trackStaffLocation: () => Promise<void>;
@@ -302,6 +303,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.setItem('atomic_view_mode', 'admin');
   };
 
+  const switchToStaff = () => {
+    setViewAsCustomer(false);
+    setActiveRoleState('staff');
+    localStorage.setItem('atomic_active_role', 'staff');
+    localStorage.setItem('atomic_view_mode', 'staff');
+  };
+
   const switchToCustomer = () => {
     setViewAsCustomer(true);
     setActiveRoleState('customer');
@@ -371,11 +379,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
   const isAdmin = hasAdminPrivilege && (activeRole === 'admin' || (!viewAsCustomer && activeRole !== 'staff'));
   
-  // When activeRole is 'staff', user acts as staff / technician
-  // When activeRole is 'customer', user acts as customer (regardless of DB profile)
-  const isStaff = activeRole === 'staff' && !profile?.isBlocked;
-  const isApprovedStaff = (isStaff && (profile?.staffStatus === 'approved' || profile?.isStaff || true)) || false;
-  const isPendingStaff = (isStaff && profile?.staffStatus === 'pending' && !profile?.isStaff) || false;
+  const hasStaffPrivilege = Boolean(profile?.isStaff || profile?.staffStatus === 'approved');
+  const isStaff = (activeRole === 'staff' || (hasStaffPrivilege && !viewAsCustomer)) && !profile?.isBlocked;
+  const isApprovedStaff = Boolean(
+    (isStaff || hasStaffPrivilege) && 
+    (profile?.staffStatus === 'approved' || profile?.isStaff) && 
+    !profile?.isBlocked
+  );
+  const isPendingStaff = Boolean(
+    !profile?.isBlocked &&
+    !profile?.isStaff &&
+    profile?.staffStatus === 'pending'
+  );
   const isBlocked = profile?.isBlocked || false;
   const isPhoneVerified = profile?.isPhoneVerified || false;
   const isProfileComplete = !!(profile?.name && profile?.phone && profile?.isPhoneVerified);
@@ -400,7 +415,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logout,
       updateProfile, 
       hasAdminPrivilege, isAdmin, isStaff, activeRole, setActiveRole, isApprovedStaff, viewAsCustomer, 
-      toggleAdminView, switchToAdmin, switchToCustomer,
+      toggleAdminView, switchToAdmin, switchToStaff, switchToCustomer,
       refreshProfile, trackStaffLocation, requestUserLocation,
       isPendingStaff, isBlocked, isPhoneVerified, isProfileComplete
     }}>

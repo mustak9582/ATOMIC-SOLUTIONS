@@ -4,17 +4,31 @@ import { ShieldCheck, User, Briefcase, ChevronRight, AlertCircle, Home, ArrowLef
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
 import { Button } from './ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'sonner';
 
 const LoginPage: React.FC = () => {
   const { login, loginWithEmail, signUpWithEmail, resetPassword, loginAsAdminWithPin, setActiveRole } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   
   const [view, setView] = useState<'choice' | 'login' | 'admin_login' | 'forgot_password'>('choice');
   const [isProfessionalPath, setIsProfessionalPath] = useState(false);
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const type = params.get('type') || params.get('role');
+    if (type === 'professional' || type === 'staff' || type === 'partner') {
+      setIsProfessionalPath(true);
+      setActiveRole('staff');
+      setView('login');
+    } else if (type === 'admin') {
+      setActiveRole('admin');
+      setView('admin_login');
+    }
+  }, [location.search]);
   
   // Email Auth State
   const [isSignUp, setIsSignUp] = useState(false);
@@ -49,6 +63,7 @@ const LoginPage: React.FC = () => {
       });
       sessionStorage.setItem('request_profile_completion', 'true');
       if (isProfessionalPath) {
+        setActiveRole('staff');
         sessionStorage.setItem('is_professional_signup', 'true');
         navigate('/professional');
       } else {
@@ -85,6 +100,7 @@ const LoginPage: React.FC = () => {
       }
       sessionStorage.setItem('request_profile_completion', 'true');
       if (isProfessionalPath) {
+        setActiveRole('staff');
         sessionStorage.setItem('is_professional_signup', 'true');
         navigate('/professional');
       } else {

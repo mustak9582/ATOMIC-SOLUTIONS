@@ -57,9 +57,16 @@ const StaffDashboard: React.FC = () => {
   const notificationSound = React.useRef<HTMLAudioElement | null>(null);
   const navigate = useNavigate();
 
+  const playNotificationSound = () => {
+    try {
+      if (!notificationSound.current) {
+        notificationSound.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      }
+      notificationSound.current.play().catch(() => {});
+    } catch (e) {}
+  };
+
   useEffect(() => {
-    notificationSound.current = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-    
     const handleOnline = () => setConnectionStatus('online');
     const handleOffline = () => setConnectionStatus('offline');
     window.addEventListener('online', handleOnline);
@@ -71,12 +78,12 @@ const StaffDashboard: React.FC = () => {
     };
   }, []);
 
-  // Safety: If not staff, redirect to home
+  // Safety: If not staff and not pending, redirect to home
   useEffect(() => {
-    if (!loading && !isStaff && !isAdmin) {
+    if (!loading && !isStaff && !isAdmin && !isPendingStaff && profile?.staffStatus !== 'pending') {
       navigate('/', { replace: true });
     }
-  }, [isStaff, isAdmin, loading, navigate]);
+  }, [isStaff, isAdmin, isPendingStaff, profile?.staffStatus, loading, navigate]);
   
   if (isPendingStaff) {
     return (
@@ -144,7 +151,7 @@ const StaffDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!user || !profile) return;
+    if (!user) return;
 
     const unsubscribeBookings = dataService.subscribe('bookings', (allBookings) => {
       setConnectionStatus('syncing');
@@ -182,12 +189,16 @@ const StaffDashboard: React.FC = () => {
             onClick: () => setActiveTab('active')
           }
         });
-        notificationSound.current?.play().catch(() => {});
+        playNotificationSound();
       }
       
       prevBookingsCount.current = staffBookings.length;
       setBookings(staffBookings);
-    }, [], (err) => setConnectionStatus('offline'));
+      setLoading(false);
+    }, [], (err) => {
+      setConnectionStatus('offline');
+      setLoading(false);
+    });
 
     const unsubscribeNotifications = dataService.subscribe('notifications', (allNotifs) => {
       const staffNotifs = allNotifs
@@ -201,20 +212,20 @@ const StaffDashboard: React.FC = () => {
             description: newNotif.message,
             icon: <Bell className="text-teal" size={18} />
           });
-          notificationSound.current?.play().catch(() => {});
+          playNotificationSound();
         }
       }
 
       prevNotifsCount.current = staffNotifs.length;
       setNotifications(staffNotifs);
       setLoading(false);
-    });
+    }, [{ field: 'userId', operator: '==', value: user.uid }]);
 
     return () => {
       unsubscribeBookings();
       unsubscribeNotifications();
     };
-  }, [user]);
+  }, [user?.uid, profile?.staffCategory]);
 
   const stats = {
     active: bookings.filter(b => b.status === 'Assigned' || b.status === 'Accepted' || b.status === 'In Progress').length,
@@ -433,7 +444,7 @@ const StaffDashboard: React.FC = () => {
               </div>
             )}
             <p className="text-teal font-black text-sm uppercase tracking-[0.2em] mb-6">
-              Authenticated: {profile?.name.toUpperCase()} • DEOGHAR SECTOR
+              Authenticated: {(profile?.name || user?.displayName || user?.email?.split('@')[0] || 'Partner').toUpperCase()} • DEOGHAR SECTOR
             </p>
             <div className="flex flex-wrap items-center gap-4 mt-2">
               <Button 
