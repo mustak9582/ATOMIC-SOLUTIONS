@@ -182,13 +182,13 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     }
 
     const rate = pricingType === 'labour' 
-      ? (selectedSub.labourMin || selectedSub.minPrice || 0)
-      : (selectedSub.materialMin || selectedSub.minPrice || 0);
+      ? (selectedSub.labourMin || selectedSub.labourMax || (!selectedSub.materialMin && !selectedSub.materialMax ? selectedSub.minPrice : 0) || 0)
+      : (selectedSub.materialMin || selectedSub.materialMax || (!selectedSub.labourMin && !selectedSub.labourMax ? selectedSub.minPrice : 0) || 0);
 
     const newItem: BillingItem = {
       id: Date.now().toString(),
       name: selectedSub.name,
-      description: `${selectedService?.name} (${pricingType === 'labour' ? 'Labour Only' : 'With Material'})`,
+      description: `${selectedService?.name} (${pricingType === 'labour' ? 'Labour Charges' : 'With Material'})`,
       hsn: '',
       rate,
       quantity: 1,

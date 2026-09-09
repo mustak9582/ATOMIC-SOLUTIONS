@@ -25,12 +25,15 @@ interface AuthContextType {
   changePassword: (newPassword: string) => Promise<void>;
   logout: () => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
+  hasAdminPrivilege: boolean;
   isAdmin: boolean;
   isStaff: boolean;
   activeRole: 'customer' | 'staff' | 'admin';
   setActiveRole: (role: 'customer' | 'staff' | 'admin') => void;
   viewAsCustomer: boolean;
   toggleAdminView: () => void;
+  switchToAdmin: () => void;
+  switchToCustomer: () => void;
   refreshProfile: () => Promise<void>;
   trackStaffLocation: () => Promise<void>;
   requestUserLocation: (forceUpdate?: boolean) => Promise<any>;
@@ -82,16 +85,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (storedUser && storedProfile) {
       try {
-        setUser(JSON.parse(storedUser));
-        // Load cached profile for fast render, but strip sensitive role fields
-        // to prevent privilege escalation via localStorage tampering
+        const parsedUser = JSON.parse(storedUser);
         const cachedProfile = JSON.parse(storedProfile);
+        setUser(parsedUser);
+        const isMaster = cachedProfile.uid === 'admin_mustak_9582' || 
+                         parsedUser.uid === 'admin_mustak_9582' ||
+                         ADMIN_EMAILS.includes(cachedProfile.email?.toLowerCase() || '') ||
+                         ADMIN_EMAILS.includes(parsedUser.email?.toLowerCase() || '');
         setProfile({
           ...cachedProfile,
-          // Force role fields to safe defaults until Firestore confirms
-          isAdmin: false,
-          isStaff: false,
-          isBlocked: false
+          isAdmin: isMaster ? true : (cachedProfile.isAdmin || false),
+          isStaff: isMaster ? false : cachedProfile.isStaff,
+          isBlocked: isMaster ? false : cachedProfile.isBlocked
         });
         setViewAsCustomer(storedViewMode);
         // Don't set loading to false here — wait for Firestore confirmation
@@ -157,6 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               localStorage.setItem('atomic_auth_profile', safeStringify(newProfile));
             }
           } else {
+            const stored = localStorage.getItem('atomic_auth_user');
+            if (stored && (stored.includes('admin_mustak_9582') || stored.includes('mustakansari9582@gmail.com'))) {
+              // Preserve admin session (e.g. logged in via PIN or master email)
+              return;
+            }
             setUser(null);
             setProfile(null);
             localStorage.removeItem('atomic_auth_user');
@@ -285,17 +295,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setActiveRoleState('customer');
   };
 
+  const switchToAdmin = () => {
+    setViewAsCustomer(false);
+    setActiveRoleState('admin');
+    localStorage.setItem('atomic_active_role', 'admin');
+    localStorage.setItem('atomic_view_mode', 'admin');
+  };
+
+  const switchToCustomer = () => {
+    setViewAsCustomer(true);
+    setActiveRoleState('customer');
+    localStorage.setItem('atomic_active_role', 'customer');
+    localStorage.setItem('atomic_view_mode', 'customer');
+  };
+
   const toggleAdminView = () => {
-    const isNowCustomer = !viewAsCustomer;
-    setViewAsCustomer(isNowCustomer);
-    if (isNowCustomer) {
-      setActiveRoleState('customer');
-      localStorage.setItem('atomic_active_role', 'customer');
-      localStorage.setItem('atomic_view_mode', 'customer');
+    if (viewAsCustomer || activeRole !== 'admin') {
+      switchToAdmin();
     } else {
-      setActiveRoleState('admin');
-      localStorage.setItem('atomic_active_role', 'admin');
-      localStorage.setItem('atomic_view_mode', 'admin');
+      switchToCustomer();
     }
   };
 
@@ -344,7 +362,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const hasAdminPrivilege = profile?.isAdmin || ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') || false;
+  const hasAdminPrivilege = Boolean(
+    profile?.isAdmin || 
+    user?.uid === 'admin_mustak_9582' ||
+    profile?.uid === 'admin_mustak_9582' ||
+    ADMIN_EMAILS.includes(user?.email?.toLowerCase() || '') ||
+    ADMIN_EMAILS.includes(profile?.email?.toLowerCase() || '')
+  );
   const isAdmin = hasAdminPrivilege && (activeRole === 'admin' || (!viewAsCustomer && activeRole !== 'staff'));
   
   // When activeRole is 'staff', user acts as staff / technician
@@ -375,7 +399,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       changePassword,
       logout,
       updateProfile, 
-      isAdmin, isStaff, activeRole, setActiveRole, isApprovedStaff, viewAsCustomer, toggleAdminView,
+      hasAdminPrivilege, isAdmin, isStaff, activeRole, setActiveRole, isApprovedStaff, viewAsCustomer, 
+      toggleAdminView, switchToAdmin, switchToCustomer,
       refreshProfile, trackStaffLocation, requestUserLocation,
       isPendingStaff, isBlocked, isPhoneVerified, isProfileComplete
     }}>

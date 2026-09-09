@@ -7,8 +7,8 @@ export interface Category {
 export interface SubCategory {
   id: string;
   name: string;
-  minPrice: number;
-  maxPrice: number;
+  minPrice?: number;
+  maxPrice?: number;
   labourMin?: number;
   labourMax?: number;
   materialMin?: number;
@@ -69,7 +69,7 @@ export interface UserProfile {
   };
 }
 
-export type BookingStatus = 'Pending' | 'Assigned' | 'Accepted' | 'In Progress' | 'Rejected' | 'Completed';
+export type BookingStatus = 'Pending' | 'Assigned' | 'Accepted' | 'On the Way' | 'Arrived' | 'In Progress' | 'Rejected' | 'Completed';
 
 export interface Notification {
   id: string;
@@ -81,6 +81,17 @@ export interface Notification {
   timestamp: any;
   link?: string;
   relatedId?: string;
+}
+
+export interface BookingMessage {
+  id: string;
+  bookingId: string;
+  senderId: string;
+  senderRole: 'customer' | 'technician' | 'admin';
+  senderName: string;
+  content: string;
+  timestamp: string;
+  read?: boolean;
 }
 
 export interface Booking {
@@ -101,9 +112,19 @@ export interface Booking {
   timestamp: any;
   appointmentDate?: string;
   appointmentSlot?: string;
-  // Staff Assignment
+  // Staff Assignment & Tracking
   staffId?: string;
   staffName?: string;
+  staffPhone?: string;
+  staffPhoto?: string;
+  staffCategory?: string;
+  eta?: string;
+  technicianLocation?: {
+    lat: number;
+    lng: number;
+    address?: string;
+    updatedAt?: string;
+  };
   payoutAmount?: number;
   workDescription?: string;
   completionDate?: string;

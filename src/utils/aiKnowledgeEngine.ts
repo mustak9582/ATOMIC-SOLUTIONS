@@ -425,9 +425,27 @@ export function getServiceRateList(userText: string): string | null {
       resultText += `| :--- | :--- | :--- | :--- | :--- |\n`;
 
       for (const sub of service.subCategories) {
-        const rateStr = sub.maxPrice ? `₹${sub.minPrice.toLocaleString()} - ₹${sub.maxPrice.toLocaleString()}` : `₹${sub.minPrice.toLocaleString()}`;
-        const labourStr = sub.labourMin ? `₹${sub.labourMin} - ₹${sub.labourMax}` : 'Included';
-        const matStr = sub.materialMin ? `₹${sub.materialMin} - ₹${sub.materialMax}` : 'Included';
+        const hasLabour = Boolean((sub.labourMin && sub.labourMin > 0) || (sub.labourMax && sub.labourMax > 0));
+        const labourStr = hasLabour 
+          ? (sub.labourMin && sub.labourMax && sub.labourMin !== sub.labourMax 
+              ? `₹${sub.labourMin.toLocaleString()} - ₹${sub.labourMax.toLocaleString()}` 
+              : `₹${(sub.labourMin || sub.labourMax)?.toLocaleString()}`)
+          : '—';
+
+        const hasMaterial = Boolean((sub.materialMin && sub.materialMin > 0) || (sub.materialMax && sub.materialMax > 0));
+        const matStr = hasMaterial 
+          ? (sub.materialMin && sub.materialMax && sub.materialMin !== sub.materialMax 
+              ? `₹${sub.materialMin.toLocaleString()} - ₹${sub.materialMax.toLocaleString()}` 
+              : `₹${(sub.materialMin || sub.materialMax)?.toLocaleString()}`)
+          : '—';
+
+        const hasGeneral = Boolean(sub.minPrice && sub.minPrice > 0);
+        const rateStr = hasGeneral 
+          ? (sub.maxPrice && sub.maxPrice !== sub.minPrice 
+              ? `₹${sub.minPrice.toLocaleString()} - ₹${sub.maxPrice.toLocaleString()}` 
+              : `₹${sub.minPrice.toLocaleString()}`)
+          : (hasLabour ? labourStr : hasMaterial ? matStr : '—');
+
         const unitStr = sub.unit || 'Job';
 
         resultText += `| **${sub.name}** | ${rateStr} | ${labourStr} | ${matStr} | ${unitStr} |\n`;

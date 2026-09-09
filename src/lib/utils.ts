@@ -90,3 +90,24 @@ export const safeTimeFormatter = (date: any) => {
     return 'N/A';
   }
 };
+
+export function formatPriceDisplay(
+  min?: number, 
+  max?: number, 
+  unit?: string, 
+  includeUnit: boolean = true
+): string | null {
+  const hasMin = typeof min === 'number' && !isNaN(min) && min > 0;
+  const hasMax = typeof max === 'number' && !isNaN(max) && max > 0;
+  const unitSuffix = (includeUnit && unit) ? ` / ${unit}` : '';
+
+  if (hasMin && hasMax && min !== max) {
+    return `₹${min.toLocaleString('en-IN')} - ₹${max.toLocaleString('en-IN')}${unitSuffix}`;
+  } else if (hasMin) {
+    return `₹${min.toLocaleString('en-IN')}${unitSuffix}`;
+  } else if (hasMax) {
+    return `Up to ₹${max.toLocaleString('en-IN')}${unitSuffix}`;
+  }
+  return null;
+}
+

@@ -23,6 +23,7 @@ import { WHATSAPP_NUMBER } from './constants';
 import ServiceDetailPage from './components/ServiceDetailPage';
 import Gallery from './components/Gallery';
 import StoreFront from './components/StoreFront';
+import AdminQuickSwitcher from './components/AdminQuickSwitcher';
 import { AnimatePresence, motion } from 'motion/react';
 
 const ScrollToTop: React.FC = () => {
@@ -53,7 +54,7 @@ const ScrollToTop: React.FC = () => {
 const AppContent: React.FC = () => {
   // 1. ALL HOOKS MUST BE CALLED UNCONDITIONALLY AT THE TOP
   const authContext = useAuth();
-  const { user, profile, loading, isAdmin, isStaff, isBlocked, viewAsCustomer, activeRole, logout } = authContext;
+  const { user, profile, loading, hasAdminPrivilege, isAdmin, isStaff, isBlocked, viewAsCustomer, activeRole, logout } = authContext;
   
   const [showSplash, setShowSplash] = useState(true);
   const location = useLocation();
@@ -170,15 +171,15 @@ const AppContent: React.FC = () => {
           <Route path="/my-account/bookings" element={user ? <UserDashboard initialSection="bookings" /> : <Navigate to="/login" replace />} />
           <Route path="/my-account/invoices" element={user ? <UserDashboard initialSection="invoices" /> : <Navigate to="/login" replace />} />
           
-          <Route path="/admin" element={user && isAdmin ? <AdminDashboard /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/dashboard" element={user && isAdmin ? <AdminDashboard initialTab="stats" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/invoice-generator" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/bookings" element={user && isAdmin ? <AdminDashboard initialTab="bookings" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/invoices" element={user && isAdmin ? <AdminDashboard initialTab="invoices" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/services" element={user && isAdmin ? <AdminDashboard initialTab="pricing" /> : <Navigate to="/login" replace />} />
-          <Route path="/admin/gallery" element={user && isAdmin ? <AdminDashboard initialTab="gallery" /> : <Navigate to="/login" replace />} />
+          <Route path="/admin" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/dashboard" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="stats" /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/invoice-generator" element={user && (isAdmin || hasAdminPrivilege) ? <BillingCenter /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/bookings" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="bookings" /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/invoices" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="invoices" /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/services" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="pricing" /> : <Navigate to="/login" replace />} />
+          <Route path="/admin/gallery" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="gallery" /> : <Navigate to="/login" replace />} />
           
-          <Route path="/billing" element={user && isAdmin ? <BillingCenter /> : <Navigate to="/login" replace />} />
+          <Route path="/billing" element={user && (isAdmin || hasAdminPrivilege) ? <BillingCenter /> : <Navigate to="/login" replace />} />
           <Route path="/service/:serviceId" element={<ServiceDetailPage />} />
           <Route path="/invoice/:id" element={<InvoiceViewer />} />
           <Route path="/store" element={<StoreFront />} />
@@ -188,6 +189,7 @@ const AppContent: React.FC = () => {
 
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <AtomicBot />}
+      <AdminQuickSwitcher />
     </div>
   );
 };

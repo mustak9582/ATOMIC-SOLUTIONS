@@ -36,7 +36,7 @@ import Logo from './Logo';
 import ReviewModal from './ReviewModal';
 
 export default function Navbar() {
-  const { user, profile, login, logout, isAdmin, isStaff, viewAsCustomer, toggleAdminView, loading, activeRole, setActiveRole } = useAuth();
+  const { user, profile, login, logout, hasAdminPrivilege, isAdmin, isStaff, viewAsCustomer, toggleAdminView, switchToAdmin, loading, activeRole, setActiveRole } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [services, setServices] = useState<Service[]>(CORE_SERVICES);
   const [isServicesOpen, setIsServicesOpen] = useState(false);
@@ -77,7 +77,7 @@ export default function Navbar() {
     });
 
     let unsubNotifs = () => {};
-    if (isAdmin) {
+    if (isAdmin || hasAdminPrivilege) {
       unsubNotifs = dataService.subscribe('notifications', (data) => {
         const unread = (data as any[]).filter(n => !n.read && (n.userId === 'admin' || n.userId === user?.uid)).length;
         setUnreadCount(unread);
@@ -89,7 +89,7 @@ export default function Navbar() {
              // We can't use toast here easily because it's not imported, but maybe we should import it
           }
         }
-      }, isAdmin ? [{ field: 'userId', operator: '==', value: 'admin' }] : [{ field: 'userId', operator: '==', value: user?.uid }]);
+      }, (isAdmin || hasAdminPrivilege) ? [{ field: 'userId', operator: '==', value: 'admin' }] : [{ field: 'userId', operator: '==', value: user?.uid }]);
     }
 
     return () => {
@@ -242,24 +242,18 @@ export default function Navbar() {
                 Contact
               </a>
               
-              {isAdmin && (
+              {hasAdminPrivilege && (
                 <div className="hidden lg:flex items-center border-l border-gray-100 pl-6 ml-2">
                   <button 
                     onClick={() => {
-                      toggleAdminView();
-                      if (viewAsCustomer) {
-                        navigate('/admin');
-                      }
+                      switchToAdmin();
+                      navigate('/admin');
                     }}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all ${
-                      viewAsCustomer 
-                        ? 'bg-navy text-white shadow-lg shadow-navy/20 hover:bg-teal hover:text-navy' 
-                        : 'bg-teal text-navy shadow-lg shadow-teal/20 hover:bg-navy hover:text-white'
-                    }`}
-                    title={viewAsCustomer ? "Click to return to Admin Dashboard" : "Switch to Admin Control"}
+                    className="flex items-center gap-2 px-4 py-2 rounded-full text-[10px] font-black uppercase tracking-widest transition-all bg-navy text-white shadow-lg shadow-navy/20 hover:bg-teal hover:text-navy border border-teal/40 group"
+                    title="Switch to Admin Panel"
                   >
-                    <ShieldCheck size={14} />
-                    {viewAsCustomer ? 'Back to Admin Control' : 'Admin Control'}
+                    <ShieldCheck size={14} className="text-teal group-hover:text-navy transition-colors" />
+                    <span>Switch to Admin Panel</span>
                   </button>
                 </div>
               )}
@@ -307,45 +301,39 @@ export default function Navbar() {
                       </div>
                       
                       <div className="bg-white rounded-xl space-y-1">
-                        {isAdmin ? (
+                        {hasAdminPrivilege ? (
                           // Admin Menu Options
                           <>
-                            <div className="px-4 py-2 mb-1">
+                            <div className="px-4 py-2 mb-1 flex items-center justify-between">
                               <span className="text-[9px] font-black text-teal uppercase tracking-[0.2em]">Partner Portal</span>
+                              <span className="text-[8px] bg-teal/10 text-teal font-black px-2 py-0.5 rounded-full">ADMIN</span>
                             </div>
-                            {!viewAsCustomer ? (
-                              <>
-                                <Link 
-                                  to="/admin" 
-                                  className="flex items-center gap-3 px-4 py-3 text-xs font-black text-navy hover:text-teal hover:bg-gray-50 rounded-xl transition-all uppercase tracking-widest"
-                                >
-                                  <LayoutDashboard size={14} />
-                                  Manage Bookings
-                                </Link>
-
-                                <button 
-                                  onClick={() => {
-                                    toggleAdminView();
-                                    navigate('/');
-                                  }}
-                                  className="w-full flex items-center gap-3 px-4 py-3 text-xs font-black text-teal hover:bg-teal hover:text-white rounded-xl transition-all uppercase tracking-widest"
-                                >
-                                  <UserCircle size={14} />
-                                  Preview Website
-                                </button>
-                              </>
-                            ) : (
-                              <button 
-                                onClick={() => {
-                                  toggleAdminView();
-                                  navigate('/admin');
-                                }}
-                                className="w-full flex items-center gap-3 px-4 py-3 text-xs font-black text-white bg-navy hover:bg-teal hover:text-navy rounded-xl transition-all uppercase tracking-widest shadow-md"
-                              >
-                                <LayoutDashboard size={14} />
-                                Return to Admin Control
-                              </button>
-                            )}
+                            <button 
+                              onClick={() => {
+                                switchToAdmin();
+                                navigate('/admin');
+                              }}
+                              className="w-full flex items-center gap-3 px-4 py-3 text-xs font-black text-white bg-navy hover:bg-teal hover:text-navy rounded-xl transition-all uppercase tracking-widest shadow-md mb-1"
+                            >
+                              <LayoutDashboard size={14} className="text-teal" />
+                              Switch to Admin Panel
+                            </button>
+                            <Link 
+                              to="/admin/bookings" 
+                              onClick={() => switchToAdmin()}
+                              className="flex items-center gap-3 px-4 py-2.5 text-xs font-black text-navy hover:text-teal hover:bg-gray-50 rounded-xl transition-all uppercase tracking-widest"
+                            >
+                              <Calendar size={14} />
+                              Manage Bookings
+                            </Link>
+                            <Link 
+                              to="/billing" 
+                              onClick={() => switchToAdmin()}
+                              className="flex items-center gap-3 px-4 py-2.5 text-xs font-black text-navy hover:text-teal hover:bg-gray-50 rounded-xl transition-all uppercase tracking-widest"
+                            >
+                              <FileText size={14} />
+                              Billing &amp; Invoices
+                            </Link>
                           </>
                         ) : activeRole === 'staff' ? (
                           // Technician / Staff Menu Options
@@ -530,34 +518,36 @@ export default function Navbar() {
             >
               <div className="p-6 space-y-6">
                   {/* Admin Direct Access */}
-                  {isAdmin && (
-                    <div className="bg-navy p-6 rounded-[32px] shadow-2xl shadow-navy/20 mb-2">
-                      <div className="flex items-center justify-between mb-4">
+                  {/* Admin Direct Access */}
+                  {hasAdminPrivilege && (
+                    <div className="bg-navy p-6 rounded-[32px] shadow-2xl shadow-navy/20 mb-2 border border-teal/30">
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center space-x-2 text-teal font-black uppercase tracking-[0.2em] text-[10px]">
-                          <LayoutDashboard size={16} />
-                          <span>ADMIN CONTROL</span>
+                          <ShieldCheck size={16} />
+                          <span>ADMIN PRIVILEGES</span>
                         </div>
-                        <button 
-                          onClick={() => {
-                            if (viewAsCustomer) {
-                              toggleAdminView();
-                            }
-                            setIsMenuOpen(false);
-                            navigate('/admin');
-                          }}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                            viewAsCustomer ? 'bg-teal text-navy font-black' : 'bg-white/10 text-white'
-                          }`}
-                        >
-                          {viewAsCustomer ? 'Enter Admin Control' : 'Open Admin Panel'}
-                        </button>
+                        <span className="text-[8px] bg-teal/20 text-teal font-black px-2.5 py-1 rounded-full uppercase tracking-wider">
+                          Active
+                        </span>
                       </div>
+                      
+                      <button 
+                        onClick={() => {
+                          switchToAdmin();
+                          setIsMenuOpen(false);
+                          navigate('/admin');
+                        }}
+                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-teal text-navy font-black text-xs uppercase tracking-wider shadow-lg shadow-teal/20 hover:bg-white transition-all mb-3 cursor-pointer"
+                      >
+                        <LayoutDashboard size={16} />
+                        Switch to Admin Panel
+                      </button>
                       
                       <div className="grid grid-cols-2 gap-2">
                         <Link 
                           to="/admin/bookings" 
                           onClick={() => {
-                            if (viewAsCustomer) toggleAdminView();
+                            switchToAdmin();
                             setIsMenuOpen(false);
                           }}
                           className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
@@ -568,7 +558,7 @@ export default function Navbar() {
                         <Link 
                           to="/billing" 
                           onClick={() => {
-                            if (viewAsCustomer) toggleAdminView();
+                            switchToAdmin();
                             setIsMenuOpen(false);
                           }}
                           className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
@@ -579,7 +569,7 @@ export default function Navbar() {
                         <Link 
                           to="/admin/dashboard" 
                           onClick={() => {
-                            if (viewAsCustomer) toggleAdminView();
+                            switchToAdmin();
                             setIsMenuOpen(false);
                           }}
                           className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
@@ -590,7 +580,7 @@ export default function Navbar() {
                         <Link 
                           to="/admin/services" 
                           onClick={() => {
-                            if (viewAsCustomer) toggleAdminView();
+                            switchToAdmin();
                             setIsMenuOpen(false);
                           }}
                           className="flex flex-col items-center justify-center p-3 text-white hover:bg-white/10 rounded-xl transition-all border border-white/5"
@@ -608,9 +598,9 @@ export default function Navbar() {
                     </Link>
 
                     <Link 
-                      to={isAdmin ? '/admin' : isStaff ? '/professional' : user ? '/dashboard' : '/login'} 
+                      to={hasAdminPrivilege ? '/admin' : isStaff ? '/professional' : user ? '/dashboard' : '/login'} 
                       onClick={() => {
-                        if (isAdmin && viewAsCustomer) toggleAdminView();
+                        if (hasAdminPrivilege) switchToAdmin();
                         setIsMenuOpen(false);
                       }} 
                       className="flex items-center justify-between py-4 text-3xl font-black text-teal uppercase tracking-tighter hover:text-navy transition-all"

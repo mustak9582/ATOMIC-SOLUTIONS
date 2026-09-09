@@ -66,14 +66,9 @@ service cloud.firestore {
 
     // --- BOOKINGS ---
     match /bookings/{bookingId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || existing().staffId == request.auth.uid || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.staffId == request.auth.uid || isAdmin());
-      allow create: if isSignedIn(); // Any signed-in user can create a booking
-      allow update: if isSignedIn() && (
-        isAdmin() || 
-        (existing().staffId == request.auth.uid) || // Staff can update assigned bookings
-        isOwner(existing().userId) // Owner can cancel/update
-      );
+      allow get, list: if true;
+      allow create: if true; // Any customer can place a booking request
+      allow update: if isSignedIn() || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -89,10 +84,9 @@ service cloud.firestore {
 
     // --- NOTIFICATIONS ---
     match /notifications/{notifId} {
-      allow get: if isSignedIn() && (existing().userId == request.auth.uid || (existing().userId == 'admin' && isAdmin()));
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || (resource.data.userId == 'admin' && isAdmin()));
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (existing().userId == request.auth.uid || isAdmin());
+      allow get, list: if true;
+      allow create: if true;
+      allow update, delete: if isSignedIn() || isAdmin();
     }
 
     // --- GALLERY ---

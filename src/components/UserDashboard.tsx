@@ -26,10 +26,12 @@ import {
   ArrowLeft,
   ShieldCheck,
   Zap,
-  Mail
+  Mail,
+  Navigation,
+  MessageCircle
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { dataService } from '../services/firebaseService';
 import { detectFullLocation } from '../services/locationService';
@@ -42,21 +44,25 @@ import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Badge } from './ui/badge';
 import Logo from './Logo';
-import { Notification, Service, Category } from '../types';
+import { Notification, Service, Category, Booking } from '../types';
 import { CORE_SERVICES, DEFAULT_CATEGORIES } from '../constants';
 import { cn, formatWhatsAppLink, safeDateFormatter, safeTimeFormatter, compressImage } from '../lib/utils';
 import DirectBookingModal from './DirectBookingModal';
 import CategoriesModal from './CategoriesModal';
 import ReportIssue from './ReportIssue';
+import BookingChatModal from './BookingChatModal';
 
 export default function UserDashboard({ initialSection }: { initialSection?: 'bookings' | 'invoices' | 'services' | 'reports' }) {
   const { user, profile, updateProfile, logout, isPendingStaff, changePassword } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activePortalTab, setActivePortalTab] = useState<'overview' | 'services' | 'settings' | 'reports' | 'staff' | 'history'>(
     initialSection === 'services' ? 'services' : 
     initialSection === 'reports' ? 'reports' : 
     'overview'
   );
+  const [historyFilter, setHistoryFilter] = useState<'all' | 'active' | 'completed' | 'invoices' | 'reports'>('all');
+  const [staffEtaInputs, setStaffEtaInputs] = useState<Record<string, string>>({});
 
   const handleTabChange = (tab: 'overview' | 'services' | 'settings' | 'reports' | 'staff' | 'history') => {
     setActivePortalTab(tab);
@@ -95,7 +101,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isDirectBookingOpen, setIsDirectBookingOpen] = useState(false);
-  const [bookingData, setBookingData] = useState<{subName: string, type: 'LABOUR' | 'MATERIAL' | 'GENERAL'} | null>(null);
+  const [bookingData, setBookingData] = useState<{subName: string, type: 'LABOUR' | 'MATERIAL' | 'GENERAL' | 'BOTH', price?: number | string, labourPrice?: number, materialPrice?: number} | null>(null);
   
   // Profile form state
   const [phone, setPhone] = useState(profile?.phone || '');
@@ -105,6 +111,32 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
   const [newPassword, setNewPassword] = useState('');
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [selectedBooking, setSelectedBooking] = useState<any | null>(null);
+  const [chatBooking, setChatBooking] = useState<Booking | null>(null);
+
+  const TRACKING_STEPS = [
+    { label: 'Booking Placed', desc: 'Received by Admin' },
+    { label: 'Assigned', desc: 'Technician Allocated' },
+    { label: 'On The Way', desc: 'Heading to Location' },
+    { label: 'Arrived', desc: 'At Premises' },
+    { label: 'In Progress', desc: 'Service Underway' },
+    { label: 'Completed', desc: 'Work Finished' },
+  ];
+
+  const getStepProgress = (status: string, stepIndex: number) => {
+    const map: Record<string, number> = {
+      'Pending': 1,
+      'Assigned': 2,
+      'Accepted': 2,
+      'On the Way': 3,
+      'Arrived': 4,
+      'In Progress': 5,
+      'Completed': 6,
+    };
+    const current = map[status] || 1;
+    if (current > stepIndex) return 'completed';
+    if (current === stepIndex) return 'current';
+    return 'upcoming';
+  };
 
   useEffect(() => {
     if (profile) {
@@ -113,6 +145,18 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
       setAddress(profile.address || '');
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setActivePortalTab(location.state.tab as any);
+    }
+    if (location.state?.selectedBookingId && bookings.length > 0) {
+      const found = bookings.find(b => b.id === location.state.selectedBookingId);
+      if (found) {
+        setSelectedBooking(found);
+      }
+    }
+  }, [location.state, bookings]);
 
   useEffect(() => {
     if (user) {
@@ -254,8 +298,11 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
     }
   }, [user]);
 
-  const handleBook = (subName: string, type: 'LABOUR' | 'MATERIAL' | 'GENERAL') => {
-    setBookingData({ subName, type });
+  const handleBook = (subName: string, type: 'LABOUR' | 'MATERIAL' | 'GENERAL' | 'BOTH', labourPrice?: string | number, materialPrice?: string | number) => {
+    const lPrice = Number(labourPrice) || 0;
+    const mPrice = Number(materialPrice) || 0;
+    const effPrice = type === 'LABOUR' ? lPrice : type === 'MATERIAL' ? mPrice : (lPrice + mPrice) || 0;
+    setBookingData({ subName, type, price: effPrice, labourPrice: lPrice, materialPrice: mPrice });
     setIsCategoriesOpen(false);
     setIsDirectBookingOpen(true);
   };
@@ -423,9 +470,12 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
           <LayoutGrid size={18} />
           <span className="text-[7px] sm:text-[8px] font-black uppercase">Dash</span>
         </motion.button>
-        <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('history')} className={`${activePortalTab === 'history' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
+        <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('history')} className={`${activePortalTab === 'history' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1 relative`}>
           <Clock3 size={18} />
-          <span className="text-[7px] sm:text-[8px] font-black uppercase">Work</span>
+          {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length > 0 && (
+            <span className="absolute top-0 right-1 w-2 h-2 bg-teal rounded-full animate-ping" />
+          )}
+          <span className="text-[7px] sm:text-[8px] font-black uppercase">Bookings</span>
         </motion.button>
         <motion.button whileTap={{ scale: 0.8 }} onClick={() => handleTabChange('services')} className={`${activePortalTab === 'services' ? 'text-teal' : 'text-white/60'} transition-colors flex flex-col items-center gap-1`}>
           <Calendar size={18} />
@@ -468,11 +518,19 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
             </button>
             <button 
               onClick={() => handleTabChange('history')}
-              className={`flex items-center gap-4 px-5 py-4 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
+              className={`flex items-center justify-between px-5 py-4 rounded-2xl transition-all font-black text-[10px] uppercase tracking-widest ${
                 activePortalTab === 'history' ? 'bg-navy text-white shadow-lg' : 'text-gray-400 hover:bg-gray-50 hover:text-navy'
               }`}
             >
-              <FileText size={18} /> Work History
+              <div className="flex items-center gap-3 truncate">
+                <Clock3 size={18} className={bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length > 0 ? "text-teal" : ""} /> 
+                <span className="truncate">My Bookings</span>
+              </div>
+              {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length > 0 && (
+                <span className="bg-teal text-navy text-[8px] font-black px-2 py-0.5 rounded-full animate-pulse shrink-0 ml-1">
+                  {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length} Active
+                </span>
+              )}
             </button>
             <button 
               onClick={() => handleTabChange('services')}
@@ -623,6 +681,230 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
 
               <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
 
+                {/* Active Dispatch & Live Tracking Section */}
+                {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length > 0 && (
+                  <div className="xl:col-span-2 space-y-6">
+                    <div className="flex items-center justify-between px-2">
+                      <div className="flex items-center gap-3">
+                        <span className="relative flex h-3.5 w-3.5">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75"></span>
+                          <span className="relative inline-flex rounded-full h-3.5 w-3.5 bg-teal"></span>
+                        </span>
+                        <h2 className="text-xl font-black text-navy uppercase tracking-tight flex items-center gap-2">
+                          Live Service Tracking & Dispatch
+                        </h2>
+                      </div>
+                      <span className="text-[9px] font-black text-teal uppercase tracking-widest bg-teal/10 px-3.5 py-1.5 rounded-full border border-teal/20">
+                        Live Synchronized
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-6">
+                      {bookings
+                        .filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status))
+                        .map((activeB) => {
+                          const isAssigned = !!(activeB.staffId || activeB.staffName);
+                          const hasGps = !!(activeB.technicianLocation?.lat && activeB.technicianLocation?.lng);
+                          const gmapsUrl = hasGps 
+                            ? `https://www.google.com/maps/search/?api=1&query=${activeB.technicianLocation.lat},${activeB.technicianLocation.lng}`
+                            : null;
+
+                          return (
+                            <Card key={activeB.id} className="rounded-[36px] border-2 border-teal/20 bg-gradient-to-br from-white via-white to-teal/5 shadow-2xl p-6 md:p-8 relative overflow-hidden">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                                    <Badge className={`rounded-xl uppercase text-[10px] font-black px-3.5 py-1.5 shadow-sm ${
+                                      activeB.status === 'On the Way' ? 'bg-amber-500 text-white animate-pulse' :
+                                      activeB.status === 'Arrived' ? 'bg-indigo-600 text-white animate-pulse' :
+                                      activeB.status === 'In Progress' ? 'bg-blue-600 text-white' :
+                                      activeB.status === 'Accepted' || activeB.status === 'Assigned' ? 'bg-teal text-navy' :
+                                      'bg-orange-100 text-orange-700'
+                                    }`}>
+                                      {activeB.status === 'On the Way' ? '🚗 Technician On The Way' :
+                                       activeB.status === 'Arrived' ? '📍 Technician Arrived' :
+                                       activeB.status === 'In Progress' ? '🔧 Service In Progress' :
+                                       activeB.status === 'Assigned' || activeB.status === 'Accepted' ? '👤 Technician Assigned' :
+                                       '⏳ Awaiting Technician Dispatch'}
+                                    </Badge>
+
+                                    {activeB.eta && (
+                                      <span className="inline-flex items-center gap-1.5 px-3.5 py-1 rounded-xl bg-teal/15 text-navy font-black text-[10px] tracking-wider uppercase border border-teal/30">
+                                        <Clock size={12} className="text-teal" /> ETA: {activeB.eta}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <h3 className="text-2xl font-black text-navy uppercase tracking-tight">
+                                    {activeB.serviceName}
+                                  </h3>
+                                  <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">
+                                    {activeB.subCategory || 'Service'} • {activeB.appointmentDate || activeB.bookingDate || 'Today'} • {activeB.appointmentSlot || activeB.timeSlot || 'Scheduled'}
+                                  </p>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    onClick={() => setSelectedBooking(activeB)}
+                                    variant="outline"
+                                    className="rounded-2xl border-gray-200 text-navy font-black text-[10px] uppercase tracking-widest hover:bg-navy hover:text-white transition-all h-11 px-5"
+                                  >
+                                    View Details
+                                  </Button>
+                                </div>
+                              </div>
+
+                              {/* Stepper Progress */}
+                              <div className="py-6">
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                                  {TRACKING_STEPS.map((step, idx) => {
+                                    const state = getStepProgress(activeB.status, idx + 1);
+                                    return (
+                                      <div key={idx} className="flex flex-col items-center text-center">
+                                        <div className={`w-10 h-10 rounded-2xl flex items-center justify-center font-black text-xs transition-all shadow-sm mb-2 ${
+                                          state === 'completed' ? 'bg-teal text-navy' :
+                                          state === 'current' ? 'bg-navy text-teal ring-4 ring-teal/20 animate-pulse' :
+                                          'bg-gray-100 text-gray-400'
+                                        }`}>
+                                          {state === 'completed' ? <CheckCircle2 size={18} /> : (idx + 1)}
+                                        </div>
+                                        <p className={`text-[10px] font-black uppercase tracking-tight leading-tight ${
+                                          state === 'current' ? 'text-navy' :
+                                          state === 'completed' ? 'text-teal' : 'text-gray-300'
+                                        }`}>
+                                          {step.label}
+                                        </p>
+                                        <p className="text-[8px] font-medium text-gray-400 uppercase hidden sm:block">
+                                          {step.desc}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+
+                              {/* Technician Card or Dispatch Notice */}
+                              {isAssigned ? (
+                                <div className="bg-navy rounded-[28px] p-6 text-white space-y-6">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                    <div className="flex items-center gap-4">
+                                      <div className="w-14 h-14 rounded-2xl bg-teal text-navy flex items-center justify-center font-black text-2xl overflow-hidden shadow-lg border-2 border-teal shrink-0">
+                                        {activeB.staffPhoto ? (
+                                          <img src={activeB.staffPhoto} alt={activeB.staffName} className="w-full h-full object-cover" />
+                                        ) : (
+                                          activeB.staffName?.[0] || 'T'
+                                        )}
+                                      </div>
+                                      <div>
+                                        <div className="flex items-center gap-2">
+                                          <h4 className="text-base font-black uppercase tracking-tight">{activeB.staffName}</h4>
+                                          <span className="inline-flex items-center gap-1 text-[8px] font-black bg-teal/20 text-teal px-2 py-0.5 rounded-full border border-teal/30 uppercase">
+                                            <ShieldCheck size={10} /> Verified Expert
+                                          </span>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-teal uppercase tracking-widest">
+                                          {activeB.staffCategory || 'HVAC Technician'}
+                                        </p>
+                                        {activeB.staffPhone && (
+                                          <p className="text-[11px] font-mono text-white/70 mt-0.5">
+                                            📞 {activeB.staffPhone}
+                                          </p>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Communication Actions */}
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <Button 
+                                        onClick={() => setChatBooking(activeB)}
+                                        className="bg-teal hover:bg-teal/90 text-navy font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-5 shadow-lg shadow-teal/20 transition-all flex items-center gap-2"
+                                      >
+                                        <MessageCircle size={16} />
+                                        Chat with Technician
+                                      </Button>
+
+                                      {activeB.staffPhone && (
+                                        <>
+                                          <a 
+                                            href={`tel:${activeB.staffPhone}`}
+                                            className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-5 transition-all border border-white/10"
+                                          >
+                                            <Phone size={14} className="text-teal" />
+                                            Call
+                                          </a>
+                                          <a 
+                                            href={formatWhatsAppLink(activeB.staffPhone, `Hi ${activeB.staffName}, I am reaching out regarding my ${activeB.serviceName} booking via Atomic HVAC.`)}
+                                            target="_blank" 
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-5 transition-all border border-green-500/30"
+                                          >
+                                            <WhatsApp size={14} className="text-green-400" />
+                                            WhatsApp
+                                          </a>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+
+                                  {/* GPS Location & Live Route Strip */}
+                                  <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                                    <div className="flex items-center gap-2 text-white/80">
+                                      <Navigation size={16} className={hasGps ? "text-teal animate-pulse" : "text-white/40"} />
+                                      {hasGps ? (
+                                        <div>
+                                          <span className="font-black text-[10px] uppercase tracking-wider text-teal">Live GPS Location Active</span>
+                                          {activeB.technicianLocation?.updatedAt && (
+                                            <span className="text-[9px] text-white/50 ml-2">
+                                              (Updated {new Date(activeB.technicianLocation.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <span className="text-[10px] font-bold text-white/50 uppercase tracking-widest">
+                                          Technician live GPS will be available once en route.
+                                        </span>
+                                      )}
+                                    </div>
+
+                                    {hasGps && gmapsUrl && (
+                                      <a 
+                                        href={gmapsUrl}
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-teal/20 hover:bg-teal text-teal hover:text-navy text-[9px] font-black uppercase tracking-widest transition-all border border-teal/30"
+                                      >
+                                        <MapPin size={12} /> Open Live Route on Google Maps
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="bg-amber-50 rounded-[28px] p-6 border border-amber-200 text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-4">
+                                  <div className="flex items-center gap-4">
+                                    <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                                      <Clock3 size={24} className="animate-spin" style={{ animationDuration: '3s' }} />
+                                    </div>
+                                    <div>
+                                      <h4 className="text-xs font-black uppercase tracking-wider">Admin is allocating nearest specialist technician</h4>
+                                      <p className="text-[10px] text-amber-800/80 font-bold uppercase tracking-widest">
+                                        Your request has been received. Our operations team will assign a verified technician shortly.
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <a 
+                                    href="tel:+919582268658"
+                                    className="inline-flex items-center gap-2 bg-navy text-white text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-xl hover:bg-teal hover:text-navy transition-all shrink-0"
+                                  >
+                                    <Phone size={14} /> Call Support
+                                  </a>
+                                </div>
+                              )}
+                            </Card>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+
 
                 {isPendingStaff && (
                   <Card className="rounded-[40px] border-none shadow-2xl p-8 bg-amber-50 border-2 border-amber-100 text-amber-900 relative overflow-hidden xl:col-span-2">
@@ -696,12 +978,15 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                               <div className="flex items-center gap-2 mt-1">
                                 <span className={`px-2 py-0.5 rounded-full text-[7px] font-black uppercase ${
                                   booking.status === 'Completed' ? 'bg-green-100 text-green-700' : 
-                                  booking.status === 'Accepted' ? 'bg-blue-100 text-blue-700' :
+                                  booking.status === 'On the Way' ? 'bg-amber-100 text-amber-800 animate-pulse' :
+                                  booking.status === 'Arrived' ? 'bg-indigo-100 text-indigo-800' :
+                                  booking.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                                  booking.status === 'Accepted' || booking.status === 'Assigned' ? 'bg-teal/20 text-navy' :
                                   'bg-orange-100 text-orange-700'
                                 }`}>
                                   {booking.status}
                                 </span>
-                                {(booking.status === 'Accepted' || booking.status === 'In Progress') && (
+                                {(booking.status === 'Accepted' || booking.status === 'In Progress' || booking.status === 'On the Way' || booking.status === 'Arrived') && (
                                   <Button 
                                     variant="ghost" 
                                     size="sm" 
@@ -711,10 +996,39 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                                       setSelectedBooking(booking);
                                     }}
                                   >
-                                    Update & Visit Detail
+                                    Live Details
                                   </Button>
                                 )}
                               </div>
+                              {booking.staffName && (
+                                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-gray-100" onClick={(e) => e.stopPropagation()}>
+                                  <div className="w-5 h-5 rounded-full bg-teal text-navy flex items-center justify-center text-[9px] font-black shrink-0">
+                                    {booking.staffName[0]}
+                                  </div>
+                                  <span className="text-[10px] font-black text-navy truncate max-w-[120px]">{booking.staffName}</span>
+                                  {booking.eta && (
+                                    <span className="text-[8px] font-bold text-teal bg-teal/10 px-1.5 py-0.5 rounded">ETA: {booking.eta}</span>
+                                  )}
+                                  <div className="ml-auto flex items-center gap-1">
+                                    <button 
+                                      onClick={() => setChatBooking(booking)}
+                                      className="px-2 py-1 rounded-lg bg-teal text-navy hover:bg-navy hover:text-white transition-colors text-[8px] font-black uppercase flex items-center gap-1 shadow-sm"
+                                      title="Chat with Technician"
+                                    >
+                                      <MessageCircle size={10} /> Chat
+                                    </button>
+                                    {booking.staffPhone && (
+                                      <a 
+                                        href={`tel:${booking.staffPhone}`}
+                                        className="p-1 rounded-lg bg-gray-100 text-navy hover:bg-navy hover:text-white transition-colors"
+                                        title="Call Technician"
+                                      >
+                                        <Phone size={10} />
+                                      </a>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                             <ArrowRight size={16} className="text-gray-200 group-hover:text-teal transition-colors" />
                           </CardContent>
@@ -840,149 +1154,497 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
           )}
 
           {activePortalTab === 'history' && (
-            <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-700">
-              <header className="space-y-1">
-                <h2 className="text-3xl font-black text-navy uppercase tracking-tighter">Activity & Work Hub</h2>
-                <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Track every detail of your services, reports, and payments</p>
+            <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              {/* Header */}
+              <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-3xl font-black text-navy uppercase tracking-tighter flex items-center gap-3">
+                    <Clock3 className="text-teal" size={30} /> My Bookings & Live Status
+                  </h2>
+                  <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-1">
+                    मेरी सभी बुकिंग्स, तकनीशियन स्टेटस, पहुंचने का समय और लाइव कार्य प्रगति
+                  </p>
+                </div>
+                <Button
+                  onClick={() => handleTabChange('services')}
+                  className="bg-navy hover:bg-teal hover:text-navy text-white text-[10px] font-black uppercase tracking-widest rounded-2xl h-11 px-5 shadow-lg shrink-0"
+                >
+                  Book New Service
+                </Button>
               </header>
 
-              <div className="grid grid-cols-1 gap-12">
-                {/* Completed Work / Bookings */}
-                <div className="space-y-6">
-                  <h3 className="text-xl font-black text-navy uppercase tracking-tight flex items-center gap-3">
-                    <CheckCircle2 className="text-teal" size={24} /> Service History
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {bookings.filter(b => b.status === 'Completed').length === 0 ? (
-                      <div className="md:col-span-2 bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-gray-100 uppercase text-[10px] font-black text-gray-400 tracking-widest">
-                        No completed services found
-                      </div>
-                    ) : (
-                      bookings.filter(b => b.status === 'Completed').map(booking => (
-                        <Card key={booking.id} className="rounded-[32px] border-none shadow-xl shadow-gray-50 p-6 bg-white overflow-hidden relative">
-                           <div className="absolute top-0 right-0 w-32 h-32 bg-teal/5 rounded-full blur-2xl -mr-16 -mt-16" />
-                           <div className="flex justify-between items-start mb-4">
-                             <div>
-                               <p className="text-[8px] font-black text-teal uppercase tracking-widest mb-1">{booking.subCategory || 'Service'}</p>
-                               <h4 className="text-lg font-black text-navy uppercase tracking-tight leading-none">{booking.serviceName}</h4>
-                             </div>
-                             <Badge className="bg-green-100 text-green-700 uppercase text-[8px] font-black">COMPLETED</Badge>
-                           </div>
-                           <div className="flex items-center gap-4 text-xs font-bold text-gray-500 mb-6">
-                             <div className="flex items-center gap-1"><Calendar size={12}/> {safeDateFormatter(booking.completionDate || booking.timestamp)}</div>
-                             <div className="flex items-center gap-1 font-mono text-navy">₹{booking.price || '0'}</div>
-                           </div>
-                           <Button 
-                             onClick={() => setSelectedBooking(booking)}
-                             className="w-full h-10 rounded-xl bg-gray-50 hover:bg-navy hover:text-white text-navy font-black text-[9px] uppercase tracking-widest transition-all"
-                           >
-                             View Full Details
-                           </Button>
-                        </Card>
-                      ))
+              {/* Metrics Summary Strip */}
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Total Bookings</p>
+                  <p className="text-2xl font-black text-navy">{bookings.length}</p>
+                </div>
+                <div className="bg-teal/10 p-5 rounded-[28px] border border-teal/20 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-[8px] font-black text-navy uppercase tracking-widest">Active & Tracking</p>
+                    {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length > 0 && (
+                      <span className="w-2.5 h-2.5 rounded-full bg-teal animate-ping" />
                     )}
                   </div>
+                  <p className="text-2xl font-black text-teal">
+                    {bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length}
+                  </p>
                 </div>
+                <div className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Completed Services</p>
+                  <p className="text-2xl font-black text-navy">{bookings.filter(b => b.status === 'Completed').length}</p>
+                </div>
+                <div className="bg-white p-5 rounded-[28px] border border-gray-100 shadow-sm">
+                  <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Invoices & Bills</p>
+                  <p className="text-2xl font-black text-navy">{invoices.length}</p>
+                </div>
+              </div>
 
-                {/* Billing Summary */}
+              {/* Sub-Filter Tabs */}
+              <div className="flex flex-wrap items-center gap-2 p-1.5 bg-gray-100/80 rounded-2xl w-fit">
+                {[
+                  { id: 'all', label: 'All Bookings', count: bookings.length },
+                  { id: 'active', label: 'Active & In-Progress', count: bookings.filter(b => ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status)).length, isLive: true },
+                  { id: 'completed', label: 'Completed', count: bookings.filter(b => b.status === 'Completed').length },
+                  { id: 'invoices', label: 'Bills & Quotations', count: invoices.length },
+                  { id: 'reports', label: 'Complaints', count: reports.length }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setHistoryFilter(tab.id as any)}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all ${
+                      historyFilter === tab.id 
+                        ? 'bg-navy text-white shadow-md' 
+                        : 'text-gray-500 hover:text-navy hover:bg-white/60'
+                    }`}
+                  >
+                    {tab.isLive && tab.count > 0 && <span className="w-2 h-2 rounded-full bg-teal animate-pulse" />}
+                    <span>{tab.label}</span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded-full ${
+                      historyFilter === tab.id ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-700'
+                    }`}>
+                      {tab.count}
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Bookings View (when filter is 'all', 'active', or 'completed') */}
+              {(historyFilter === 'all' || historyFilter === 'active' || historyFilter === 'completed') && (() => {
+                const displayedBookings = bookings.filter(b => {
+                  if (historyFilter === 'active') {
+                    return ['Pending', 'Assigned', 'Accepted', 'On the Way', 'Arrived', 'In Progress'].includes(b.status);
+                  }
+                  if (historyFilter === 'completed') {
+                    return b.status === 'Completed';
+                  }
+                  return true;
+                });
+
+                if (displayedBookings.length === 0) {
+                  return (
+                    <div className="bg-white rounded-[36px] p-16 border-2 border-dashed border-gray-100 text-center space-y-4">
+                      <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mx-auto text-gray-300">
+                        <Package size={32} />
+                      </div>
+                      <h4 className="text-sm font-black text-navy uppercase tracking-wider">
+                        {historyFilter === 'active' ? 'No Active Bookings Right Now' : 
+                         historyFilter === 'completed' ? 'No Completed Services Found' : 
+                         'No Bookings Found'}
+                      </h4>
+                      <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest max-w-md mx-auto">
+                        Ready to book top-tier HVAC & home maintenance services? Browse our catalog and enjoy prompt expert assistance.
+                      </p>
+                      <Button 
+                        onClick={() => handleTabChange('services')}
+                        className="rounded-xl font-black uppercase text-[10px] tracking-widest bg-navy hover:bg-teal hover:text-navy text-white px-6 h-11"
+                      >
+                        Explore Services
+                      </Button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <div className="grid grid-cols-1 gap-6">
+                    {displayedBookings.map((b) => {
+                      const isAssigned = !!(b.staffId || b.staffName);
+                      const hasGps = !!(b.technicianLocation?.lat && b.technicianLocation?.lng);
+                      const gmapsUrl = hasGps 
+                        ? `https://www.google.com/maps/search/?api=1&query=${b.technicianLocation.lat},${b.technicianLocation.lng}`
+                        : null;
+
+                      return (
+                        <Card 
+                          key={b.id} 
+                          className="rounded-[36px] border border-gray-100 shadow-xl shadow-gray-100/60 bg-white p-6 md:p-8 space-y-6 overflow-hidden relative"
+                        >
+                          {/* Top Row: Service details + Price & Status */}
+                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-gray-100">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="text-[9px] font-mono font-black text-gray-400 uppercase tracking-widest bg-gray-100 px-2.5 py-0.5 rounded-lg">
+                                  #AS-{b.id ? b.id.slice(-6).toUpperCase() : 'TICKET'}
+                                </span>
+                                {b.bookingType && (
+                                  <Badge className="bg-teal/15 text-navy text-[8px] font-black uppercase tracking-wider border border-teal/20">
+                                    {b.bookingType === 'LABOUR' ? 'Labour Charges Only' : 
+                                     b.bookingType === 'MATERIAL' ? 'With Material' : 
+                                     b.bookingType === 'BOTH' ? 'Labour + With Material' : 
+                                     'Standard'}
+                                  </Badge>
+                                )}
+                                <span className="text-[8px] font-bold text-gray-400 uppercase">
+                                  Booked: {safeDateFormatter(b.timestamp || b.bookingDate)}
+                                </span>
+                              </div>
+                              <h3 className="text-2xl font-black text-navy uppercase tracking-tight">
+                                {b.serviceName}
+                              </h3>
+                              <p className="text-[11px] font-bold text-teal uppercase tracking-widest">
+                                {b.subCategory || 'General Service'}
+                              </p>
+                            </div>
+
+                            <div className="flex items-center gap-3 self-start md:self-center">
+                              <div className="text-right">
+                                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest">Service Total</p>
+                                <p className="text-2xl font-black text-navy font-mono">₹{b.price || b.totalAmount || 0}</p>
+                              </div>
+                              <Badge className={`rounded-xl uppercase text-[9px] font-black px-3.5 py-2 shadow-sm ${
+                                b.status === 'Completed' ? 'bg-green-100 text-green-700' :
+                                b.status === 'In Progress' ? 'bg-blue-600 text-white animate-pulse' :
+                                b.status === 'Arrived' ? 'bg-indigo-600 text-white' :
+                                b.status === 'On the Way' ? 'bg-amber-500 text-white animate-pulse' :
+                                b.status === 'Assigned' || b.status === 'Accepted' ? 'bg-teal text-navy' :
+                                'bg-orange-100 text-orange-800'
+                              }`}>
+                                {b.status === 'On the Way' ? '🚗 On The Way' :
+                                 b.status === 'Arrived' ? '📍 Arrived' :
+                                 b.status === 'In Progress' ? '🔧 In Progress' :
+                                 b.status === 'Completed' ? '✅ Completed' :
+                                 b.status === 'Assigned' || b.status === 'Accepted' ? '👤 Assigned' :
+                                 '⏳ Pending Dispatch'}
+                              </Badge>
+                            </div>
+                          </div>
+
+                          {/* 6-Step Visual Progression Stepper */}
+                          <div className="py-2">
+                            <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                              {TRACKING_STEPS.map((step, idx) => {
+                                const state = getStepProgress(b.status, idx + 1);
+                                return (
+                                  <div key={idx} className="flex flex-col items-center text-center">
+                                    <div className={`w-9 h-9 rounded-2xl flex items-center justify-center font-black text-xs transition-all shadow-sm mb-1.5 ${
+                                      state === 'completed' ? 'bg-teal text-navy' :
+                                      state === 'current' ? 'bg-navy text-teal ring-4 ring-teal/20 animate-pulse' :
+                                      'bg-gray-100 text-gray-400'
+                                    }`}>
+                                      {state === 'completed' ? <CheckCircle2 size={16} /> : (idx + 1)}
+                                    </div>
+                                    <p className={`text-[9px] font-black uppercase tracking-tight leading-tight ${
+                                      state === 'current' ? 'text-navy font-black' :
+                                      state === 'completed' ? 'text-teal font-black' : 'text-gray-300'
+                                    }`}>
+                                      {step.label}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Technician Assignment Card OR Awaiting Notice */}
+                          {isAssigned ? (
+                            <div className="bg-gradient-to-r from-navy via-navy to-navy/95 rounded-[28px] p-6 text-white space-y-4 shadow-xl">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-14 h-14 bg-teal text-navy rounded-2xl flex items-center justify-center font-black text-2xl overflow-hidden border-2 border-teal shrink-0 shadow-lg">
+                                    {b.staffPhoto ? (
+                                      <img src={b.staffPhoto} alt={b.staffName} className="w-full h-full object-cover" />
+                                    ) : (
+                                      b.staffName?.[0] || 'T'
+                                    )}
+                                  </div>
+                                  <div>
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="text-base font-black uppercase tracking-tight">{b.staffName}</h4>
+                                      <span className="text-[8px] font-black bg-teal/20 text-teal px-2 py-0.5 rounded-md border border-teal/30 uppercase flex items-center gap-1">
+                                        <ShieldCheck size={10} /> Verified Pro
+                                      </span>
+                                    </div>
+                                    <p className="text-[10px] font-bold text-teal uppercase tracking-widest mt-0.5">
+                                      {b.staffCategory || 'Expert Service Specialist'}
+                                    </p>
+                                    <p className="text-[10px] font-mono text-white/70 mt-1">📞 {b.staffPhone || 'Direct Partner Contact'}</p>
+                                  </div>
+                                </div>
+
+                                {/* Direct Action Buttons */}
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <Button 
+                                    size="sm"
+                                    onClick={() => setChatBooking(b)}
+                                    className="bg-teal hover:bg-teal/90 text-navy font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-5 flex items-center gap-2 shadow-lg shadow-teal/10"
+                                  >
+                                    <MessageCircle size={16} /> Chat
+                                  </Button>
+                                  {b.staffPhone && (
+                                    <>
+                                      <a 
+                                        href={`tel:${b.staffPhone}`}
+                                        className="inline-flex items-center gap-2 bg-white/10 hover:bg-white/20 text-white font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-4 transition-all border border-white/10"
+                                      >
+                                        <Phone size={14} className="text-teal" /> Call
+                                      </a>
+                                      <a 
+                                        href={formatWhatsAppLink(b.staffPhone, `Hi ${b.staffName}, I am reaching out regarding my ${b.serviceName} booking with Atomic Solutions.`)}
+                                        target="_blank" 
+                                        rel="noreferrer"
+                                        className="inline-flex items-center gap-2 bg-green-500/20 hover:bg-green-500/30 text-green-300 font-black text-[10px] uppercase tracking-widest rounded-2xl h-11 px-4 transition-all border border-green-500/30"
+                                      >
+                                        <WhatsApp size={14} className="text-green-400" /> WhatsApp
+                                      </a>
+                                    </>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Live Route Button if GPS available */}
+                              {hasGps && gmapsUrl && (
+                                <div className="pt-3 border-t border-white/10 flex items-center justify-between">
+                                  <span className="text-[9px] font-bold text-teal flex items-center gap-1.5">
+                                    <Navigation size={12} className="animate-pulse" /> Live Technician GPS Active
+                                  </span>
+                                  <a 
+                                    href={gmapsUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-[9px] font-black uppercase text-teal hover:text-white flex items-center gap-1 underline underline-offset-4"
+                                  >
+                                    <MapPin size={12} /> Open Live Route on Google Maps
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="bg-amber-50/80 rounded-[28px] p-6 border border-amber-200 text-amber-950 flex flex-col sm:flex-row items-center justify-between gap-4">
+                              <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-amber-100 flex items-center justify-center text-amber-700 shrink-0">
+                                  <Clock3 size={24} className="animate-spin" style={{ animationDuration: '4s' }} />
+                                </div>
+                                <div>
+                                  <h4 className="text-xs font-black uppercase tracking-wider">
+                                    Admin is allocating nearest specialist technician (तकनीशियन असाइन हो रहा है)
+                                  </h4>
+                                  <p className="text-[10px] text-amber-800/80 font-medium leading-relaxed mt-0.5">
+                                    Your service booking has been confirmed. Our operations team is assigning the best verified expert for your location.
+                                  </p>
+                                </div>
+                              </div>
+                              <a 
+                                href="tel:+919582268658"
+                                className="inline-flex items-center gap-2 bg-navy text-white text-[10px] font-black uppercase tracking-widest px-5 py-3 rounded-xl hover:bg-teal hover:text-navy transition-all shrink-0"
+                              >
+                                <Phone size={14} /> Helpline
+                              </a>
+                            </div>
+                          )}
+
+                          {/* Timings Strip: Expected Reach Time / Date / Slot / Duration */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-gray-50 p-5 rounded-[28px] border border-gray-100">
+                            {/* Expected Arrival / Reach Time */}
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-teal uppercase tracking-widest flex items-center gap-1">
+                                <Clock size={12} /> Reach Time / पहुंचने का समय
+                              </p>
+                              <p className="text-xs font-black text-navy">
+                                {b.eta ? b.eta : (b.appointmentSlot || 'Standard Slot')}
+                              </p>
+                              <p className="text-[8px] font-medium text-gray-400">
+                                {b.eta ? 'Configured by Admin / Partner' : 'Awaiting arrival update'}
+                              </p>
+                            </div>
+
+                            {/* Scheduled Visit Date */}
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                <Calendar size={12} /> Scheduled Visit Date
+                              </p>
+                              <p className="text-xs font-black text-navy">
+                                {b.appointmentDate ? safeDateFormatter(b.appointmentDate) : (b.bookingDate ? safeDateFormatter(b.bookingDate) : 'Today / Priority')}
+                              </p>
+                            </div>
+
+                            {/* Scheduled Slot */}
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                <Clock3 size={12} /> Time Slot
+                              </p>
+                              <p className="text-xs font-black text-navy truncate">
+                                {b.appointmentSlot || b.timeSlot || 'Priority Dispatch'}
+                              </p>
+                            </div>
+
+                            {/* Estimated Work Duration */}
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                                <CheckSquare size={12} /> Work Duration
+                              </p>
+                              <p className="text-xs font-black text-navy">
+                                {b.status === 'Completed' 
+                                  ? `Completed on ${safeDateFormatter(b.completionDate || b.timestamp)}`
+                                  : '~1 to 2 Hours (Once started)'}
+                              </p>
+                            </div>
+                          </div>
+
+                          {/* Footer Action Buttons */}
+                          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                            <div className="flex items-center gap-2">
+                              {b.status !== 'Completed' && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={async () => {
+                                    if ("geolocation" in navigator) {
+                                      toast.promise(
+                                        new Promise(async (resolve, reject) => {
+                                          navigator.geolocation.getCurrentPosition(async (pos) => {
+                                            try {
+                                              const loc = {
+                                                lat: pos.coords.latitude,
+                                                lng: pos.coords.longitude,
+                                                detectedAt: new Date().toISOString()
+                                              };
+                                              await dataService.updateDoc('bookings', b.id, { location: loc });
+                                              resolve(true);
+                                            } catch (e) { reject(e); }
+                                          }, (err) => reject(err));
+                                        }),
+                                        {
+                                          loading: 'Detecting GPS coordinates...',
+                                          success: 'Doorstep GPS shared with technician!',
+                                          error: 'Please allow location permission.'
+                                        }
+                                      );
+                                    }
+                                  }}
+                                  className="rounded-xl text-[9px] font-black uppercase tracking-wider text-navy hover:bg-navy hover:text-white border-gray-200"
+                                >
+                                  <MapPin size={12} className="mr-1.5 text-teal" /> Share My GPS
+                                </Button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                              <Button
+                                onClick={() => setSelectedBooking(b)}
+                                className="rounded-xl font-black text-[9px] uppercase tracking-widest bg-navy hover:bg-teal hover:text-navy text-white px-5 h-10 shadow-sm"
+                              >
+                                View Full Details
+                              </Button>
+                            </div>
+                          </div>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+
+              {/* Invoices View (when filter is 'invoices') */}
+              {historyFilter === 'invoices' && (
                 <div className="space-y-6">
-                  <h3 className="text-xl font-black text-navy uppercase tracking-tight flex items-center gap-3">
-                    <FileText className="text-teal" size={24} /> Financial Records
-                  </h3>
-                  <div className="grid grid-cols-1 gap-4">
-                     {invoices.length === 0 ? (
-                       <div className="bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-gray-100 uppercase text-[10px] font-black text-gray-400 tracking-widest">
-                         No financial records yet
-                       </div>
-                     ) : (
-                       invoices.map(inv => (
-                        <Card key={inv.id} className="rounded-[32px] border-none shadow-xl p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6 group hover:border-teal/20 transition-all border border-transparent">
+                  {invoices.length === 0 ? (
+                    <div className="bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-gray-100 uppercase text-[10px] font-black text-gray-400 tracking-widest">
+                      No invoices or financial records yet
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-4">
+                      {invoices.map(inv => (
+                        <Card key={inv.id} className="rounded-[32px] border-none shadow-xl p-6 bg-white flex flex-col md:flex-row md:items-center justify-between gap-6">
                           <div className="flex items-center gap-6">
                             <div className="bg-navy p-4 rounded-2xl text-teal">
                               <FileText size={24} />
                             </div>
                             <div>
-                               <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-1">{inv.type === 'Estimate' ? 'QUOTATION' : 'BILL / MEMO'}</p>
-                               <h5 className="text-sm font-black text-navy uppercase truncate">{inv.estimateNumber || inv.invoiceNumber}</h5>
-                               <p className="text-[9px] font-bold text-teal uppercase tracking-tighter">{safeDateFormatter(inv.date || inv.timestamp)}</p>
+                              <p className="text-[8px] font-bold text-gray-400 uppercase tracking-widest mb-1">
+                                {inv.type === 'Estimate' ? 'QUOTATION' : 'BILL / MEMO'}
+                              </p>
+                              <h5 className="text-sm font-black text-navy uppercase truncate">{inv.estimateNumber || inv.invoiceNumber}</h5>
+                              <p className="text-[9px] font-bold text-teal uppercase tracking-tighter">{safeDateFormatter(inv.date || inv.timestamp)}</p>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between md:justify-end gap-12 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-50">
-                            
-                            <div className="text-right flex flex-col md:flex-row gap-4 items-center">
-                              <div>
-                                <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">Total Amount</p>
-                                <p className="text-xl font-black text-navy">₹{inv.totalAmount.toLocaleString('en-IN')}</p>
-                                <p className="text-[10px] font-black uppercase text-teal mt-1">{inv.status}</p>
-                              </div>
-                              <div className="flex flex-col gap-2">
-                                <Button 
-                                  onClick={() => downloadInvoicePDF(inv)}
-                                  className="h-10 px-6 rounded-xl bg-navy hover:bg-teal text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-navy/20"
-                                >
-                                  <Download size={14} className="mr-2" /> PDF
-                                </Button>
-                                {inv.status !== 'Paid' && inv.status !== 'Verification Pending' && (
-                                  <label className="cursor-pointer h-10 px-6 rounded-xl bg-teal/10 text-teal hover:bg-teal hover:text-navy font-black text-[10px] uppercase tracking-widest flex items-center justify-center transition-all">
-                                    <input 
-                                      type="file" 
-                                      accept="image/*" 
-                                      className="hidden" 
-                                      onChange={(e) => handleUploadPaymentProof(inv.id, e)}
-                                    />
-                                    <Upload size={14} className="mr-2" /> Pay / Upload
-                                  </label>
-                                )}
-                                {inv.status === 'Verification Pending' && (
-                                  <span className="text-[9px] font-black text-orange-500 uppercase tracking-widest px-4 py-2 bg-orange-50 rounded-xl">In Review</span>
-                                )}
-                              </div>
+                          <div className="flex items-center justify-between md:justify-end gap-8 w-full md:w-auto border-t md:border-t-0 pt-4 md:pt-0 border-gray-50">
+                            <div>
+                              <p className="text-[8px] font-black text-gray-300 uppercase tracking-widest mb-1">Total Amount</p>
+                              <p className="text-xl font-black text-navy">₹{inv.totalAmount.toLocaleString('en-IN')}</p>
+                              <p className="text-[10px] font-black uppercase text-teal mt-1">{inv.status}</p>
                             </div>
-
+                            <div className="flex flex-col gap-2">
+                              <Button 
+                                onClick={() => downloadInvoicePDF(inv)}
+                                className="h-10 px-6 rounded-xl bg-navy hover:bg-teal text-white font-black text-[10px] uppercase tracking-widest shadow-xl shadow-navy/20"
+                              >
+                                <Download size={14} className="mr-2" /> PDF
+                              </Button>
+                              {inv.status !== 'Paid' && inv.status !== 'Verification Pending' && (
+                                <label className="cursor-pointer h-10 px-6 rounded-xl bg-teal/10 text-teal hover:bg-teal hover:text-navy font-black text-[10px] uppercase tracking-widest flex items-center justify-center transition-all">
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    className="hidden" 
+                                    onChange={(e) => handleUploadPaymentProof(inv.id, e)}
+                                  />
+                                  <Upload size={14} className="mr-2" /> Pay / Upload
+                                </label>
+                              )}
+                            </div>
                           </div>
                         </Card>
-                       ))
-                     )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {/* Past Complains/Reports */}
+              {/* Reports / Complaints View (when filter is 'reports') */}
+              {historyFilter === 'reports' && (
                 <div className="space-y-6">
-                  <h3 className="text-xl font-black text-navy uppercase tracking-tight flex items-center gap-3">
-                    <AlertCircle className="text-red-500" size={24} /> Complain Log
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                     {reports.length === 0 ? (
-                       <div className="md:col-span-2 bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-gray-100 uppercase text-[10px] font-black text-gray-400 tracking-widest">
-                         No complaints found
-                       </div>
-                     ) : (
-                       reports.map(report => (
+                  {reports.length === 0 ? (
+                    <div className="bg-white rounded-[32px] p-12 text-center border-2 border-dashed border-gray-100 uppercase text-[10px] font-black text-gray-400 tracking-widest">
+                      No complaints found
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {reports.map(report => (
                         <Card key={report.id} className="rounded-[32px] border-none shadow-xl p-8 bg-white space-y-4">
-                           <div className="flex justify-between items-start">
-                             <Badge className={`${
-                               report.status === 'Resolved' ? 'bg-green-100 text-green-700' :
-                               report.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                               'bg-red-100 text-red-700'
-                             } uppercase text-[8px] font-black px-3 py-1 rounded-lg`}>
-                               {report.status}
-                             </Badge>
-                             <span className="text-[8px] font-bold text-gray-400 uppercase">{safeDateFormatter(report.createdAt || report.timestamp)}</span>
-                           </div>
-                           <h4 className="text-sm font-black text-navy uppercase tracking-tight leading-tight">{report.title}</h4>
-                           <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-3">{report.description}</p>
-                           {report.adminNote && (
-                              <div className="p-4 bg-teal/5 rounded-2xl border border-teal/10 mt-4">
-                                <p className="text-[7px] font-black text-teal uppercase tracking-widest mb-1">Resolution Note:</p>
-                                <p className="text-[10px] font-bold text-navy leading-relaxed italic">"{report.adminNote}"</p>
-                              </div>
-                           )}
+                          <div className="flex justify-between items-start">
+                            <Badge className={`${
+                              report.status === 'Resolved' ? 'bg-green-100 text-green-700' :
+                              report.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
+                              'bg-red-100 text-red-700'
+                            } uppercase text-[8px] font-black px-3 py-1 rounded-lg`}>
+                              {report.status}
+                            </Badge>
+                            <span className="text-[8px] font-bold text-gray-400 uppercase">{safeDateFormatter(report.createdAt || report.timestamp)}</span>
+                          </div>
+                          <h4 className="text-sm font-black text-navy uppercase tracking-tight leading-tight">{report.title}</h4>
+                          <p className="text-[11px] text-gray-500 leading-relaxed line-clamp-3">{report.description}</p>
+                          {report.adminNote && (
+                            <div className="p-4 bg-teal/5 rounded-2xl border border-teal/10 mt-4">
+                              <p className="text-[7px] font-black text-teal uppercase tracking-widest mb-1">Response from Admin:</p>
+                              <p className="text-[10px] font-bold text-navy leading-relaxed italic">"{report.adminNote}"</p>
+                            </div>
+                          )}
                         </Card>
-                       ))
-                     )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
             </div>
           )}
           {activePortalTab === 'services' && (
@@ -1361,53 +2023,190 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                                   </div>
                                </div>
                             </div>
+
+                            {/* Flexible Reach Time (ETA) Configurator for Technician / Partner */}
+                            <div className="bg-navy/5 p-4 rounded-3xl border border-navy/10 space-y-2">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[9px] font-black text-navy uppercase tracking-wider flex items-center gap-1.5">
+                                  <Clock size={12} className="text-teal" /> Set Reach Time / पहुंचने का समय
+                                </p>
+                                {job.eta && (
+                                  <span className="text-[8px] font-black text-teal bg-teal/15 px-2.5 py-0.5 rounded-full border border-teal/20">
+                                    Active ETA: {job.eta}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex gap-2">
+                                <input 
+                                  type="text"
+                                  placeholder="e.g. 1 Hour, 2 Hours, Tomorrow 11 AM, In 1-2 Days..."
+                                  className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-navy outline-none focus:border-teal"
+                                  value={staffEtaInputs[job.id] !== undefined ? staffEtaInputs[job.id] : (job.eta || '')}
+                                  onChange={(e) => setStaffEtaInputs(prev => ({ ...prev, [job.id]: e.target.value }))}
+                                />
+                                <Button 
+                                  size="sm"
+                                  onClick={async () => {
+                                    const val = staffEtaInputs[job.id] !== undefined ? staffEtaInputs[job.id] : job.eta;
+                                    if (!val) {
+                                      toast.error('Please enter or select reach time (e.g. 1 Hour, 2 Hours, 1 Day).');
+                                      return;
+                                    }
+                                    await dataService.updateDoc('bookings', job.id, { eta: val });
+                                    if (job.userId) {
+                                      await dataService.addDoc('notifications', {
+                                        userId: job.userId,
+                                        title: 'Technician Arrival Update',
+                                        message: `${profile?.name || 'Technician'} will reach your premises by: ${val}.`,
+                                        type: 'booking_update',
+                                        read: false,
+                                        timestamp: new Date().toISOString(),
+                                        link: '/dashboard'
+                                      }).catch(() => {});
+                                    }
+                                    toast.success(`Arrival ETA updated! Customer notified: "${val}"`);
+                                  }}
+                                  className="bg-navy hover:bg-teal hover:text-navy text-white text-[9px] font-black uppercase tracking-wider rounded-xl px-4 h-9 shadow-sm"
+                                >
+                                  Save ETA
+                                </Button>
+                              </div>
+                              <div className="flex flex-wrap gap-1.5 pt-1">
+                                {['30 mins', '1 Hour', '2 Hours', 'Today Evening', 'Tomorrow (11 AM)', 'In 1-2 Days'].map((preset) => (
+                                  <button
+                                    key={preset}
+                                    type="button"
+                                    onClick={() => setStaffEtaInputs(prev => ({ ...prev, [job.id]: preset }))}
+                                    className="text-[8px] font-black uppercase px-2 py-1 rounded-lg border bg-white hover:bg-gray-100 text-gray-600 border-gray-200 transition-all"
+                                  >
+                                    {preset}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
                           </div>
 
-                          <div className="w-full md:w-48 flex flex-col gap-3 justify-center">
-                             {job.status === 'Accepted' && (
-                               <Button 
-                                 onClick={async () => {
-                                   await dataService.updateDoc('bookings', job.id, { status: 'In Progress' });
-                                   await dataService.addDoc('notifications', {
-                                     userId: job.userId,
-                                     title: 'Service Started',
-                                     message: `Your ${job.serviceName} service has started. ${profile?.name || 'Technician'} is on the job.`,
-                                     type: 'booking_update',
-                                     read: false,
-                                     timestamp: new Date().toISOString(),
-                                     link: '/dashboard'
-                                   });
-                                 }}
-                                 className="w-full h-14 bg-blue-600 hover:bg-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-blue-100"
-                               >Start Job</Button>
-                             )}
-                             {job.status === 'In Progress' && (
-                               <Button 
-                                 onClick={async () => {
-                                   await dataService.updateDoc('bookings', job.id, { status: 'Completed', completionDate: new Date().toISOString() });
-                                   await dataService.addDoc('notifications', {
-                                     userId: job.userId,
-                                     title: 'Service Completed',
-                                     message: `Your ${job.serviceName} service has been completed. Thank you for choosing Atomic Solutions!`,
-                                     type: 'booking_update',
-                                     read: false,
-                                     timestamp: new Date().toISOString(),
-                                     link: '/dashboard'
-                                   });
-                                 }}
-                                 className="w-full h-14 bg-green-600 hover:bg-navy text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-green-100 animate-pulse"
-                               >Mark as Completed</Button>
-                             )}
-                             <Button 
-                               onClick={() => {
-                                 const text = `Hi ${job.userName}, I am on my way for your ${job.serviceName} service.`;
-                                 window.open(formatWhatsAppLink(job.whatsappNumber || job.userPhone, text), '_blank');
-                               }}
-                               variant="outline" 
-                               className="w-full h-14 border-gray-100 hover:bg-teal hover:text-navy hover:border-teal rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all"
-                             >
-                                <WhatsApp size={16} className="mr-2" /> Contact Customer
-                             </Button>
+                          <div className="w-full md:w-52 flex flex-col gap-2.5 justify-center">
+                            {(job.status === 'Assigned' || job.status === 'Accepted') && (
+                              <Button 
+                                onClick={async () => {
+                                  await dataService.updateDoc('bookings', job.id, { status: 'On the Way' });
+                                  if (job.userId) {
+                                    await dataService.addDoc('notifications', {
+                                      userId: job.userId,
+                                      title: 'Technician On The Way!',
+                                      message: `${profile?.name || 'Technician'} is on the way to your location.`,
+                                      type: 'booking_update',
+                                      read: false,
+                                      timestamp: new Date().toISOString(),
+                                      link: '/dashboard'
+                                    }).catch(() => {});
+                                  }
+                                  toast.success('Status updated: On The Way!');
+                                }}
+                                className="w-full h-11 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-md animate-pulse"
+                              >
+                                🚗 I'm On The Way
+                              </Button>
+                            )}
+
+                            {job.status === 'On the Way' && (
+                              <Button 
+                                onClick={async () => {
+                                  await dataService.updateDoc('bookings', job.id, { status: 'Arrived' });
+                                  if (job.userId) {
+                                    await dataService.addDoc('notifications', {
+                                      userId: job.userId,
+                                      title: 'Technician Arrived!',
+                                      message: `${profile?.name || 'Technician'} has arrived at your address.`,
+                                      type: 'booking_update',
+                                      read: false,
+                                      timestamp: new Date().toISOString(),
+                                      link: '/dashboard'
+                                    }).catch(() => {});
+                                  }
+                                  toast.success('Status updated: Arrived at location!');
+                                }}
+                                className="w-full h-11 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-md"
+                              >
+                                📍 I Have Arrived
+                              </Button>
+                            )}
+
+                            {(job.status === 'Arrived' || job.status === 'Accepted' || job.status === 'On the Way') && (
+                              <Button 
+                                onClick={async () => {
+                                  await dataService.updateDoc('bookings', job.id, { status: 'In Progress' });
+                                  if (job.userId) {
+                                    await dataService.addDoc('notifications', {
+                                      userId: job.userId,
+                                      title: 'Service In Progress',
+                                      message: `Your ${job.serviceName} service has started. ${profile?.name || 'Technician'} is on the job.`,
+                                      type: 'booking_update',
+                                      read: false,
+                                      timestamp: new Date().toISOString(),
+                                      link: '/dashboard'
+                                    }).catch(() => {});
+                                  }
+                                  toast.success('Service started!');
+                                }}
+                                className="w-full h-11 bg-blue-600 hover:bg-navy text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-md"
+                              >
+                                🔧 Start Service
+                              </Button>
+                            )}
+
+                            {job.status === 'In Progress' && (
+                              <Button 
+                                onClick={async () => {
+                                  await dataService.updateDoc('bookings', job.id, { status: 'Completed', completionDate: new Date().toISOString() });
+                                  if (job.userId) {
+                                    await dataService.addDoc('notifications', {
+                                      userId: job.userId,
+                                      title: 'Service Completed',
+                                      message: `Your ${job.serviceName} service has been completed. Thank you for choosing Atomic Solutions!`,
+                                      type: 'booking_update',
+                                      read: false,
+                                      timestamp: new Date().toISOString(),
+                                      link: '/dashboard'
+                                    }).catch(() => {});
+                                  }
+                                  toast.success('Marked as Completed!');
+                                }}
+                                className="w-full h-11 bg-green-600 hover:bg-navy text-white rounded-2xl text-[9px] font-black uppercase tracking-widest shadow-md animate-pulse"
+                              >
+                                ✅ Mark as Completed
+                              </Button>
+                            )}
+
+                            {/* In-App Direct Chat with Customer */}
+                            <Button 
+                              onClick={() => setChatBooking(job)}
+                              className="w-full h-11 bg-teal hover:bg-navy hover:text-white text-navy rounded-2xl text-[9px] font-black uppercase tracking-widest transition-all shadow-sm"
+                            >
+                              <MessageCircle size={14} className="mr-1.5" /> Chat with Customer
+                            </Button>
+
+                            <div className="flex gap-2">
+                              {job.userPhone && (
+                                <a 
+                                  href={`tel:${job.userPhone}`}
+                                  className="flex-1 h-10 bg-gray-100 hover:bg-gray-200 text-navy font-black text-[9px] uppercase tracking-wider rounded-xl inline-flex items-center justify-center gap-1"
+                                >
+                                  <Phone size={12} /> Call
+                                </a>
+                              )}
+                              <Button 
+                                onClick={() => {
+                                  const text = `Hi ${job.userName}, I am reaching out regarding your ${job.serviceName} service.`;
+                                  window.open(formatWhatsAppLink(job.whatsappNumber || job.userPhone, text), '_blank');
+                                }}
+                                variant="outline" 
+                                className="flex-1 h-10 border-gray-200 hover:bg-green-50 hover:text-green-600 text-[9px] font-black uppercase tracking-wider rounded-xl inline-flex items-center justify-center gap-1"
+                              >
+                                <WhatsApp size={12} className="text-green-600" /> WhatsApp
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </Card>
@@ -1583,17 +2382,87 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                         </div>
                      </div>
 
-                     {selectedBooking.staffId && (
-                       <div className="p-4 bg-navy rounded-3xl text-white flex items-center justify-between shadow-lg">
-                         <div className="flex items-center gap-3">
-                           <div className="w-10 h-10 bg-teal text-navy rounded-full flex items-center justify-center font-black text-lg">
-                             {selectedBooking.staffName?.[0] || 'P'}
+                     {(selectedBooking.staffId || selectedBooking.staffName) && (
+                       <div className="p-5 bg-navy rounded-3xl text-white space-y-4 shadow-xl">
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center gap-3">
+                             <div className="w-12 h-12 bg-teal text-navy rounded-2xl flex items-center justify-center font-black text-xl overflow-hidden border-2 border-teal shrink-0">
+                               {selectedBooking.staffPhoto ? (
+                                 <img src={selectedBooking.staffPhoto} alt={selectedBooking.staffName} className="w-full h-full object-cover" />
+                               ) : (
+                                 selectedBooking.staffName?.[0] || 'T'
+                               )}
+                             </div>
+                             <div>
+                               <div className="flex items-center gap-2">
+                                 <p className="text-sm font-black uppercase tracking-tight">{selectedBooking.staffName || 'Technician'}</p>
+                                 <span className="text-[7px] font-black bg-teal/20 text-teal px-1.5 py-0.5 rounded border border-teal/30 uppercase flex items-center gap-0.5">
+                                   <ShieldCheck size={8} /> Verified
+                                 </span>
+                               </div>
+                               <p className="text-[9px] font-bold text-teal uppercase tracking-widest leading-none mt-0.5">
+                                 {selectedBooking.staffCategory || 'HVAC Specialist'}
+                               </p>
+                               {selectedBooking.staffPhone && (
+                                 <p className="text-[10px] font-mono text-white/70 mt-1">📞 {selectedBooking.staffPhone}</p>
+                               )}
+                             </div>
                            </div>
-                           <div>
-                             <p className="text-[8px] font-black text-teal uppercase tracking-widest leading-none mb-1">Professional Assigned</p>
-                             <p className="text-sm font-black uppercase tracking-tight">{selectedBooking.staffName || 'Technician'}</p>
-                           </div>
+                           {selectedBooking.eta && (
+                             <span className="text-[8px] font-black uppercase tracking-wider bg-teal/20 text-teal border border-teal/30 px-2 py-1 rounded-lg flex items-center gap-1">
+                               <Clock size={10} /> ETA {selectedBooking.eta}
+                             </span>
+                           )}
                          </div>
+
+                         {/* Quick Action buttons */}
+                         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/10">
+                           <Button 
+                             size="sm"
+                             onClick={() => {
+                               setChatBooking(selectedBooking);
+                               setSelectedBooking(null);
+                             }}
+                             className="bg-teal hover:bg-teal/90 text-navy font-black text-[9px] uppercase tracking-widest rounded-xl h-9 px-4 flex items-center gap-1.5"
+                           >
+                             <MessageCircle size={14} /> Chat with Technician
+                           </Button>
+                           {selectedBooking.staffPhone && (
+                             <>
+                               <a 
+                                 href={`tel:${selectedBooking.staffPhone}`}
+                                 className="inline-flex items-center gap-1 bg-white/10 hover:bg-white/20 text-white font-black text-[9px] uppercase tracking-widest rounded-xl h-9 px-3 border border-white/10 transition-colors"
+                               >
+                                 <Phone size={12} className="text-teal" /> Call
+                               </a>
+                               <a 
+                                 href={formatWhatsAppLink(selectedBooking.staffPhone, `Hi ${selectedBooking.staffName}, reaching out regarding my booking ${selectedBooking.serviceName} at Atomic Solutions.`)}
+                                 target="_blank"
+                                 rel="noreferrer"
+                                 className="inline-flex items-center gap-1 bg-green-500/20 hover:bg-green-500/30 text-green-300 font-black text-[9px] uppercase tracking-widest rounded-xl h-9 px-3 border border-green-500/30 transition-colors"
+                               >
+                                 <WhatsApp size={12} className="text-green-400" /> WhatsApp
+                               </a>
+                             </>
+                           )}
+                         </div>
+
+                         {/* Live GPS Route */}
+                         {selectedBooking.technicianLocation?.lat && selectedBooking.technicianLocation?.lng && (
+                           <div className="pt-2 border-t border-white/10 flex items-center justify-between">
+                             <span className="text-[9px] font-bold text-teal flex items-center gap-1">
+                               <Navigation size={12} className="animate-pulse" /> Live GPS Signal Active
+                             </span>
+                             <a 
+                               href={`https://www.google.com/maps/search/?api=1&query=${selectedBooking.technicianLocation.lat},${selectedBooking.technicianLocation.lng}`}
+                               target="_blank"
+                               rel="noreferrer"
+                               className="text-[8px] font-black uppercase text-white bg-teal/20 hover:bg-teal hover:text-navy px-2.5 py-1 rounded-lg transition-colors border border-teal/30"
+                             >
+                               View on Map
+                             </a>
+                           </div>
+                         )}
                        </div>
                      )}
                   </div>
@@ -1784,7 +2653,23 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
           serviceName={selectedService.name}
           subCategoryName={bookingData.subName}
           bookingType={bookingData.type}
+          price={bookingData.price}
+          labourPrice={bookingData.labourPrice}
+          materialPrice={bookingData.materialPrice}
+          staffCategory={selectedService.staffCategory}
           whatsapp="+919582268658"
+        />
+      )}
+
+      {/* Real-time In-App Chat Modal with Assigned Technician */}
+      {chatBooking && user && (
+        <BookingChatModal 
+          isOpen={!!chatBooking}
+          onClose={() => setChatBooking(null)}
+          booking={chatBooking}
+          currentUserId={user.uid}
+          currentUserName={profile?.name || user.displayName || 'Customer'}
+          currentUserRole="customer"
         />
       )}
     </div>

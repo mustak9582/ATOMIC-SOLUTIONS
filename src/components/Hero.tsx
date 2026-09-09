@@ -40,7 +40,7 @@ export default function Hero() {
   }, []);
 
   const handleWhatsApp = () => {
-    window.open(formatWhatsAppLink(WHATSAPP_NUMBER, "Hi Mustak, I want to book a consultation for Atomic Solutions services."), '_blank');
+    window.open(formatWhatsAppLink(WHATSAPP_NUMBER, "Hi Atomic Team, I want to book a consultation for Atomic Solutions services."), '_blank');
   };
 
   const scrollToServices = () => {

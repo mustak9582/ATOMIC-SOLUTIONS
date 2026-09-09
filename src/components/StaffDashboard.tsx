@@ -16,6 +16,9 @@ import {
   LogOut,
   Settings,
   MessageSquare,
+  MessageCircle,
+  Navigation,
+  Send,
   AlertCircle,
   Bell,
   CheckCircle,
@@ -33,6 +36,8 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { Notification } from '../types';
 import { cn, formatWhatsAppLink } from '../lib/utils';
+import BookingChatModal from './BookingChatModal';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 const StaffDashboard: React.FC = () => {
   const { user, profile, logout, isAdmin, isStaff, requestUserLocation, isPendingStaff, isApprovedStaff } = useAuth();
@@ -43,6 +48,9 @@ const StaffDashboard: React.FC = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [statusFilter, setStatusFilter] = useState('All');
   const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [chatBooking, setChatBooking] = useState<Booking | null>(null);
+  const [etaModalBooking, setEtaModalBooking] = useState<Booking | null>(null);
+  const [selectedEta, setSelectedEta] = useState('30 mins');
   const [connectionStatus, setConnectionStatus] = useState<'online' | 'syncing' | 'offline'>('online');
   const prevBookingsCount = React.useRef<number | null>(null);
   const prevNotifsCount = React.useRef<number | null>(null);
@@ -228,10 +236,44 @@ const StaffDashboard: React.FC = () => {
     }
   };
 
-  const updateBookingStatus = async (bookingId: string, status: 'In Progress' | 'Completed' | 'Accepted' | 'Rejected') => {
+  const shareLiveLocation = async (bookingId: string) => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser');
+      return;
+    }
+    toast.loading('Fetching GPS coordinates...', { id: 'gps-sync' });
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          await dataService.updateDoc('bookings', bookingId, {
+            technicianLocation: {
+              lat,
+              lng,
+              updatedAt: new Date().toISOString()
+            }
+          });
+          toast.success('Live GPS coordinates shared with customer!', { id: 'gps-sync' });
+        } catch (e) {
+          toast.error('Failed to sync location', { id: 'gps-sync' });
+        }
+      },
+      () => {
+        toast.error('GPS permission denied or unavailable', { id: 'gps-sync' });
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const updateBookingStatus = async (
+    bookingId: string, 
+    status: 'In Progress' | 'Completed' | 'Accepted' | 'Rejected' | 'On the Way' | 'Arrived',
+    extraData?: Partial<Booking>
+  ) => {
     try {
       const booking = bookings.find(b => b.id === bookingId);
-      let updateData: Partial<Booking> = { status };
+      let updateData: Partial<Booking> = { status, ...(extraData || {}) };
       
       if (status === 'Completed') {
         updateData.completionDate = new Date().toISOString();
@@ -241,6 +283,7 @@ const StaffDashboard: React.FC = () => {
         // Self-Acceptance Logic
         updateData.staffId = user?.uid;
         updateData.staffName = profile?.name;
+        updateData.staffPhone = profile?.phone || '';
       }
 
       if (status === 'Rejected') {
@@ -253,18 +296,24 @@ const StaffDashboard: React.FC = () => {
       await dataService.updateDoc('bookings', bookingId, updateData);
       
       // Notify customer
-      if (booking && (status === 'In Progress' || status === 'Completed' || status === 'Accepted')) {
+      if (booking && status !== 'Rejected') {
         let title = '';
         let message = '';
         
         if (status === 'Accepted') {
-          title = 'Technician Assigned';
-          message = `${profile?.name || 'A technician'} has accepted your booking. You will be notified when they start the service.`;
+          title = 'Technician Accepted Booking';
+          message = `${profile?.name || 'A technician'} has accepted your booking and is preparing for the visit.`;
+        } else if (status === 'On the Way') {
+          title = 'Technician is On The Way! 🚗';
+          message = `${profile?.name || 'Your technician'} is on the way! Estimated Arrival: ${extraData?.eta || booking.eta || '30 mins'}.`;
+        } else if (status === 'Arrived') {
+          title = 'Technician has Arrived! 📍';
+          message = `${profile?.name || 'Your technician'} has arrived at your location. Please check your door.`;
         } else if (status === 'In Progress') {
-          title = 'Service Started';
+          title = 'Service Started ⚡';
           message = `Your ${booking.serviceName} service has started. ${profile?.name || 'Technician'} is on the job.`;
-        } else {
-          title = 'Service Completed';
+        } else if (status === 'Completed') {
+          title = 'Service Completed ✅';
           message = `Your ${booking.serviceName} service has been completed. Thank you for choosing Atomic Solutions!`;
         }
 
@@ -275,7 +324,8 @@ const StaffDashboard: React.FC = () => {
           type: 'booking_update',
           read: false,
           timestamp: new Date().toISOString(),
-          link: '/dashboard'
+          relatedId: booking.id,
+          link: '/my-account/bookings'
         }).catch(e => console.warn('Customer notification failed', e));
       }
 
@@ -545,6 +595,9 @@ const StaffDashboard: React.FC = () => {
                             key={booking.id} 
                             booking={booking} 
                             onUpdateStatus={updateBookingStatus}
+                            onOpenChat={setChatBooking}
+                            onShareLocation={shareLiveLocation}
+                            onOpenEtaModal={setEtaModalBooking}
                           />
                         ))}
                       </div>
@@ -733,6 +786,9 @@ const StaffDashboard: React.FC = () => {
                           key={booking.id} 
                           booking={booking} 
                           onUpdateStatus={updateBookingStatus} 
+                          onOpenChat={setChatBooking}
+                          onShareLocation={shareLiveLocation}
+                          onOpenEtaModal={setEtaModalBooking}
                         />
                       ))}
                     </div>
@@ -784,24 +840,121 @@ const StaffDashboard: React.FC = () => {
           </main>
         </div>
       </div>
+
+      {/* Set ETA Dialog */}
+      {etaModalBooking && (
+        <Dialog open={!!etaModalBooking} onOpenChange={(open) => !open && setEtaModalBooking(null)}>
+          <DialogContent className="max-w-md rounded-[32px] p-6 bg-white border-none shadow-2xl font-sans">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-black uppercase text-navy flex items-center gap-2">
+                <Navigation className="text-teal" size={20} />
+                Start Journey &amp; Set ETA
+              </DialogTitle>
+              <DialogDescription className="text-xs text-gray-500">
+                Choose estimated arrival time for {etaModalBooking.userName}'s service.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 my-4">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Estimated Travel Time</p>
+              <div className="grid grid-cols-2 gap-2">
+                {['15 mins', '25 mins', '35 mins', '45 mins', '1 hour'].map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setSelectedEta(t)}
+                    className={`p-3 rounded-2xl text-xs font-black uppercase transition-all border cursor-pointer ${
+                      selectedEta === t
+                        ? 'bg-navy text-white border-navy shadow-md'
+                        : 'bg-slate-50 text-navy border-slate-200 hover:bg-slate-100'
+                    }`}
+                  >
+                    ⏱️ {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                onClick={() => setEtaModalBooking(null)}
+                className="flex-1 rounded-xl uppercase text-[10px] font-black cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={async () => {
+                  const b = etaModalBooking;
+                  setEtaModalBooking(null);
+                  await updateBookingStatus(b.id, 'On the Way', { eta: selectedEta });
+                  shareLiveLocation(b.id);
+                }}
+                className="flex-1 bg-teal text-navy hover:bg-navy hover:text-white rounded-xl uppercase text-[10px] font-black tracking-wider shadow-lg shadow-teal/20 cursor-pointer"
+              >
+                Confirm &amp; Notify
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {/* In-App Direct Chat with Customer */}
+      {chatBooking && (
+        <BookingChatModal
+          isOpen={!!chatBooking}
+          onClose={() => setChatBooking(null)}
+          booking={chatBooking}
+          currentUserId={user?.uid || ''}
+          currentUserName={profile?.name || 'Technician'}
+          currentUserRole="technician"
+        />
+      )}
     </div>
   );
 };
 
 interface JobCardProps {
   booking: Booking;
-  onUpdateStatus: (id: string, status: 'In Progress' | 'Completed' | 'Accepted' | 'Rejected') => void;
+  onUpdateStatus: (id: string, status: 'In Progress' | 'Completed' | 'Accepted' | 'Rejected' | 'On the Way' | 'Arrived', extraData?: Partial<Booking>) => void;
+  onOpenChat: (booking: Booking) => void;
+  onShareLocation: (bookingId: string) => void;
+  onOpenEtaModal: (booking: Booking) => void;
 }
 
-const JobCard: React.FC<JobCardProps> = ({ booking, onUpdateStatus }) => {
+const JobCard: React.FC<JobCardProps> = ({ 
+  booking, 
+  onUpdateStatus, 
+  onOpenChat, 
+  onShareLocation, 
+  onOpenEtaModal 
+}) => {
   return (
     <Card className="rounded-[32px] border-none shadow-xl shadow-gray-100 p-8 bg-white border-l-4 border-l-teal">
       <div className="flex flex-col md:flex-row justify-between gap-8">
         <div className="flex-1 space-y-6">
-          <div className="flex items-center justify-between">
-            <Badge className={`uppercase text-[9px] font-black px-3 py-1 ${booking.status === 'Pending' ? 'bg-orange-500 text-white' : booking.status === 'In Progress' ? 'bg-indigo-500' : 'bg-teal text-navy'}`}>
-              {booking.status === 'Pending' ? 'AVAILABLE JOB' : booking.status === 'Assigned' ? 'NEW ASSIGNMENT' : booking.status}
-            </Badge>
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Badge className={`uppercase text-[9px] font-black px-3 py-1 ${
+                booking.status === 'Pending' ? 'bg-orange-500 text-white' : 
+                booking.status === 'On the Way' ? 'bg-blue-600 text-white' :
+                booking.status === 'Arrived' ? 'bg-purple-600 text-white' :
+                booking.status === 'In Progress' ? 'bg-indigo-500 text-white' : 
+                'bg-teal text-navy'
+              }`}>
+                {booking.status === 'Pending' ? 'AVAILABLE JOB' : booking.status === 'Assigned' ? 'NEW ASSIGNMENT' : booking.status}
+              </Badge>
+              {booking.eta && (booking.status === 'On the Way' || booking.status === 'Assigned') && (
+                <Badge variant="outline" className="text-[9px] font-black text-blue-600 border-blue-200 bg-blue-50">
+                  ETA: {booking.eta}
+                </Badge>
+              )}
+              {booking.technicianLocation && (
+                <Badge variant="outline" className="text-[8px] font-bold text-emerald-600 border-emerald-200 bg-emerald-50">
+                  📍 GPS Active
+                </Badge>
+              )}
+            </div>
             <span className="text-[10px] font-bold text-gray-400 uppercase">
               {new Date(booking.timestamp).toLocaleDateString()}
             </span>
@@ -825,7 +978,7 @@ const JobCard: React.FC<JobCardProps> = ({ booking, onUpdateStatus }) => {
               <div>
                 <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Customer</p>
                 <p className="text-sm font-black text-navy uppercase tracking-tight">{booking.userName}</p>
-                <a href={`tel:${booking.userPhone}`} className="text-xs font-bold text-teal flex items-center gap-1 mt-1">
+                <a href={`tel:${booking.userPhone}`} className="text-xs font-bold text-teal flex items-center gap-1 mt-1 hover:underline">
                   <Phone size={10} /> {booking.userPhone}
                 </a>
               </div>
@@ -835,7 +988,7 @@ const JobCard: React.FC<JobCardProps> = ({ booking, onUpdateStatus }) => {
                 <MapPin size={16} />
               </div>
               <div>
-                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Location</p>
+                <p className="text-[8px] font-black text-gray-400 uppercase tracking-widest mb-1">Customer Location</p>
                 <p className="text-xs font-medium text-gray-500 leading-relaxed">{booking.userAddress}</p>
               </div>
             </div>
@@ -848,12 +1001,14 @@ const JobCard: React.FC<JobCardProps> = ({ booking, onUpdateStatus }) => {
             </div>
           )}
 
-          <div className="flex flex-wrap gap-3 pt-2">
+          {/* Action and Communication Buttons */}
+          <div className="flex flex-wrap gap-2.5 pt-2">
+            {/* Status Flow Buttons */}
             {(booking.status === 'Assigned' || booking.status === 'Pending') && (
               <>
                 <Button 
                   onClick={() => onUpdateStatus(booking.id, 'Accepted')}
-                  className="h-12 bg-teal text-navy hover:bg-teal/90 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[120px]"
+                  className="h-11 bg-teal text-navy hover:bg-teal/90 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[120px] cursor-pointer"
                 >
                   Accept Job
                 </Button>
@@ -861,38 +1016,100 @@ const JobCard: React.FC<JobCardProps> = ({ booking, onUpdateStatus }) => {
                   <Button 
                     onClick={() => onUpdateStatus(booking.id, 'Rejected')}
                     variant="outline"
-                    className="h-12 border-red-200 text-red-500 hover:bg-red-50 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[120px]"
+                    className="h-11 border-red-200 text-red-500 hover:bg-red-50 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[100px] cursor-pointer"
                   >
                     Reject
                   </Button>
                 )}
               </>
             )}
+
             {booking.status === 'Accepted' && (
+              <>
+                <Button 
+                  onClick={() => onOpenEtaModal(booking)}
+                  className="h-11 bg-blue-600 text-white hover:bg-blue-700 rounded-xl uppercase text-[10px] font-black tracking-widest flex items-center gap-2 flex-1 md:flex-none md:min-w-[140px] cursor-pointer"
+                >
+                  <Navigation size={14} /> I'm On The Way
+                </Button>
+                <Button 
+                  onClick={() => onShareLocation(booking.id)}
+                  variant="outline"
+                  className="h-11 border-teal/40 text-teal hover:bg-teal/10 rounded-xl uppercase text-[10px] font-black tracking-widest flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Navigation size={14} /> Share GPS
+                </Button>
+              </>
+            )}
+
+            {booking.status === 'On the Way' && (
+              <>
+                <Button 
+                  onClick={() => onUpdateStatus(booking.id, 'Arrived')}
+                  className="h-11 bg-purple-600 text-white hover:bg-purple-700 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[130px] cursor-pointer"
+                >
+                  I Have Arrived 📍
+                </Button>
+                <Button 
+                  onClick={() => onShareLocation(booking.id)}
+                  variant="outline"
+                  className="h-11 border-blue-200 text-blue-600 hover:bg-blue-50 rounded-xl uppercase text-[10px] font-black tracking-widest flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Navigation size={14} /> Update GPS
+                </Button>
+                <Button 
+                  onClick={() => onOpenEtaModal(booking)}
+                  variant="outline"
+                  className="h-11 rounded-xl uppercase text-[10px] font-black cursor-pointer"
+                >
+                  Change ETA
+                </Button>
+              </>
+            )}
+
+            {booking.status === 'Arrived' && (
               <Button 
                 onClick={() => onUpdateStatus(booking.id, 'In Progress')}
-                className="h-12 bg-navy text-white rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[150px]"
+                className="h-11 bg-navy text-white hover:bg-teal hover:text-navy rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[150px] cursor-pointer"
               >
-                Start Service
+                Start Service ⚡
               </Button>
             )}
+
             {booking.status === 'In Progress' && (
               <Button 
                 onClick={() => onUpdateStatus(booking.id, 'Completed')}
-                className="h-12 bg-teal text-navy hover:bg-teal/90 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[150px]"
+                className="h-11 bg-teal text-navy hover:bg-teal/90 rounded-xl uppercase text-[10px] font-black tracking-widest flex-1 md:flex-none md:min-w-[150px] cursor-pointer"
               >
-                Mark Completed
+                Mark Completed ✅
               </Button>
             )}
+
+            {/* Direct Communication Buttons */}
+            <Button 
+              onClick={() => onOpenChat(booking)}
+              className="h-11 bg-navy text-white hover:bg-teal hover:text-navy rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none md:min-w-[150px] shadow-sm cursor-pointer"
+            >
+              <MessageCircle size={14} className="text-teal" /> Chat with Customer
+            </Button>
+
+            <a
+              href={`tel:${booking.userPhone}`}
+              className="h-11 px-4 border border-gray-200 hover:border-teal text-navy hover:text-teal rounded-xl flex items-center justify-center gap-1.5 text-[10px] font-black uppercase tracking-widest transition-colors"
+              title="Call Customer"
+            >
+              <Phone size={14} /> Call
+            </a>
+
             <Button 
               variant="outline"
               onClick={() => {
-                const text = `Hello ${booking.userName}, I am assigned for your service from Atomic Solutions.`;
+                const text = `Hello ${booking.userName}, I am assigned as your service technician from Atomic Solutions.`;
                 window.open(formatWhatsAppLink(booking.userPhone, text), '_blank');
               }}
-              className="h-12 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-widest flex-1 md:flex-none md:min-w-[150px]"
+              className="h-11 rounded-xl flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest cursor-pointer"
             >
-              <MessageSquare size={14} /> Contact Client
+              <MessageSquare size={14} /> WhatsApp
             </Button>
           </div>
         </div>

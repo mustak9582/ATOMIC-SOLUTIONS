@@ -10,6 +10,8 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
 
+import { useNavigate } from 'react-router-dom';
+
 interface DirectBookingModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -21,6 +23,7 @@ interface DirectBookingModalProps {
   labourPrice?: number;
   materialPrice?: number;
   staffCategory?: string;
+  onBookingSuccess?: (bookingId: string) => void;
 }
 
 export default function DirectBookingModal({ 
@@ -33,8 +36,10 @@ export default function DirectBookingModal({
   price,
   labourPrice = 0,
   materialPrice = 0,
-  staffCategory
+  staffCategory,
+  onBookingSuccess
 }: DirectBookingModalProps) {
+  const navigate = useNavigate();
   const { user, profile, login } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -118,11 +123,14 @@ export default function DirectBookingModal({
 
   // Pricing Calculations
   const calculateTotals = () => {
+    const lPrice = Number(labourPrice) || (bookingType === 'LABOUR' ? Number(price) : 0) || 0;
+    const mPrice = Number(materialPrice) || (bookingType === 'MATERIAL' ? Number(price) : 0) || 0;
+
     let subtotal = 0;
-    if (bookingType === 'LABOUR') subtotal = labourPrice;
-    if (bookingType === 'MATERIAL') subtotal = materialPrice;
-    if (bookingType === 'BOTH') subtotal = labourPrice + materialPrice;
-    if (bookingType === 'GENERAL') subtotal = Number(price) || 0;
+    if (bookingType === 'LABOUR') subtotal = lPrice;
+    else if (bookingType === 'MATERIAL') subtotal = mPrice;
+    else if (bookingType === 'BOTH') subtotal = lPrice + mPrice;
+    else if (bookingType === 'GENERAL') subtotal = Number(price) || 0;
 
     const advanceRequired = subtotal;
     const amountToPay = subtotal;
@@ -132,6 +140,9 @@ export default function DirectBookingModal({
 
   const generatePDFInvoice = async () => {
     try {
+      const lPrice = Number(labourPrice) || (bookingType === 'LABOUR' ? Number(price) : 0) || 0;
+      const mPrice = Number(materialPrice) || (bookingType === 'MATERIAL' ? Number(price) : 0) || 0;
+
       const pdfData: PDFInvoiceData = {
         type: 'Estimate',
         number: `EST-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -141,8 +152,8 @@ export default function DirectBookingModal({
         customerAddress: address,
         customerGSTIN: '',
         items: [
-          ...(bookingType === 'LABOUR' || bookingType === 'BOTH' ? [{ name: 'Labour Charges', description: 'Service Labour', quantity: 1, rate: labourPrice, uom: 'Job', taxable: labourPrice, amount: labourPrice }] : []),
-          ...(bookingType === 'MATERIAL' || bookingType === 'BOTH' ? [{ name: 'Material Charges', description: 'Service Material', quantity: 1, rate: materialPrice, uom: 'Job', taxable: materialPrice, amount: materialPrice }] : []),
+          ...(bookingType === 'LABOUR' || bookingType === 'BOTH' ? [{ name: 'Labour Charges', description: 'Service Labour', quantity: 1, rate: lPrice, uom: 'Job', taxable: lPrice, amount: lPrice }] : []),
+          ...(bookingType === 'MATERIAL' || bookingType === 'BOTH' ? [{ name: 'Material Charges', description: 'Service Material', quantity: 1, rate: mPrice, uom: 'Job', taxable: mPrice, amount: mPrice }] : []),
           ...(bookingType === 'GENERAL' ? [{ name: 'Service Estimate', description: 'General Service', quantity: 1, rate: Number(price) || 0, uom: 'Job', taxable: Number(price) || 0, amount: Number(price) || 0 }] : []),
         ],
         summary: {
@@ -178,25 +189,45 @@ export default function DirectBookingModal({
   };
 
   const handleWebsiteSubmit = async () => {
+    if (!validateContactInfo()) return;
     setIsSubmitting(true);
     await processBooking(true);
   };
 
   const validateContactInfo = () => {
     if (!user) {
+      toast.info('Please sign in with Google to book your service.');
       login().catch(() => toast.error('Login failed.'));
       return false;
     }
-    if (isMissingInfo && (!name || !phone || !whatsappNum || !address)) {
-      toast.error('Please fill all contact fields.');
+    const currentName = (name.trim() || profile?.name || user.displayName || '').trim();
+    const currentPhone = (phone.trim() || profile?.phone || '').trim();
+    const currentAddress = (address.trim() || profile?.address || '').trim();
+
+    if (!currentName) {
+      toast.error('Please enter your full name.');
+      return false;
+    }
+    if (!currentPhone) {
+      toast.error('Please enter your contact phone number.');
+      return false;
+    }
+    if (isMissingInfo && !currentAddress) {
+      toast.error('Please provide your service address.');
       return false;
     }
     return true;
   };
 
   const processBooking = async (isWebsiteCheckout: boolean) => {
+    if (!user) {
+      toast.info('Please sign in to complete your booking.');
+      login().catch(() => {});
+      return;
+    }
+
     try {
-      const typeText = bookingType === 'LABOUR' ? ' (Labour Only)' : bookingType === 'MATERIAL' ? ' (With Material)' : bookingType === 'BOTH' ? ' (Labour + Material)' : '';
+      const typeText = bookingType === 'LABOUR' ? ' (Labour Charges)' : bookingType === 'MATERIAL' ? ' (With Material)' : bookingType === 'BOTH' ? ' (Labour Charges + With Material)' : '';
       const { subtotal, advanceRequired, amountToPay } = calculateTotals();
       
       let proofUrl = '';
@@ -207,23 +238,28 @@ export default function DirectBookingModal({
         setIsUploading(false);
       }
 
-      const bookingData = {
-        userId: user!.uid,
-        userName: name || profile?.name || user!.displayName,
-        userPhone: phone,
-        whatsappNumber: whatsappNum,
-        userAddress: address,
-        serviceName,
-        serviceCategory: subCategoryName,
-        category: serviceName, // Fallback
-        subCategory: subCategoryName,
+      const effectiveName = (name.trim() || profile?.name || user.displayName || 'Customer').trim();
+      const effectivePhone = (phone.trim() || profile?.phone || '').trim();
+      const effectiveWhatsapp = (whatsappNum.trim() || effectivePhone || profile?.whatsappNumber || '').trim();
+      const effectiveAddress = (address.trim() || profile?.address || 'Direct Service Request').trim();
+
+      const bookingData: any = {
+        userId: user.uid,
+        userName: effectiveName,
+        userPhone: effectivePhone,
+        whatsappNumber: effectiveWhatsapp,
+        userAddress: effectiveAddress,
+        serviceName: serviceName || 'General HVAC Service',
+        serviceCategory: subCategoryName || 'General',
+        category: serviceName || 'General',
+        subCategory: subCategoryName || 'General',
         tier: 'standard',
-        price: subtotal,
-        advanceAmount: advanceRequired,
-        totalAmount: subtotal,
-        bookingType,
-        paymentPreference: 'Cash Payment',
-        paymentProofUrl: '',
+        price: subtotal || 0,
+        advanceAmount: advanceRequired || 0,
+        totalAmount: subtotal || 0,
+        bookingType: bookingType || 'GENERAL',
+        paymentPreference: isWebsiteCheckout ? paymentPreference : 'Cash Payment',
+        paymentProofUrl: proofUrl || '',
         status: 'Pending',
         timestamp: new Date().toISOString(),
         location: locationCoords ? {
@@ -231,12 +267,15 @@ export default function DirectBookingModal({
           lng: locationCoords.lng,
           detectedAt: new Date().toISOString()
         } : null,
-        staffCategory
       };
+
+      if (staffCategory) {
+        bookingData.staffCategory = staffCategory;
+      }
 
       const booking = await dataService.addDoc('bookings', bookingData);
 
-      // Notification
+      // Notification for Admin
       dataService.addDoc('notifications', {
         userId: 'admin',
         title: 'New Service Request!',
@@ -248,20 +287,36 @@ export default function DirectBookingModal({
         relatedId: booking.id
       }).catch(() => {});
 
+      // Notification for Customer
+      dataService.addDoc('notifications', {
+        userId: user.uid,
+        title: 'Booking Confirmed!',
+        message: `Your booking for ${subCategoryName} has been received. Admin is assigning a specialist.`,
+        type: 'booking_update',
+        read: false,
+        timestamp: new Date().toISOString(),
+        link: '/dashboard'
+      }).catch(() => {});
+
       if (!isWebsiteCheckout) {
         // Redirect to WhatsApp
-        const waMessage = `Hi Atomic Solutions, I want to book ${subCategoryName}${typeText}. Please call me to confirm a visit date. (Customer Name: ${bookingData.userName}, Contact: ${phone}, WhatsApp: ${whatsappNum})`;
-        const waUrl = formatWhatsAppLink(whatsapp, waMessage);
+        const waMessage = `Hi Atomic Solutions, I want to book ${subCategoryName}${typeText}. Please call me to confirm a visit date. (Customer Name: ${bookingData.userName}, Contact: ${effectivePhone}, WhatsApp: ${effectiveWhatsapp})`;
+        const waUrl = formatWhatsAppLink(whatsapp || '9582268658', waMessage);
         toast.success('Booking Recorded! Opening WhatsApp...');
         setTimeout(() => window.open(waUrl, '_blank'), 800);
       } else {
-        toast.success('Booking & Payment Proof Submitted successfully!');
+        toast.success('Booking Submitted successfully! Admin will assign an expert.');
       }
 
       onClose();
-    } catch (error) {
+      if (onBookingSuccess) {
+        onBookingSuccess(booking.id);
+      } else {
+        navigate('/dashboard', { state: { tab: 'history', selectedBookingId: booking.id } });
+      }
+    } catch (error: any) {
       console.error('Error saving booking:', error);
-      toast.error('Failed to process request.');
+      toast.error('Booking failed: ' + (error?.message || 'Please try again.'));
     } finally {
       setIsSubmitting(false);
       setIsUploading(false);
@@ -300,7 +355,7 @@ export default function DirectBookingModal({
               <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#64FFDA] mb-2 flex items-center gap-2">
                 Book Appointment 
                 <span className={`px-2 py-0.5 rounded text-[8px] ${bookingType === 'LABOUR' ? 'bg-blue-500/20 text-blue-300' : bookingType === 'MATERIAL' ? 'bg-orange-500/20 text-orange-300' : bookingType === 'BOTH' ? 'bg-purple-500/20 text-purple-300' : 'bg-teal-500/20 text-teal-300'}`}>
-                  {bookingType === 'LABOUR' ? 'Labour Only' : bookingType === 'MATERIAL' ? 'With Material' : bookingType === 'BOTH' ? 'Labour + Material' : 'General'}
+                  {bookingType === 'LABOUR' ? 'Labour Charges' : bookingType === 'MATERIAL' ? 'With Material' : bookingType === 'BOTH' ? 'Labour Charges + With Material' : 'General'}
                 </span>
               </div>
               <h3 className="text-2xl font-black uppercase tracking-tight leading-none mb-1">{subCategoryName}</h3>
@@ -479,13 +534,13 @@ export default function DirectBookingModal({
                               {(bookingType === 'LABOUR' || bookingType === 'BOTH') && (
                                 <div className="flex justify-between items-center text-sm font-bold text-navy">
                                   <span>Labour Charges</span>
-                                  <span>₹{labourPrice}</span>
+                                  <span>₹{Number(labourPrice) || (bookingType === 'LABOUR' ? Number(price) : 0) || 0}</span>
                                 </div>
                               )}
                               {(bookingType === 'MATERIAL' || bookingType === 'BOTH') && (
                                 <div className="flex justify-between items-center text-sm font-bold text-navy">
-                                  <span>Material Charges</span>
-                                  <span>₹{materialPrice}</span>
+                                  <span>With Material</span>
+                                  <span>₹{Number(materialPrice) || (bookingType === 'MATERIAL' ? Number(price) : 0) || 0}</span>
                                 </div>
                               )}
                               {bookingType === 'GENERAL' && (

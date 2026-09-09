@@ -22,22 +22,31 @@ import { useAuth } from '../contexts/AuthContext';
 import { dataService } from '../services/firebaseService';
 import { Service, SubCategory } from '../types';
 import { CORE_SERVICES } from '../constants';
+import { getLocalCustomServices, fetchServerServices } from '../services/serviceStorage';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card, CardContent } from './ui/card';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import CategoriesModal from './CategoriesModal';
 import DirectBookingModal from './DirectBookingModal';
+import { formatPriceDisplay } from '../lib/utils';
 
 export default function ServiceDetailPage() {
   const { serviceId } = useParams();
   const navigate = useNavigate();
   const { user, profile } = useAuth();
+  
   const [service, setService] = useState<Service | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCategoriesOpen, setIsCategoriesOpen] = useState(false);
   const [isDirectBookingOpen, setIsDirectBookingOpen] = useState(false);
-  const [bookingData, setBookingData] = useState<{subName: string, type: 'LABOUR' | 'MATERIAL' | 'GENERAL', price?: string | number} | null>(null);
+  const [bookingData, setBookingData] = useState<{ 
+    subName: string; 
+    type: 'LABOUR' | 'MATERIAL' | 'GENERAL' | 'BOTH'; 
+    price: number | string;
+    labourPrice?: number | string;
+    materialPrice?: number | string;
+  } | null>(null);
 
   useEffect(() => {
     if (!serviceId) return;
@@ -52,24 +61,41 @@ export default function ServiceDetailPage() {
       normalizeId(s.name).includes(searchId) ||
       searchId.includes(normalizeId(s.id))
     );
-    if (initialFallback) setService(initialFallback);
+    
+    if (initialFallback) {
+      const overrides = getLocalCustomServices();
+      const override = overrides[initialFallback.id];
+      setService(override ? { ...initialFallback, ...override } : initialFallback);
+    }
+
+    const handleServicesUpdated = (e: any) => {
+      const { serviceId: updatedId, updates } = e.detail || {};
+      if (initialFallback && (updatedId === initialFallback.id || normalizeId(updatedId || '') === searchId)) {
+        setService(curr => curr ? { ...curr, ...updates } : null);
+      }
+    };
+    window.addEventListener('atomic_services_updated', handleServicesUpdated);
+
+    fetchServerServices().then(overrides => {
+      if (initialFallback && overrides[initialFallback.id]) {
+        setService(curr => curr ? { ...curr, ...overrides[initialFallback.id] } : null);
+      }
+    }).catch(() => {});
 
     const handleData = (fsData: any) => {
+      const overrides = getLocalCustomServices();
+      const targetId = initialFallback?.id || fsData?.id || searchId;
+      const override = overrides[targetId];
+
       if (fsData) {
-        // Merge with fallback if exists to preserve static fields if any are missing in FS
-        if (initialFallback) {
-          setService({ ...initialFallback, ...fsData });
-        } else {
-          setService(fsData as Service);
-        }
+        const base = initialFallback ? { ...initialFallback, ...fsData } : (fsData as Service);
+        setService(override ? { ...base, ...override } : base);
         setLoading(false);
       } else {
-        // Doc doesn't exist in FS, keep fallback if found
         if (initialFallback) {
-          setService(initialFallback);
+          setService(override ? { ...initialFallback, ...override } : initialFallback);
           setLoading(false);
         } else {
-          // No fallback either
           setLoading(false);
         }
       }
@@ -78,7 +104,10 @@ export default function ServiceDetailPage() {
     // Attempt subscription
     const unsub = dataService.subscribeDoc('services', searchId, handleData);
 
-    return () => unsub();
+    return () => {
+      window.removeEventListener('atomic_services_updated', handleServicesUpdated);
+      unsub();
+    };
   }, [serviceId]);
 
   useEffect(() => {
@@ -300,7 +329,16 @@ export default function ServiceDetailPage() {
                         </div>
 
                         <div className="grid grid-cols-1 gap-4">
-                            {service.subCategories?.map((sub, idx) => (
+                            {service.subCategories?.map((sub, idx) => {
+                                const hasLabour = (typeof sub.labourMin === 'number' && sub.labourMin > 0) || (typeof sub.labourMax === 'number' && sub.labourMax > 0);
+                                const hasMaterial = (typeof sub.materialMin === 'number' && sub.materialMin > 0) || (typeof sub.materialMax === 'number' && sub.materialMax > 0);
+                                const labourFormatted = formatPriceDisplay(sub.labourMin, sub.labourMax, sub.unit);
+                                const materialFormatted = formatPriceDisplay(sub.materialMin, sub.materialMax, sub.unit);
+                                const fallbackFormatted = (!hasLabour && !hasMaterial && sub.minPrice) 
+                                  ? formatPriceDisplay(sub.minPrice, sub.maxPrice, sub.unit) 
+                                  : null;
+
+                                return (
                                 <div 
                                     id={`sub-${sub.id}`}
                                     key={idx} 
@@ -309,48 +347,70 @@ export default function ServiceDetailPage() {
                                     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                                         <div className="min-w-0 flex-1">
                                             <h4 className="text-lg font-extrabold text-navy truncate">{sub.name}</h4>
-                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Professional service</p>
+                                            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                                              {sub.unit ? `Per ${sub.unit}` : 'Professional service'}
+                                            </p>
                                         </div>
                                         
-                                        <div className="flex flex-wrap items-center gap-6 lg:gap-8">
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-400 shrink-0">
-                                                    <IndianRupee size={16} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-[9px] font-black uppercase text-gray-300 tracking-widest mb-0.5 whitespace-nowrap">Labour Only</div>
-                                                    <div className="text-lg font-extrabold text-navy numeric whitespace-nowrap">Rs. {sub.labourMin || sub.minPrice}</div>
-                                                </div>
-                                            </div>
+                                         <div className="flex flex-wrap items-center gap-3 sm:gap-4">
+                                             {hasLabour && (
+                                               <div className="flex items-center gap-3 p-2.5 pr-3 bg-blue-50/70 border border-blue-100 rounded-2xl">
+                                                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-blue-600 shrink-0 border border-blue-100 shadow-xs">
+                                                       <IndianRupee size={16} />
+                                                   </div>
+                                                   <div className="min-w-0 pr-1">
+                                                       <div className="text-[9px] font-black uppercase text-blue-600 tracking-wider mb-0.5 whitespace-nowrap">Labour Charges</div>
+                                                       <div className="text-base font-extrabold text-navy numeric whitespace-nowrap">{labourFormatted}</div>
+                                                   </div>
+                                                   <button 
+                                                       onClick={() => handleBook(sub.name, 'LABOUR', sub.labourMin || sub.labourMax || 0)}
+                                                       className="h-9 px-4 rounded-xl bg-navy hover:bg-navy/90 text-white transition-all font-bold text-[9px] uppercase tracking-wider whitespace-nowrap shadow-xs active:scale-[0.98]"
+                                                   >
+                                                       Book
+                                                   </button>
+                                               </div>
+                                             )}
 
-                                            <div className="flex items-center gap-3">
-                                                <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center text-orange-500 shrink-0 border border-orange-100">
-                                                    <CheckCircle2 size={16} />
-                                                </div>
-                                                <div className="min-w-0">
-                                                    <div className="text-[9px] font-black uppercase text-orange-500 tracking-widest mb-0.5 whitespace-nowrap">With Material</div>
-                                                    <div className="text-lg font-extrabold text-navy numeric whitespace-nowrap">Rs. {sub.materialMin || sub.minPrice}</div>
-                                                </div>
-                                            </div>
+                                             {hasMaterial && (
+                                               <div className="flex items-center gap-3 p-2.5 pr-3 bg-emerald-50/70 border border-emerald-100 rounded-2xl">
+                                                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-emerald-600 shrink-0 border border-emerald-100 shadow-xs">
+                                                       <CheckCircle2 size={16} />
+                                                   </div>
+                                                   <div className="min-w-0 pr-1">
+                                                       <div className="text-[9px] font-black uppercase text-emerald-700 tracking-wider mb-0.5 whitespace-nowrap">With Material</div>
+                                                       <div className="text-base font-extrabold text-navy numeric whitespace-nowrap">{materialFormatted}</div>
+                                                   </div>
+                                                   <button 
+                                                       onClick={() => handleBook(sub.name, 'MATERIAL', sub.materialMin || sub.materialMax || 0)}
+                                                       className="h-9 px-4 rounded-xl bg-teal hover:bg-[#0d9488] text-white transition-all font-bold text-[9px] uppercase tracking-wider whitespace-nowrap shadow-xs active:scale-[0.98]"
+                                                   >
+                                                       Book
+                                                   </button>
+                                               </div>
+                                             )}
 
-                                            <div className="flex gap-2 w-full sm:w-auto">
-                                                <button 
-                                                    onClick={() => handleBook(sub.name, 'LABOUR', sub.labourMin || sub.minPrice)}
-                                                    className="flex-1 sm:flex-none h-11 px-5 rounded-full bg-white border border-slate-100 text-navy hover:bg-slate-50 transition-all duration-300 font-bold text-[9px] uppercase tracking-widest whitespace-nowrap active:scale-[0.98] overflow-hidden relative btn-shine"
-                                                >
-                                                    Labour
-                                                </button>
-                                                <button 
-                                                    onClick={() => handleBook(sub.name, 'MATERIAL', sub.materialMin || sub.minPrice)}
-                                                    className="flex-1 sm:flex-none h-11 px-7 rounded-full bg-teal hover:bg-[#0d9488] text-white flex items-center justify-center transition-all duration-300 font-bold text-[9px] uppercase tracking-widest whitespace-nowrap shadow-[0_16px_30px_-18px_rgba(15,118,110,0.8)] active:scale-[0.98] overflow-hidden relative btn-shine"
-                                                >
-                                                    Material
-                                                </button>
-                                            </div>
-                                        </div>
+                                             {!hasLabour && !hasMaterial && fallbackFormatted && (
+                                               <div className="flex items-center gap-3 p-2.5 pr-3 bg-slate-50 border border-slate-200 rounded-2xl">
+                                                   <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center text-slate-500 shrink-0 border border-slate-200 shadow-xs">
+                                                       <IndianRupee size={16} />
+                                                   </div>
+                                                   <div className="min-w-0 pr-1">
+                                                       <div className="text-[9px] font-black uppercase text-gray-500 tracking-wider mb-0.5 whitespace-nowrap">Price</div>
+                                                       <div className="text-base font-extrabold text-navy numeric whitespace-nowrap">{fallbackFormatted}</div>
+                                                   </div>
+                                                   <button 
+                                                       onClick={() => handleBook(sub.name, 'GENERAL', sub.minPrice || 0)}
+                                                       className="h-9 px-4 rounded-xl bg-navy hover:bg-navy/90 text-white transition-all font-bold text-[9px] uppercase tracking-wider whitespace-nowrap shadow-xs active:scale-[0.98]"
+                                                   >
+                                                       Book
+                                                   </button>
+                                               </div>
+                                             )}
+                                         </div>
                                     </div>
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
                   </div>
@@ -468,7 +528,15 @@ export default function ServiceDetailPage() {
           subCategoryName={bookingData.subName}
           bookingType={bookingData.type}
           price={bookingData.price}
+          labourPrice={bookingData.labourPrice}
+          materialPrice={bookingData.materialPrice}
+          staffCategory={service.staffCategory}
           whatsapp="+919582268658"
+          onBookingSuccess={(newBookingId) => {
+            setIsDirectBookingOpen(false);
+            setBookingData(null);
+            navigate('/dashboard', { state: { tab: 'history', selectedBookingId: newBookingId } });
+          }}
         />
       )}
     </div>

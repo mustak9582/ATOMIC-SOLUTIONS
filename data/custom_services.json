@@ -1,0 +1,68 @@
+{
+  "hvac": {
+    "subCategories": [
+      {
+        "id": "hvac-split-inst",
+        "name": "Split AC Installation",
+        "unit": "Unit",
+        "labourMin": 1600,
+        "labourMax": 1800,
+        "minPrice": 1600,
+        "maxPrice": 1800
+      },
+      {
+        "id": "hvac-vrf-pipe",
+        "name": "VRF Copper Piping",
+        "unit": "RFT",
+        "labourMin": 150,
+        "materialMin": 400,
+        "minPrice": 150,
+        "maxPrice": 400
+      },
+      {
+        "id": "hvac-window-serv",
+        "name": "Window AC Service & Repair",
+        "unit": "Nos",
+        "labourMin": 600,
+        "minPrice": 600,
+        "maxPrice": 600
+      },
+      {
+        "id": "hvac-gas-charge",
+        "name": "AC Gas Charging (R22, R32, R410)",
+        "labourMin": 3000,
+        "labourMax": 4500,
+        "minPrice": 3000,
+        "maxPrice": 4500
+      },
+      {
+        "id": "hvac-pcb-repair",
+        "name": "PCB Repair & Replacement",
+        "labourMin": 1800,
+        "minPrice": 1800,
+        "maxPrice": 1800
+      },
+      {
+        "id": "hvac-cassette",
+        "name": "Cassette AC & Tower AC Solutions",
+        "labourMin": 2500,
+        "labourMax": 4000,
+        "minPrice": 2500,
+        "maxPrice": 4000
+      },
+      {
+        "id": "hvac-amc",
+        "name": "Annual Maintenance Contract (AMC)",
+        "labourMin": 12000,
+        "labourMax": 12000,
+        "minPrice": 12000,
+        "maxPrice": 12000
+      }
+    ],
+    "youtubeId": "",
+    "images": [
+      "https://images.unsplash.com/photo-1599839619722-39751411883e?auto=format&fit=crop&q=80&w=800"
+    ],
+    "detailedDescription": "<p>Comprehensive&nbsp;climate&nbsp;control&nbsp;and&nbsp;ventilation&nbsp;solutions.</p>"
+  }
+}

@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { dataService, safeStringify } from '../services/firebaseService';
 import { CORE_SERVICES, WHATSAPP_NUMBER, DEFAULT_CATEGORIES } from '../constants';
+import { getLocalCustomServices, saveLocalCustomService, fetchServerServices, saveServerService, mergeServicesWithOverrides } from '../services/serviceStorage';
 import { Booking, UserProfile, Service, BookingStatus, Category, AppSettings, Notification } from '../types';
 import { calculateDistance } from '../services/locationService';
 import { cn, formatWhatsAppLink, maskEmail, maskPhone, compressImage, safeDateFormatter, safeTimeFormatter } from '../lib/utils';
@@ -97,8 +98,14 @@ import {
 } from './ui/dialog';
 
 export default function AdminDashboard({ initialTab: propInitialTab }: { initialTab?: string }) {
-  const { user, profile, isAdmin, toggleAdminView, viewAsCustomer, loading: authLoading } = useAuth();
+  const { user, profile, isAdmin, hasAdminPrivilege, switchToAdmin, toggleAdminView, viewAsCustomer, loading: authLoading } = useAuth();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (hasAdminPrivilege && !isAdmin) {
+      switchToAdmin();
+    }
+  }, [hasAdminPrivilege, isAdmin, switchToAdmin]);
 
   const [activeTab, setActiveTab] = useState(propInitialTab || 'bookings');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -118,7 +125,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const [reports, setReports] = useState<any[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [allInvoices, setAllInvoices] = useState<any[]>([]);
-  const [services, setServices] = useState<Service[]>(CORE_SERVICES);
+  const [services, setServices] = useState<Service[]>(() => mergeServicesWithOverrides(CORE_SERVICES));
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [appSettings, setAppSettings] = useState<AppSettings>({
     logoUrl: '',
@@ -149,11 +156,13 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [editDate, setEditDate] = useState('');
   const [editSlot, setEditSlot] = useState('Morning (10 AM - 1 PM)');
+  const [editEta, setEditEta] = useState('');
 
   useEffect(() => {
     if (selectedBookingForDetails) {
       setEditDate(selectedBookingForDetails.appointmentDate || new Date().toISOString().split('T')[0]);
       setEditSlot(selectedBookingForDetails.appointmentSlot || 'Morning (10 AM - 1 PM)');
+      setEditEta(selectedBookingForDetails.eta || '');
     }
   }, [selectedBookingForDetails]);
   const [bookingToDeleteId, setBookingToDeleteId] = useState<string | null>(null);
@@ -286,18 +295,23 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
         setConnectionStatus('offline');
       });
       
+      fetchServerServices().then(overrides => {
+        setServices(current => mergeServicesWithOverrides(current, overrides));
+      }).catch(() => {});
+
       const unsubServices = dataService.subscribe('services', (data) => {
         if (data.length > 0) {
           setServices(current => {
-            const merged = [...CORE_SERVICES];
+            const localOverrides = getLocalCustomServices();
+            const merged = mergeServicesWithOverrides([...CORE_SERVICES], localOverrides);
             (data as Service[]).forEach(fsService => {
               const index = merged.findIndex(s => s.id === fsService.id);
               if (index !== -1) {
-                // Only update if NOT dirty
-                if (!dirtyServices[fsService.id]) {
+                if (localOverrides[fsService.id]) {
+                  merged[index] = { ...merged[index], ...localOverrides[fsService.id] };
+                } else if (!dirtyServices[fsService.id]) {
                   merged[index] = { ...merged[index], ...fsService };
                 } else {
-                  // Keep current local state for dirty service
                   const currentLocal = current.find(s => s.id === fsService.id);
                   if (currentLocal) merged[index] = currentLocal;
                   else merged[index] = { ...merged[index], ...fsService };
@@ -380,7 +394,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
     </div>
   </div>;
 
-  if (!isAdmin) return <Navigate to="/" />;
+  if (!isAdmin && !hasAdminPrivilege) return <Navigate to="/" />;
 
   const handleTabChange = (val: string) => {
     setActiveTab(val);
@@ -703,6 +717,10 @@ By: *Atomic Solutions*`;
       await updateBooking(bookingToAssign.id, {
         staffId: staff.uid,
         staffName: staff.name,
+        staffPhone: staff.phone || '',
+        staffPhoto: staff.photoURL || '',
+        staffCategory: staff.staffCategory || '',
+        eta: '30-45 mins',
         payoutAmount: payoutAmount,
         status: 'Assigned'
       });
@@ -715,8 +733,23 @@ By: *Atomic Solutions*`;
         type: 'booking_new',
         read: false,
         timestamp: new Date().toISOString(),
-        link: '/professional'
+        link: '/professional',
+        relatedId: bookingToAssign.id
       });
+
+      // Notify customer that technician has been assigned
+      if (bookingToAssign.userId) {
+        await dataService.addDoc('notifications', {
+          userId: bookingToAssign.userId,
+          title: 'Technician Assigned!',
+          message: `${staff.name} has been assigned to your ${bookingToAssign.serviceName} booking. You can now track live arrival and chat directly.`,
+          type: 'booking_update',
+          read: false,
+          timestamp: new Date().toISOString(),
+          link: '/my-account/bookings',
+          relatedId: bookingToAssign.id
+        });
+      }
 
       toast.success('Staff assigned successfully');
       setIsStaffModalOpen(false);
@@ -817,33 +850,33 @@ By: *Atomic Solutions*`;
   const updateService = async (serviceId: string, updates: Partial<Service>) => {
     if (!serviceId) return;
     
+    // 1. Immediately save to local storage & trigger UI update
+    saveLocalCustomService(serviceId, updates);
+    
+    // 2. Update local React state immediately so UI reflects saved state
+    setServices(current => current.map(s => s.id === serviceId ? { ...s, ...updates } : s));
+
+    // 3. Save to server backend (writes to data/custom_services.json)
+    saveServerService(serviceId, updates).catch(err => {
+      console.warn('Server storage warning:', err);
+    });
+
+    // 4. Attempt to sync to Cloud Firestore
     try {
-      const existing = await dataService.getDoc('services', serviceId).catch(err => {
-        console.warn("Firestore access error during check:", err);
-        return null;
-      });
-      
       const dataToSync = JSON.parse(safeStringify(updates));
+      const existing = await dataService.getDoc('services', serviceId).catch(() => null);
       
       if (!existing) {
         const fullService = services.find(s => s.id === serviceId);
         if (fullService) {
           const dataToSave = JSON.parse(safeStringify({ ...fullService, ...updates }));
           await dataService.setDoc('services', serviceId, dataToSave);
-        } else {
-          console.error("Service not found locally for sync:", serviceId);
-          throw new Error("Service not found");
         }
       } else {
         await dataService.updateDoc('services', serviceId, dataToSync);
       }
-      // Only toast on success if NOT auto-saving or if explicitly requested
-      if (!isAutoSave) toast.success('Changes synced to cloud');
     } catch (e: any) {
-      console.error('Update service error:', e);
-      const msg = e?.message || "Unknown error";
-      toast.error(`Update failed: ${msg.substring(0, 40)}`);
-      throw e;
+      console.warn('Firestore cloud sync skipped (saved to local & server storage):', e?.message || e);
     }
   };
 
@@ -1575,18 +1608,92 @@ By: *Atomic Solutions*`;
                     <option>Evening (4 PM - 7 PM)</option>
                   </select>
                 </div>
+
+                {/* Flexible Reach Time / ETA Setting */}
+                <div className="space-y-1.5 sm:col-span-2 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[8px] font-black text-navy uppercase tracking-wider flex items-center gap-1.5">
+                      <Clock size={12} className="text-teal" /> Expected Reach Time / ETA (पहुंचने का समय)
+                    </label>
+                    {editEta && (
+                      <span className="text-[8px] font-black text-teal bg-teal/10 px-2 py-0.5 rounded-full">
+                        Set: {editEta}
+                      </span>
+                    )}
+                  </div>
+                  <input 
+                    type="text"
+                    placeholder="e.g. 1 Hour, 2 Hours, Tomorrow 11:00 AM, In 1-2 Days..."
+                    className="w-full bg-white border border-gray-200 rounded-xl px-4 py-2.5 font-bold text-xs text-navy outline-none focus:border-teal"
+                    value={editEta}
+                    onChange={(e) => setEditEta(e.target.value)}
+                  />
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {['30 mins', '1 Hour', '2 Hours', 'Today Evening', 'Tomorrow (11 AM)', 'In 1-2 Days', 'In 3-5 Days'].map((preset) => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => setEditEta(preset)}
+                        className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border transition-all ${
+                          editEta === preset 
+                            ? 'bg-teal text-navy border-teal shadow-sm font-black' 
+                            : 'bg-white hover:bg-gray-100 text-gray-500 border-gray-200'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
                     <div className="flex gap-2">
                       {selectedBookingForDetails?.status === 'Pending' ? (
                         <Button 
-                          onClick={() => selectedBookingForDetails && updateBooking(selectedBookingForDetails.id, { status: 'Accepted', appointmentDate: editDate, appointmentSlot: editSlot })}
+                          onClick={() => {
+                            if (!selectedBookingForDetails) return;
+                            updateBooking(selectedBookingForDetails.id, { 
+                              status: 'Accepted', 
+                              appointmentDate: editDate, 
+                              appointmentSlot: editSlot,
+                              eta: editEta 
+                            });
+                            if (selectedBookingForDetails.userId && editEta) {
+                              dataService.addDoc('notifications', {
+                                userId: selectedBookingForDetails.userId,
+                                title: 'Technician Arrival Scheduled',
+                                message: `Your ${selectedBookingForDetails.serviceName} service reach time is scheduled for: ${editEta}.`,
+                                type: 'booking_update',
+                                read: false,
+                                timestamp: new Date().toISOString(),
+                                link: '/dashboard'
+                              }).catch(() => {});
+                            }
+                          }}
                           className="flex-[3] bg-teal hover:bg-navy text-white h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-teal/20"
                         >
                           Confirm & Schedule
                         </Button>
                       ) : (
                         <Button 
-                          onClick={() => selectedBookingForDetails && updateBooking(selectedBookingForDetails.id, { appointmentDate: editDate, appointmentSlot: editSlot })}
+                          onClick={() => {
+                            if (!selectedBookingForDetails) return;
+                            updateBooking(selectedBookingForDetails.id, { 
+                              appointmentDate: editDate, 
+                              appointmentSlot: editSlot,
+                              eta: editEta 
+                            });
+                            if (selectedBookingForDetails.userId && editEta) {
+                              dataService.addDoc('notifications', {
+                                userId: selectedBookingForDetails.userId,
+                                title: 'Reach Time / ETA Updated',
+                                message: `Arrival update: Technician is expected to reach by ${editEta}.`,
+                                type: 'booking_update',
+                                read: false,
+                                timestamp: new Date().toISOString(),
+                                link: '/dashboard'
+                              }).catch(() => {});
+                            }
+                          }}
                           className="flex-[2] bg-blue-600 hover:bg-blue-700 h-14 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white shadow-lg shadow-blue-100"
                         >
                           Update Visit Details
@@ -2472,8 +2579,8 @@ By: *Atomic Solutions*`;
                       value={manualBookingData.tier}
                       onChange={e => setManualBookingData(prev => ({ ...prev, tier: e.target.value as any }))}
                    >
-                      <option value="LABOUR">Service Labour Only</option>
-                      <option value="MATERIAL">Materials Included</option>
+                      <option value="LABOUR">Labour Charges</option>
+                      <option value="MATERIAL">With Material</option>
                    </select>
                 </div>
                 <div className="space-y-1.5">

@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import cors from 'cors';
 import nodemailer from 'nodemailer';
 import Razorpay from 'razorpay';
@@ -211,6 +212,167 @@ async function startServer() {
     } catch (error: any) {
       console.error('Gemini API proxy error:', error);
       res.status(500).json({ error: 'AI service temporarily unavailable', fallbackRequired: true });
+    }
+  });
+
+  // --- Persistent Custom Services Storage ---
+  const servicesFilePath = path.join(process.cwd(), 'data', 'custom_services.json');
+  const getStoredServices = (): Record<string, any> => {
+    try {
+      if (!fs.existsSync(path.dirname(servicesFilePath))) {
+        fs.mkdirSync(path.dirname(servicesFilePath), { recursive: true });
+      }
+      if (fs.existsSync(servicesFilePath)) {
+        const raw = fs.readFileSync(servicesFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('Error reading custom_services.json:', e);
+    }
+    return {};
+  };
+
+  const saveStoredServices = (data: Record<string, any>) => {
+    try {
+      if (!fs.existsSync(path.dirname(servicesFilePath))) {
+        fs.mkdirSync(path.dirname(servicesFilePath), { recursive: true });
+      }
+      fs.writeFileSync(servicesFilePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error saving custom_services.json:', e);
+    }
+  };
+
+  app.get('/api/services', (_req, res) => {
+    res.json(getStoredServices());
+  });
+
+  app.post('/api/services/:id', (req, res) => {
+    const serviceId = req.params.id;
+    const updates = req.body;
+    if (!serviceId) return res.status(400).json({ error: 'Service ID is required' });
+    
+    const all = getStoredServices();
+    all[serviceId] = { ...(all[serviceId] || {}), ...updates };
+    saveStoredServices(all);
+    res.json({ success: true, service: all[serviceId] });
+  });
+
+  // --- Persistent Bookings Storage ---
+  const bookingsFilePath = path.join(process.cwd(), 'data', 'bookings.json');
+  const getStoredBookings = (): any[] => {
+    try {
+      if (!fs.existsSync(path.dirname(bookingsFilePath))) {
+        fs.mkdirSync(path.dirname(bookingsFilePath), { recursive: true });
+      }
+      if (fs.existsSync(bookingsFilePath)) {
+        const raw = fs.readFileSync(bookingsFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('Error reading bookings.json:', e);
+    }
+    return [];
+  };
+
+  const saveStoredBookings = (list: any[]) => {
+    try {
+      if (!fs.existsSync(path.dirname(bookingsFilePath))) {
+        fs.mkdirSync(path.dirname(bookingsFilePath), { recursive: true });
+      }
+      fs.writeFileSync(bookingsFilePath, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error saving bookings.json:', e);
+    }
+  };
+
+  app.get('/api/bookings', (_req, res) => {
+    res.json(getStoredBookings());
+  });
+
+  app.post('/api/bookings', (req, res) => {
+    const newBooking = req.body;
+    if (!newBooking) return res.status(400).json({ error: 'Booking payload required' });
+    const id = newBooking.id || `bk_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const full = { ...newBooking, id };
+    const list = getStoredBookings();
+    const existingIdx = list.findIndex(b => b.id === id);
+    if (existingIdx !== -1) {
+      list[existingIdx] = { ...list[existingIdx], ...full };
+    } else {
+      list.unshift(full);
+    }
+    saveStoredBookings(list);
+    res.json({ success: true, booking: full });
+  });
+
+  app.patch('/api/bookings/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    const list = getStoredBookings();
+    const idx = list.findIndex(b => b.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updates };
+      saveStoredBookings(list);
+      res.json({ success: true, booking: list[idx] });
+    } else {
+      const created = { ...updates, id };
+      list.unshift(created);
+      saveStoredBookings(list);
+      res.json({ success: true, booking: created });
+    }
+  });
+
+  // --- Persistent Notifications Storage ---
+  const notifsFilePath = path.join(process.cwd(), 'data', 'notifications.json');
+  const getStoredNotifs = (): any[] => {
+    try {
+      if (!fs.existsSync(path.dirname(notifsFilePath))) {
+        fs.mkdirSync(path.dirname(notifsFilePath), { recursive: true });
+      }
+      if (fs.existsSync(notifsFilePath)) {
+        const raw = fs.readFileSync(notifsFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {}
+    return [];
+  };
+
+  const saveStoredNotifs = (list: any[]) => {
+    try {
+      if (!fs.existsSync(path.dirname(notifsFilePath))) {
+        fs.mkdirSync(path.dirname(notifsFilePath), { recursive: true });
+      }
+      fs.writeFileSync(notifsFilePath, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (e) {}
+  };
+
+  app.get('/api/notifications', (_req, res) => {
+    res.json(getStoredNotifs());
+  });
+
+  app.post('/api/notifications', (req, res) => {
+    const notif = req.body;
+    if (!notif) return res.status(400).json({ error: 'Payload required' });
+    const id = notif.id || `notif_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const full = { ...notif, id };
+    const list = getStoredNotifs();
+    list.unshift(full);
+    saveStoredNotifs(list);
+    res.json({ success: true, notification: full });
+  });
+
+  app.patch('/api/notifications/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    const list = getStoredNotifs();
+    const idx = list.findIndex(n => n.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updates };
+      saveStoredNotifs(list);
+      res.json({ success: true, notification: list[idx] });
+    } else {
+      res.status(404).json({ error: 'Not found' });
     }
   });
 

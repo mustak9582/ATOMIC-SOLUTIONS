@@ -1,0 +1,23 @@
+[
+  {
+    "userId": "admin_mustak_9582",
+    "title": "Booking Confirmed!",
+    "message": "Your booking for Split AC Installation has been received. Admin is assigning a specialist.",
+    "type": "booking_update",
+    "read": false,
+    "timestamp": "2026-09-09T11:21:43.632Z",
+    "link": "/dashboard",
+    "id": "notifications_1788952903632_3914ks"
+  },
+  {
+    "userId": "admin",
+    "title": "New Service Request!",
+    "message": "Mustak Ansari (Admin) requested Split AC Installation.",
+    "type": "booking_new",
+    "read": false,
+    "timestamp": "2026-09-09T11:21:43.630Z",
+    "link": "/admin/bookings",
+    "relatedId": "bookings_1788952902651_9bbya2",
+    "id": "notifications_1788952903630_9q2rwc"
+  }
+]

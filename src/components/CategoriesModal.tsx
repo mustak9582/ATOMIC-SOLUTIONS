@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { X, Search, MessageCircle } from 'lucide-react';
 import { Service, SubCategory } from '../types';
 import SubCategoryTable from './SubCategoryTable';
-import { formatWhatsAppLink } from '../lib/utils';
+import { formatWhatsAppLink, formatPriceDisplay, cn } from '../lib/utils';
 
 interface CategoriesModalProps {
   isOpen: boolean;
@@ -81,40 +81,69 @@ export default function CategoriesModal({ isOpen, onClose, service, whatsapp, on
               {/* Mobile/Narrow Card View */}
               <div className="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {filteredSubs.map((sub) => {
-                  const labourMin = sub.labourMin || sub.minPrice;
-                  const labourMax = sub.labourMax || sub.maxPrice;
-                  const materialMin = sub.materialMin || sub.minPrice;
-                  const materialMax = sub.materialMax || sub.maxPrice;
-                  const displayUnit = sub.unit ? `/ ${sub.unit}` : '';
+                  const hasLabour = (typeof sub.labourMin === 'number' && sub.labourMin > 0) || (typeof sub.labourMax === 'number' && sub.labourMax > 0);
+                  const hasMaterial = (typeof sub.materialMin === 'number' && sub.materialMin > 0) || (typeof sub.materialMax === 'number' && sub.materialMax > 0);
+                  const labourText = formatPriceDisplay(sub.labourMin, sub.labourMax, sub.unit);
+                  const materialText = formatPriceDisplay(sub.materialMin, sub.materialMax, sub.unit);
+                  const fallbackText = (!hasLabour && !hasMaterial && sub.minPrice) 
+                    ? formatPriceDisplay(sub.minPrice, sub.maxPrice, sub.unit) 
+                    : null;
 
                   return (
                     <div key={sub.id} className="p-5 bg-[#0A192F]/60 rounded-3xl border border-[#233554] flex flex-col h-full shadow-lg">
                       <h3 className="text-base font-black text-white mb-4 uppercase tracking-tight line-clamp-2 min-h-[3rem]">{sub.name}</h3>
                       
                       <div className="flex flex-col gap-2.5 mb-6 flex-1">
-                        <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
-                          <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Labour Only</span>
-                          <span className="text-sm font-black text-white">₹{labourMin}</span>
-                        </div>
-                        <div className="flex justify-between items-center p-3 bg-[#64FFDA]/5 rounded-xl border border-[#64FFDA]/20">
-                          <span className="text-[9px] font-bold text-[#64FFDA] uppercase tracking-widest">With Material</span>
-                          <span className="text-sm font-black text-[#64FFDA]">₹{materialMin}</span>
-                        </div>
+                        {hasLabour && (
+                          <div className="flex justify-between items-center p-3 bg-blue-500/10 rounded-xl border border-blue-500/20">
+                            <span className="text-[9px] font-bold text-blue-400 uppercase tracking-widest">Labour Charges</span>
+                            <span className="text-sm font-black text-white">{labourText}</span>
+                          </div>
+                        )}
+                        {hasMaterial && (
+                          <div className="flex justify-between items-center p-3 bg-[#64FFDA]/5 rounded-xl border border-[#64FFDA]/20">
+                            <span className="text-[9px] font-bold text-[#64FFDA] uppercase tracking-widest">With Material</span>
+                            <span className="text-sm font-black text-[#64FFDA]">{materialText}</span>
+                          </div>
+                        )}
+                        {!hasLabour && !hasMaterial && fallbackText && (
+                          <div className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/5">
+                            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Price</span>
+                            <span className="text-sm font-black text-white">{fallbackText}</span>
+                          </div>
+                        )}
+                        {!hasLabour && !hasMaterial && !fallbackText && (
+                          <div className="p-3 text-center text-[10px] font-bold text-[#8892B0] uppercase tracking-widest">
+                            Price on inspection
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 gap-2">
-                        <button 
-                          onClick={() => onBook(sub.name, 'LABOUR', labourMin)}
-                          className="bg-[#112240] text-white py-3 rounded-xl font-black text-[9px] uppercase tracking-widest border border-[#233554] hover:bg-[#1a2b4b] transition-all"
-                        >
-                          Labour
-                        </button>
-                        <button 
-                          onClick={() => onBook(sub.name, 'MATERIAL', materialMin)}
-                          className="bg-[#64FFDA] text-[#0A192F] py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-lg shadow-[#64FFDA]/10"
-                        >
-                          Material
-                        </button>
+                      <div className={cn("grid gap-2", hasLabour && hasMaterial ? "grid-cols-2" : "grid-cols-1")}>
+                        {hasLabour && (
+                          <button 
+                            onClick={() => onBook(sub.name, 'LABOUR', sub.labourMin || sub.labourMax || 0)}
+                            className="bg-[#112240] text-blue-300 py-3 rounded-xl font-black text-[9px] uppercase tracking-widest border border-[#233554] hover:bg-blue-600 hover:text-white transition-all"
+                          >
+                            Labour Charges
+                          </button>
+                        )}
+                        {hasMaterial && (
+                          <button 
+                            onClick={() => onBook(sub.name, 'MATERIAL', sub.materialMin || sub.materialMax || 0)}
+                            className="bg-[#64FFDA] text-[#0A192F] py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-lg shadow-[#64FFDA]/10"
+                          >
+                            With Material
+                          </button>
+                        )}
+                        {!hasLabour && !hasMaterial && (
+                          <button 
+                            onClick={() => onBook(sub.name, 'GENERAL', sub.minPrice || 0)}
+                            className="bg-[#64FFDA] text-[#0A192F] py-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-white transition-all shadow-lg shadow-[#64FFDA]/10"
+                          >
+                            Book Now
+                          </button>
+                        )}
                       </div>
                     </div>
                   );

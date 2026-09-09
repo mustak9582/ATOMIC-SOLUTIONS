@@ -6,8 +6,8 @@ import { TabsContent } from '../ui/tabs';
 import { Zap, Layers, Plus, ArrowUp, ArrowDown, Trash2, Save } from 'lucide-react';
 import ReactQuill from 'react-quill-new';
 import 'react-quill-new/dist/quill.snow.css';
-import { Service, Category } from '../../types';
-import { cn } from '../../lib/utils';
+import { Service, Category, SubCategory } from '../../types';
+import { cn, formatPriceDisplay } from '../../lib/utils';
 import { toast } from 'sonner';
 
 export interface TabPricingProps {
@@ -43,6 +43,66 @@ export function TabPricing({
   handleLocalServiceUpdate,
   handleFeaturedImageUpload
 }: TabPricingProps) {
+  // Helper to sanitize subcategories before persisting to prevent phantom/ghost data
+  const sanitizeSubCategories = (subs: SubCategory[]): SubCategory[] => {
+    return (subs || []).map(sub => {
+      const clean: SubCategory = {
+        id: sub.id,
+        name: sub.name,
+      };
+      if (sub.unit?.trim()) clean.unit = sub.unit.trim();
+      
+      const hasLabourMin = typeof sub.labourMin === 'number' && !isNaN(sub.labourMin) && sub.labourMin > 0;
+      const hasLabourMax = typeof sub.labourMax === 'number' && !isNaN(sub.labourMax) && sub.labourMax > 0;
+      const hasMaterialMin = typeof sub.materialMin === 'number' && !isNaN(sub.materialMin) && sub.materialMin > 0;
+      const hasMaterialMax = typeof sub.materialMax === 'number' && !isNaN(sub.materialMax) && sub.materialMax > 0;
+
+      if (hasLabourMin) clean.labourMin = sub.labourMin;
+      if (hasLabourMax) clean.labourMax = sub.labourMax;
+      if (hasMaterialMin) clean.materialMin = sub.materialMin;
+      if (hasMaterialMax) clean.materialMax = sub.materialMax;
+
+      const validMins = [clean.labourMin, clean.materialMin].filter((v): v is number => typeof v === 'number' && v > 0);
+      const validMaxs = [clean.labourMax, clean.materialMax, clean.labourMin, clean.materialMin].filter((v): v is number => typeof v === 'number' && v > 0);
+
+      clean.minPrice = validMins.length > 0 ? Math.min(...validMins) : 0;
+      clean.maxPrice = validMaxs.length > 0 ? Math.max(...validMaxs) : clean.minPrice;
+
+      return clean;
+    });
+  };
+
+  const handleSubPriceChange = (
+    serviceId: string, 
+    idx: number, 
+    field: 'labourMin' | 'labourMax' | 'materialMin' | 'materialMax', 
+    rawVal: string
+  ) => {
+    const service = services.find(item => item.id === serviceId);
+    if (!service) return;
+
+    const trimmed = rawVal.trim();
+    const num = trimmed === '' ? undefined : Number(trimmed);
+    const parsed = (num === undefined || isNaN(num) || num <= 0) ? undefined : num;
+
+    const newSubs = [...(service.subCategories || [])];
+    const target = { ...newSubs[idx] };
+
+    if (parsed === undefined) {
+      delete target[field];
+    } else {
+      target[field] = parsed;
+    }
+
+    const validMins = [target.labourMin, target.materialMin].filter((v): v is number => typeof v === 'number' && v > 0);
+    const validMaxs = [target.labourMax, target.materialMax, target.labourMin, target.materialMin].filter((v): v is number => typeof v === 'number' && v > 0);
+    target.minPrice = validMins.length > 0 ? Math.min(...validMins) : 0;
+    target.maxPrice = validMaxs.length > 0 ? Math.max(...validMaxs) : target.minPrice;
+
+    newSubs[idx] = target;
+    handleLocalServiceUpdate(serviceId, { subCategories: newSubs });
+  };
+
   return (
           <TabsContent value="pricing">
             <Card className="rounded-[32px] border-none shadow-xl shadow-gray-100 p-8">
@@ -159,10 +219,16 @@ export function TabPricing({
                                       {!isAutoSave && dirtyServices[s.id] && (
                                         <button 
                                           onClick={async () => {
-                                            const newSubs = [...(s.subCategories || [])];
-                                            await updateService(s.id, { subCategories: newSubs });
-                                            setDirtyServices(prev => { const next = {...prev}; delete next[s.id]; return next; });
-                                            toast.success("Saved!");
+                                            const loadingToast = toast.loading(`Saving ${sub.name}...`);
+                                            try {
+                                              const cleaned = sanitizeSubCategories(s.subCategories || []);
+                                              await updateService(s.id, { subCategories: cleaned });
+                                              setDirtyServices(prev => { const next = {...prev}; delete next[s.id]; return next; });
+                                              toast.success(`${sub.name} saved!`, { id: loadingToast });
+                                            } catch (err: any) {
+                                              console.error("Item save error:", err);
+                                              toast.error(err?.message || "Failed to save", { id: loadingToast });
+                                            }
                                           }}
                                           className="absolute right-2 top-7 opacity-0 group-hover/field:opacity-100 transition-opacity text-teal hover:scale-110"
                                           title="Save Item Now"
@@ -171,11 +237,12 @@ export function TabPricing({
                                         </button>
                                       )}
                                     </div>
-                                    <div className="w-24">
+                                    <div className="w-28">
                                       <label className="text-[9px] font-black text-gray-400 tracking-widest uppercase block mb-1">Unit (e.g. Sq. Ft)</label>
                                       <input 
                                         className="w-full bg-gray-50 border border-gray-50 rounded-lg px-3 py-1.5 font-bold text-xs"
                                         defaultValue={sub.unit || ''}
+                                        placeholder="Sq. Ft / Unit"
                                         onBlur={(e) => {
                                           if (e.target.value === (sub.unit || '')) return;
                                           const newSubs = [...(s.subCategories || [])];
@@ -197,59 +264,97 @@ export function TabPricing({
                                     </Button>
                                   </div>
                                   
-                                  <div className="grid grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                      <label className="text-[8px] font-black text-blue-400 tracking-widest uppercase block mb-1">Labour (₹)</label>
-                                      <div className="relative group/price">
-                                        <input 
-                                          type="number"
-                                          className="w-full bg-blue-50/30 border border-blue-50 rounded-lg px-3 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-blue-200 pr-8"
-                                          defaultValue={sub.labourMin || 0}
-                                          onBlur={(e) => {
-                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                            if (isNaN(val) || val === (sub.labourMin || 0)) return;
-                                            const newSubs = [...(s.subCategories || [])];
-                                            // Also update labourMax to be the same as labourMin to avoid any range logic elsewhere
-                                            newSubs[idx] = { ...sub, labourMin: val, labourMax: val };
-                                            handleLocalServiceUpdate(s.id, { subCategories: newSubs });
-                                          }}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                        {!isAutoSave && dirtyServices[s.id] && (
-                                          <button 
-                                            onClick={() => updateService(s.id, { subCategories: s.subCategories })}
-                                            className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/price:opacity-100 transition-opacity text-blue-400 hover:text-blue-600"
-                                          >
-                                            <Save size={12} />
-                                          </button>
+                                  {/* Pricing: Labour Charges & With Material Charges */}
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                    {/* Labour Charges Section */}
+                                    <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[9px] font-black text-blue-700 tracking-wider uppercase flex items-center gap-1">
+                                          <span>👷</span> Labour Charges
+                                        </span>
+                                        {sub.labourMin ? (
+                                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">
+                                            ₹{sub.labourMin}{sub.labourMax && sub.labourMax !== sub.labourMin ? ` - ₹${sub.labourMax}` : ''}
+                                          </span>
+                                        ) : (
+                                          <span className="text-[8px] text-gray-400 font-medium">Not set</span>
                                         )}
                                       </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <label className="text-[8px] font-bold text-gray-500 uppercase block mb-1">Min Price (₹)</label>
+                                          <input 
+                                            type="number"
+                                            placeholder="Min (e.g. 600)"
+                                            className="w-full bg-white border border-blue-100 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-blue-300"
+                                            defaultValue={sub.labourMin ?? ''}
+                                            onBlur={(e) => {
+                                              if (e.target.value === (sub.labourMin ? String(sub.labourMin) : '')) return;
+                                              handleSubPriceChange(s.id, idx, 'labourMin', e.target.value);
+                                            }}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="text-[8px] font-bold text-gray-500 uppercase block mb-1">Max Price (₹)</label>
+                                          <input 
+                                            type="number"
+                                            placeholder="Max (Optional)"
+                                            className="w-full bg-white border border-blue-100 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-blue-300"
+                                            defaultValue={sub.labourMax ?? ''}
+                                            onBlur={(e) => {
+                                              if (e.target.value === (sub.labourMax ? String(sub.labourMax) : '')) return;
+                                              handleSubPriceChange(s.id, idx, 'labourMax', e.target.value);
+                                            }}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                        </div>
+                                      </div>
                                     </div>
-                                    <div>
-                                      <label className="text-[8px] font-black text-green-400 tracking-widest uppercase block mb-1">Material (₹)</label>
-                                      <div className="relative group/price">
-                                        <input 
-                                          type="number"
-                                          className="w-full bg-green-50/30 border border-green-50 rounded-lg px-3 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-green-200 pr-8"
-                                          defaultValue={sub.materialMin || 0}
-                                          onBlur={(e) => {
-                                            const val = e.target.value === '' ? 0 : Number(e.target.value);
-                                            if (isNaN(val) || val === (sub.materialMin || 0)) return;
-                                            const newSubs = [...(s.subCategories || [])];
-                                            // Also update materialMax to be the same as materialMin
-                                            newSubs[idx] = { ...sub, materialMin: val, materialMax: val };
-                                            handleLocalServiceUpdate(s.id, { subCategories: newSubs });
-                                          }}
-                                          onFocus={(e) => e.target.select()}
-                                        />
-                                        {!isAutoSave && dirtyServices[s.id] && (
-                                          <button 
-                                            onClick={() => updateService(s.id, { subCategories: s.subCategories })}
-                                            className="absolute right-1 top-1/2 -translate-y-1/2 opacity-0 group-hover/price:opacity-100 transition-opacity text-green-400 hover:text-green-600"
-                                          >
-                                            <Save size={12} />
-                                          </button>
+
+                                    {/* With Material Section */}
+                                    <div className="p-3 bg-emerald-50/50 rounded-xl border border-emerald-100">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <span className="text-[9px] font-black text-emerald-700 tracking-wider uppercase flex items-center gap-1">
+                                          <span>📦</span> With Material
+                                        </span>
+                                        {sub.materialMin ? (
+                                          <span className="text-[8px] font-bold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700">
+                                            ₹{sub.materialMin}{sub.materialMax && sub.materialMax !== sub.materialMin ? ` - ₹${sub.materialMax}` : ''}
+                                          </span>
+                                        ) : (
+                                          <span className="text-[8px] text-gray-400 font-medium">Not set</span>
                                         )}
+                                      </div>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        <div>
+                                          <label className="text-[8px] font-bold text-gray-500 uppercase block mb-1">Min Price (₹)</label>
+                                          <input 
+                                            type="number"
+                                            placeholder="Min (e.g. 1200)"
+                                            className="w-full bg-white border border-emerald-100 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-emerald-300"
+                                            defaultValue={sub.materialMin ?? ''}
+                                            onBlur={(e) => {
+                                              if (e.target.value === (sub.materialMin ? String(sub.materialMin) : '')) return;
+                                              handleSubPriceChange(s.id, idx, 'materialMin', e.target.value);
+                                            }}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="text-[8px] font-bold text-gray-500 uppercase block mb-1">Max Price (₹)</label>
+                                          <input 
+                                            type="number"
+                                            placeholder="Max (Optional)"
+                                            className="w-full bg-white border border-emerald-100 rounded-lg px-2.5 py-1.5 font-bold text-xs outline-none focus:ring-1 focus:ring-emerald-300"
+                                            defaultValue={sub.materialMax ?? ''}
+                                            onBlur={(e) => {
+                                              if (e.target.value === (sub.materialMax ? String(sub.materialMax) : '')) return;
+                                              handleSubPriceChange(s.id, idx, 'materialMax', e.target.value);
+                                            }}
+                                            onFocus={(e) => e.target.select()}
+                                          />
+                                        </div>
                                       </div>
                                     </div>
                                   </div>
@@ -330,8 +435,9 @@ export function TabPricing({
                              onClick={async () => {
                                const loadingToast = toast.loading(`Saving ${s.name} prices...`);
                                try {
+                                 const cleaned = sanitizeSubCategories(s.subCategories || []);
                                  await updateService(s.id, { 
-                                   subCategories: s.subCategories,
+                                   subCategories: cleaned,
                                    youtubeId: s.youtubeId,
                                    images: s.images,
                                    detailedDescription: s.detailedDescription
@@ -342,8 +448,9 @@ export function TabPricing({
                                    return next;
                                  });
                                  toast.success(`${s.name} updated successfully!`, { id: loadingToast });
-                               } catch (err) {
-                                 toast.error("Failed to save changes", { id: loadingToast });
+                               } catch (err: any) {
+                                 console.error("Save error:", err);
+                                 toast.error(err?.message || "Failed to save changes", { id: loadingToast });
                                }
                              }}
                              className={cn(
