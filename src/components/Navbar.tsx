@@ -241,13 +241,6 @@ export default function Navbar() {
               >
                 Contact
               </a>
-
-              <Link 
-                to="/login" 
-                className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider"
-              >
-                Login
-              </Link>
               
               {hasAdminPrivilege && (
                 <div className="hidden lg:flex items-center border-l border-gray-100 pl-6 ml-2">
