@@ -34,6 +34,8 @@ import { CORE_SERVICES, WHATSAPP_NUMBER, PHONE_NUMBER, INSTAGRAM_URL, YOUTUBE_UR
 
 import Logo from './Logo';
 import ReviewModal from './ReviewModal';
+import InstallAppButton from './InstallAppButton';
+import ViewModeToggle from './ViewModeToggle';
 
 export default function Navbar() {
   const { user, profile, login, logout, hasAdminPrivilege, isAdmin, isStaff, viewAsCustomer, toggleAdminView, switchToAdmin, loading, activeRole, setActiveRole } = useAuth();
@@ -118,8 +120,6 @@ export default function Navbar() {
       <div className="fixed top-0 left-0 right-0 z-[60] hidden h-10 border-b border-white/70 glass-panel md:block">
         <div className="max-w-7xl mx-auto px-4 h-full flex justify-between items-center">
           <div className="flex items-center space-x-6">
-
-
           </div>
           <div className="flex items-center space-x-6">
             <div className="h-4 w-px bg-gray-200"></div>
@@ -241,6 +241,13 @@ export default function Navbar() {
               >
                 Contact
               </a>
+
+              <Link 
+                to="/login" 
+                className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider"
+              >
+                Login
+              </Link>
               
               {hasAdminPrivilege && (
                 <div className="hidden lg:flex items-center border-l border-gray-100 pl-6 ml-2">
@@ -260,9 +267,7 @@ export default function Navbar() {
             </div>
 
             <div className="hidden md:flex items-center space-x-4">
-
-
-
+              <InstallAppButton variant="navbar" />
               {loading ? (
                 <div className="h-10 w-32 bg-gray-100 animate-pulse rounded-2xl hidden md:block"></div>
               ) : user ? (
@@ -436,7 +441,8 @@ export default function Navbar() {
             </div>
 
             {/* Mobile Menu Toggle */}
-            <div className="md:hidden flex items-center gap-2 sm:gap-3">
+            <div className="md:hidden flex items-center gap-1.5 sm:gap-2">
+              <InstallAppButton variant="navbar" className="px-2.5 py-1 text-[9px] sm:text-[10px]" />
               {appSettings.whatsappNumber && (
                 <motion.a 
                   whileHover={{ scale: 1.1 }}
@@ -516,7 +522,12 @@ export default function Navbar() {
               exit={{ height: 0, opacity: 0 }}
               className="md:hidden bg-white/95 backdrop-blur-xl border-t border-slate-100 overflow-y-auto shadow-xl max-h-[calc(100vh-80px)]"
             >
-              <div className="p-6 space-y-6">
+              <div className="p-6 space-y-5">
+                {/* PWA App Install Banner in Mobile Menu */}
+                <InstallAppButton variant="drawer" onInstalledAction={() => setIsMenuOpen(false)} />
+
+                {/* View Mode Switcher in Mobile Menu */}
+                <ViewModeToggle variant="inline" />
                   {/* Admin Direct Access */}
                   {/* Admin Direct Access */}
                   {hasAdminPrivilege && (
@@ -597,20 +608,34 @@ export default function Navbar() {
                       Home
                     </Link>
 
-                    <Link 
-                      to={hasAdminPrivilege ? '/admin' : isStaff ? '/professional' : user ? '/dashboard' : '/login'} 
-                      onClick={() => {
-                        if (hasAdminPrivilege) switchToAdmin();
-                        setIsMenuOpen(false);
-                      }} 
-                      className="flex items-center justify-between py-4 text-3xl font-black text-teal uppercase tracking-tighter hover:text-navy transition-all"
-                    >
-                      <span className="flex items-center gap-3">
-                        <LayoutDashboard size={26} className="text-teal" />
-                        Dashboard
-                      </span>
-                      <ChevronRight size={22} className="text-gray-300" />
-                    </Link>
+                    {!user ? (
+                      <Link 
+                        to="/login" 
+                        onClick={() => setIsMenuOpen(false)} 
+                        className="flex items-center justify-between py-4 text-3xl font-black text-teal uppercase tracking-tighter hover:text-navy transition-all"
+                      >
+                        <span className="flex items-center gap-3">
+                          <LogIn size={26} className="text-teal" />
+                          Login / Sign Up
+                        </span>
+                        <ChevronRight size={22} className="text-gray-300" />
+                      </Link>
+                    ) : (
+                      <Link 
+                        to={hasAdminPrivilege ? '/admin' : isStaff ? '/professional' : '/dashboard'} 
+                        onClick={() => {
+                          if (hasAdminPrivilege) switchToAdmin();
+                          setIsMenuOpen(false);
+                        }} 
+                        className="flex items-center justify-between py-4 text-3xl font-black text-teal uppercase tracking-tighter hover:text-navy transition-all"
+                      >
+                        <span className="flex items-center gap-3">
+                          <LayoutDashboard size={26} className="text-teal" />
+                          Dashboard
+                        </span>
+                        <ChevronRight size={22} className="text-gray-300" />
+                      </Link>
+                    )}
 
                     <div className="space-y-1">
                       <button 

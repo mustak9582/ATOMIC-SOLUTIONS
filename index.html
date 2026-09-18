@@ -8,20 +8,42 @@
     
     <!-- PWA meta tags -->
     <meta name="theme-color" content="#008080" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Atomic" />
-    <link rel="apple-touch-icon" href="/logo.png" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <link rel="manifest" href="/site.webmanifest" />
+    
+    <!-- PWA Install Prompt Capture & Service Worker Early Init -->
+    <script>
+      window.deferredPWAInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', function(e) {
+        e.preventDefault();
+        window.deferredPWAInstallPrompt = e;
+        window.dispatchEvent(new CustomEvent('pwa-prompt-available', { detail: e }));
+        console.log('Atomic PWA: beforeinstallprompt captured!');
+      });
+
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js', { scope: '/' })
+          .then(function(reg) {
+            console.log('Atomic PWA ServiceWorker active:', reg.scope);
+          })
+          .catch(function(err) {
+            console.warn('Atomic PWA ServiceWorker error:', err);
+          });
+      }
+    </script>
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content="Atomic Solutions - Quality Maintenance & Construction" />
     <meta property="og:description" content="All-in-one solutions for Maintenance and Construction in Deoghar." />
-    <meta property="og:image" content="/logo.png" />
+    <meta property="og:image" content="/icon-512.png" />
     
     <!-- Favicon -->
-    <link rel="icon" type="image/png" href="/logo.png" />
+    <link rel="icon" type="image/png" href="/icon-192.png" />
   </head>
   <body>
     <div id="root"></div>

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, ShieldCheck, Heart, LayoutGrid, Globe, PhoneCall, Facebook, Instagram, Youtube, Phone, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 import Logo from './Logo';
+import InstallAppButton from './InstallAppButton';
 import { WHATSAPP_NUMBER, INSTAGRAM_URL, YOUTUBE_URL, PHONE_NUMBER, FACEBOOK_URL } from '../constants';
 import { formatWhatsAppLink } from '../lib/utils';
 const WhatsappIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
@@ -67,6 +68,9 @@ export default function Footer() {
                 <FooterLink href="#" label="Home" />
                 <FooterLink href="#services" label="Services" />
                 <FooterLink href="/dashboard/reports" label="Report a Problem" />
+                <li className="pt-2">
+                  <InstallAppButton variant="footer" />
+                </li>
               </ul>
             </div>
           </motion.div>

@@ -1,6 +1,27 @@
 [
   {
     "userId": "admin_mustak_9582",
+    "title": "Booking Removed",
+    "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
+    "type": "alert",
+    "read": false,
+    "timestamp": "2026-09-18T12:13:07.054Z",
+    "link": "/dashboard",
+    "id": "notifications_1789733587055_2u3961"
+  },
+  {
+    "userId": "P54ZZn9v05gA9EJPhIbzTSs24xr1",
+    "title": "Technician Accepted Booking",
+    "message": "Mustak Ansari has accepted your booking and is preparing for the visit.",
+    "type": "booking_update",
+    "read": false,
+    "timestamp": "2026-09-18T12:00:34.807Z",
+    "relatedId": "2CO0qLkKoQ79e1Z2nLZS",
+    "link": "/my-account/bookings",
+    "id": "notifications_1789732834807_74j318"
+  },
+  {
+    "userId": "admin_mustak_9582",
     "title": "Booking Confirmed!",
     "message": "Your booking for Split AC Installation has been received. Admin is assigning a specialist.",
     "type": "booking_update",
