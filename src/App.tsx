@@ -18,6 +18,7 @@ import { WHATSAPP_NUMBER } from './constants';
 import { AnimatePresence, motion } from 'motion/react';
 import { PWAProvider } from './contexts/PWAContext';
 import IOSInstallModal from './components/IOSInstallModal';
+import MobileAppDock from './components/MobileAppDock';
 
 // Code-split heavy routes with React.lazy to dramatically accelerate initial page load
 const UserDashboard = lazy(() => import('./components/UserDashboard'));
@@ -146,7 +147,7 @@ const AppContent: React.FC = () => {
 
   // 6. MAIN APP RENDER
   return (
-    <div className="min-h-screen bg-slate-app font-sans text-navy selection:bg-teal/15 selection:text-teal">
+    <div className="min-h-screen bg-slate-app font-sans text-navy selection:bg-teal/15 selection:text-teal pb-20 md:pb-0">
       <ScrollToTop />
       {!shouldHideUI && <CompleteProfileModal />}
       {!shouldHideUI && <Navbar />}
@@ -214,6 +215,7 @@ const AppContent: React.FC = () => {
 
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <AtomicBot />}
+      {!shouldHideUI && <MobileAppDock />}
       <AdminQuickSwitcher />
       <IOSInstallModal />
     </div>

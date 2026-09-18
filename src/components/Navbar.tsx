@@ -432,7 +432,7 @@ export default function Navbar() {
               )}
             </div>
 
-            {/* Mobile Menu Toggle */}
+            {/* Mobile Menu Controls */}
             <div className="md:hidden flex items-center gap-1.5 sm:gap-2">
               <InstallAppButton variant="navbar" className="px-2.5 py-1 text-[9px] sm:text-[10px]" />
               {appSettings.whatsappNumber && (
@@ -442,9 +442,10 @@ export default function Navbar() {
                   href={formatWhatsAppLink(appSettings.whatsappNumber, 'Hello Atomic Solutions, I need a consultation.')} 
                   target="_blank" 
                   rel="noopener noreferrer" 
-                  className="text-[#25D366] hover:drop-shadow-[0_0_8px_rgba(37,211,102,0.5)] transition-all duration-300"
+                  className="p-1 text-[#25D366] hover:drop-shadow-[0_0_8px_rgba(37,211,102,0.5)] transition-all duration-300"
+                  aria-label="WhatsApp Consultation"
                 >
-                  <WhatsApp size={24} fill="currentColor" fillOpacity={0.1} />
+                  <WhatsApp size={22} fill="currentColor" fillOpacity={0.1} />
                 </motion.a>
               )}
               {appSettings.phone && (
@@ -452,48 +453,16 @@ export default function Navbar() {
                   whileHover={{ scale: 1.1 }}
                   whileTap={{ scale: 0.9 }}
                   href={`tel:${appSettings.phone.replace(/\s+/g, '')}`} 
-                  className="text-[#001f3f] hover:text-teal transition-colors"
+                  className="hidden sm:flex text-[#001f3f] hover:text-teal transition-colors p-1"
+                  aria-label="Phone Call"
                 >
-                  <PhoneCall size={24} />
+                  <PhoneCall size={20} />
                 </motion.a>
-              )}
-              {/* Direct Dashboard / Login Button on Mobile Header */}
-              {user ? (
-                <motion.button
-                  whileTap={{ scale: 0.85 }}
-                  onClick={() => {
-                    if (isAdmin) {
-                      if (viewAsCustomer) toggleAdminView();
-                      navigate('/admin');
-                    } else if (isStaff) {
-                      navigate('/professional');
-                    } else {
-                      navigate('/dashboard');
-                    }
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-teal text-white rounded-full hover:bg-navy transition-all text-[11px] font-black uppercase tracking-wider shadow-sm"
-                  title="Open Dashboard"
-                >
-                  <LayoutDashboard size={14} />
-                  <span>Dashboard</span>
-                </motion.button>
-              ) : (
-                !loading && (
-                  <motion.button
-                    whileTap={{ scale: 0.85 }}
-                    onClick={() => navigate('/login')}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-navy text-white rounded-full hover:bg-teal transition-all text-[11px] font-black uppercase tracking-wider shadow-sm"
-                    title="Sign In"
-                  >
-                    <LogIn size={13} />
-                    <span>Login</span>
-                  </motion.button>
-                )
               )}
               <motion.button 
                 whileTap={{ scale: 0.8 }}
                 onClick={() => setIsMenuOpen(!isMenuOpen)} 
-                className="text-navy p-1.5 ml-0.5"
+                className="text-navy p-1.5 rounded-xl hover:bg-slate-100 transition-colors cursor-pointer"
                 aria-label="Toggle navigation menu"
               >
                 {isMenuOpen ? <X size={26} /> : <Menu size={26} />}
