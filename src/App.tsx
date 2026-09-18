@@ -16,9 +16,7 @@ import { LayoutDashboard } from 'lucide-react';
 import { Button } from './components/ui/button';
 import { WHATSAPP_NUMBER } from './constants';
 import { AnimatePresence, motion } from 'motion/react';
-import { ViewModeProvider } from './contexts/ViewModeContext';
 import { PWAProvider } from './contexts/PWAContext';
-import ViewModeToggle from './components/ViewModeToggle';
 import IOSInstallModal from './components/IOSInstallModal';
 
 // Code-split heavy routes with React.lazy to dramatically accelerate initial page load
@@ -217,7 +215,6 @@ const AppContent: React.FC = () => {
       {!shouldHideUI && <Footer />}
       {!shouldHideUI && <AtomicBot />}
       <AdminQuickSwitcher />
-      <ViewModeToggle variant="floating" />
       <IOSInstallModal />
     </div>
   );
@@ -226,16 +223,14 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <AppErrorBoundary>
-      <ViewModeProvider>
-        <PWAProvider>
-          <AuthProvider>
-            <Router>
-              <Toaster position="top-center" expand={true} richColors />
-              <AppContent />
-            </Router>
-          </AuthProvider>
-        </PWAProvider>
-      </ViewModeProvider>
+      <PWAProvider>
+        <AuthProvider>
+          <Router>
+            <Toaster position="top-center" expand={true} richColors />
+            <AppContent />
+          </Router>
+        </AuthProvider>
+      </PWAProvider>
     </AppErrorBoundary>
   );
 }

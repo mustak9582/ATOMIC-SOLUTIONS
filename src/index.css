@@ -279,11 +279,3 @@
   }
 }
 
-/* Forced Desktop Mode on Mobile Devices */
-html.desktop-mode-active,
-body.desktop-mode-active {
-  min-width: 1200px !important;
-  overflow-x: auto !important;
-  -webkit-text-size-adjust: 100%;
-}
-

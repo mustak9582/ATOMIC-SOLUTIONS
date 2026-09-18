@@ -35,7 +35,6 @@ import { CORE_SERVICES, WHATSAPP_NUMBER, PHONE_NUMBER, INSTAGRAM_URL, YOUTUBE_UR
 import Logo from './Logo';
 import ReviewModal from './ReviewModal';
 import InstallAppButton from './InstallAppButton';
-import ViewModeToggle from './ViewModeToggle';
 
 export default function Navbar() {
   const { user, profile, login, logout, hasAdminPrivilege, isAdmin, isStaff, viewAsCustomer, toggleAdminView, switchToAdmin, loading, activeRole, setActiveRole } = useAuth();
@@ -518,9 +517,6 @@ export default function Navbar() {
               <div className="p-6 space-y-5">
                 {/* PWA App Install Banner in Mobile Menu */}
                 <InstallAppButton variant="drawer" onInstalledAction={() => setIsMenuOpen(false)} />
-
-                {/* View Mode Switcher in Mobile Menu */}
-                <ViewModeToggle variant="inline" />
                   {/* Admin Direct Access */}
                   {/* Admin Direct Access */}
                   {hasAdminPrivilege && (
