@@ -28,7 +28,7 @@ import { Service, SubCategory, UserProfile, BillingItem, Invoice, AppSettings, B
 import { toast } from 'sonner';
 import { dataService } from '../services/firebaseService';
 import { autoDetectStateCode } from '../utils/stateCodeHelper';
-import { getFinancialYearString, getDefaultSerialNumber } from '../utils/serialNumberHelper';
+import { getFinancialYearString, getDefaultSerialNumber, getNextSerialNumberForInvoices } from '../utils/serialNumberHelper';
 
 const commonUnits = ['Nos', 'Meter', 'Unit', 'HP', 'Job', 'Sq.Ft.', 'Sq. Ft.', 'Square Feet', 'Per Sq. Ft.', 'Kg'];
 
@@ -58,6 +58,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
 
   const [selectedUserId, setSelectedUserId] = useState('');
   const [allUsers, setAllUsers] = useState<UserProfile[]>([]);
+  const [savedInvoicesList, setSavedInvoicesList] = useState<any[]>([]);
   const [items, setItems] = useState<BillingItem[]>([
     { id: '1', name: '', description: '', hsn: '', rate: 0, quantity: 1, unit: 'Unit', type: 'Labor' }
   ]);
@@ -68,6 +69,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [upiId, setUpiId] = useState('mustakansari9582-3@okhdfcbank');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice'>('Estimate');
+  const [copyType, setCopyType] = useState<'Original Copy' | 'Duplicate Copy' | 'Triplicate Copy'>('Original Copy');
   const [isSaving, setIsSaving] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -170,24 +172,13 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
 
     // Auto-detect next serial number for this financial year (starting from 01)
     dataService.getCollection('invoices').then((allInvoices: any[]) => {
-      if (allInvoices && allInvoices.length > 0) {
-        const fy = getFinancialYearString();
-        let maxNum = 0;
-        allInvoices.forEach(inv => {
-          const numStr = (inv.estimateNumber || inv.number || '').toString();
-          if (numStr.includes(fy)) {
-            const m = numStr.match(/\/(\d+)$/) || numStr.match(/-(\d+)$/);
-            if (m) {
-              const val = parseInt(m[1], 10);
-              if (!isNaN(val) && val > maxNum) maxNum = val;
-            }
-          }
-        });
-        const nextCount = maxNum > 0 ? maxNum + 1 : 1;
-        setEstimateNumber(prev => prev.startsWith('PI/') ? getDefaultSerialNumber('Estimate', nextCount) : getDefaultSerialNumber('Tax Invoice', nextCount));
+      if (allInvoices && Array.isArray(allInvoices)) {
+        setSavedInvoicesList(allInvoices);
+        const nextSerial = getNextSerialNumberForInvoices(documentType, allInvoices);
+        setEstimateNumber(nextSerial);
       }
     }).catch(() => {});
-  }, [propServices]);
+  }, [propServices, documentType]);
 
   const updateOwnerGSTIN = async (val: string) => {
     setOwnerGSTIN(val);
@@ -400,6 +391,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       type: documentType,
       number: estimateNumber || getDefaultSerialNumber(documentType),
       date: invoiceDate,
+      originalDup: copyType,
       customerName: customerName || 'Valued Customer',
       customerPhone: customerPhone,
       customerAddress: customerAddress,
@@ -532,9 +524,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                  type="button"
                  onClick={() => {
                    setDocumentType('Estimate');
-                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-')) {
-                     setEstimateNumber(getDefaultSerialNumber('Estimate'));
-                   }
+                   setEstimateNumber(getNextSerialNumberForInvoices('Estimate', savedInvoicesList));
                  }}
                  className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
                    documentType === 'Estimate' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
@@ -546,9 +536,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                  type="button"
                  onClick={() => {
                    setDocumentType('Tax Invoice');
-                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-')) {
-                     setEstimateNumber(getDefaultSerialNumber('Tax Invoice'));
-                   }
+                   setEstimateNumber(getNextSerialNumberForInvoices('Tax Invoice', savedInvoicesList));
                  }}
                  className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
                    documentType === 'Tax Invoice' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
@@ -664,13 +652,39 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
               </div>
               <div className="text-right space-y-4">
                 <div className="inline-block bg-navy px-6 py-2 rounded-xl">
-                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isInvoice ? 'Invoice' : 'Proforma Invoice'}</h3>
+                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isInvoice ? 'Tax Invoice' : 'Proforma Invoice'}</h3>
                 </div>
+
+                {/* Copy Type Selection (Original / Duplicate / Triplicate) */}
+                <div className="flex flex-col items-end gap-1.5 pt-1">
+                  <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
+                    Copy Type (प्रति प्रकार):
+                  </span>
+                  <div className="flex bg-gray-100 p-1 rounded-xl gap-1 border border-gray-200">
+                    {(['Original Copy', 'Duplicate Copy', 'Triplicate Copy'] as const).map(type => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => setCopyType(type)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all flex items-center gap-1",
+                          copyType === type 
+                            ? "bg-navy text-white shadow-sm font-black" 
+                            : "text-gray-500 hover:text-navy hover:bg-white"
+                        )}
+                      >
+                        {copyType === type && <CheckCircle2 size={10} className="text-teal" />}
+                        {type === 'Original Copy' ? 'Original' : type === 'Duplicate Copy' ? 'Duplicate' : 'Triplicate'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                    <div className="flex justify-end items-center gap-3">
                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">No:</span>
                      <input 
-                       className="bg-transparent border-b border-gray-200 text-sm font-bold text-navy outline-none text-right w-32 focus:border-teal"
+                       className="bg-transparent border-b border-gray-200 text-sm font-bold text-navy outline-none text-right w-36 focus:border-teal"
                        value={estimateNumber}
                        onChange={(e) => setEstimateNumber(e.target.value)}
                      />
@@ -679,7 +693,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Date:</span>
                      <input 
                        type="date"
-                       className="bg-transparent border-b border-gray-200 text-sm font-bold text-navy outline-none text-right w-32 focus:border-teal"
+                       className="bg-transparent border-b border-gray-200 text-sm font-bold text-navy outline-none text-right w-36 focus:border-teal"
                        value={invoiceDate}
                        onChange={(e) => setInvoiceDate(e.target.value)}
                      />
@@ -1360,7 +1374,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         <Button 
           onClick={() => {
             setDocumentType('Estimate');
-            setEstimateNumber(getDefaultSerialNumber('Estimate'));
+            setEstimateNumber(getNextSerialNumberForInvoices('Estimate', savedInvoicesList));
             setShowEditor(true);
           }}
           className="bg-navy text-white h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
@@ -1370,7 +1384,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         <Button 
           onClick={() => {
             setDocumentType('Tax Invoice');
-            setEstimateNumber(getDefaultSerialNumber('Tax Invoice'));
+            setEstimateNumber(getNextSerialNumberForInvoices('Tax Invoice', savedInvoicesList));
             setShowEditor(true);
           }}
           className="bg-teal text-navy h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"

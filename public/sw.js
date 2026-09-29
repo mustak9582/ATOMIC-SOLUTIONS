@@ -1,8 +1,7 @@
 // Service Worker for Atomic Solutions PWA
-const CACHE_NAME = 'atomic-solutions-v2';
+const CACHE_NAME = 'atomic-solutions-v3';
 const ASSETS_TO_CACHE = [
   '/',
-  '/index.html',
   '/site.webmanifest',
   '/icon-192.png',
   '/icon-512.png',
@@ -48,27 +47,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // Navigation requests: Network-first to always get latest index.html on refresh
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          return caches.match('/') || caches.match('/index.html');
+        })
+    );
+    return;
+  }
+
+  // Static assets (images, icons, etc.)
   event.respondWith(
-    fetch(event.request)
-      .then((networkResponse) => {
+    caches.match(event.request).then((cachedResponse) => {
+      if (cachedResponse) {
+        return cachedResponse;
+      }
+      return fetch(event.request).then((networkResponse) => {
         if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
-          const responseToCache = networkResponse.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseToCache);
-          });
+          // Cache non-HTML static assets only
+          const contentType = networkResponse.headers.get('content-type') || '';
+          if (!contentType.includes('text/html')) {
+            const responseToCache = networkResponse.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseToCache);
+            });
+          }
         }
         return networkResponse;
-      })
-      .catch(() => {
-        return caches.match(event.request).then((cachedResponse) => {
-          if (cachedResponse) {
-            return cachedResponse;
-          }
-          if (event.request.mode === 'navigate') {
-            return caches.match('/');
-          }
-          return new Response('Network unavailable', { status: 503, statusText: 'Offline' });
-        });
-      })
+      });
+    })
   );
 });

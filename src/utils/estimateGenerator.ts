@@ -18,10 +18,13 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   // Header Box - "Estimate Format"
   doc.setFillColor(...yellowColor);
   doc.rect(margin, currentY, contentWidth, 8, 'F');
-  doc.setFontSize(14);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('Proforma Invoice', pageWidth / 2, currentY + 6, { align: 'center' });
+  doc.text('Proforma Invoice', pageWidth / 2, currentY + 5.5, { align: 'center' });
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.originalDup || 'Original Copy', margin + contentWidth - 3, currentY + 5.5, { align: 'right' });
   
   currentY += 12;
 
