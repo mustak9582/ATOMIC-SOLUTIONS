@@ -273,7 +273,7 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
 
     // Inv / Est Details
     const fields: { label: string; value: string }[] = [];
-    fields.push({ label: '# Inv. No.:', value: data.number });
+    fields.push({ label: '# Inv. No.:', value: data.number || 'AS/26-27/01' });
     fields.push({ label: 'Inv. Date:', value: data.date ? new Date(data.date).toISOString().split('T')[0] : '' });
     
     if (data.payMode) {
@@ -316,8 +316,15 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
        
        doc.setFont('helvetica', 'bold');
        doc.text(fields[i].label, xBase + 1, yBase);
-       doc.setFont('helvetica', 'normal');
-       doc.text(fields[i].value, xBase + 17, yBase);
+       if (i === 0) {
+         doc.setFont('helvetica', 'bold');
+         doc.setTextColor(20, 25, 60);
+       } else {
+         doc.setFont('helvetica', 'normal');
+         doc.setTextColor(0, 0, 0);
+       }
+       doc.text(fields[i].value || '', xBase + 16, yBase);
+       doc.setTextColor(0, 0, 0);
     }
   };
 

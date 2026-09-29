@@ -17,7 +17,8 @@ import {
   ArrowLeft,
   FileText,
   ShieldCheck,
-  Home
+  Home,
+  Copy
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Logo from './Logo';
@@ -261,9 +262,30 @@ export default function InvoiceViewer() {
           {/* Summary Section */}
           <div className="p-8 md:p-12 border-t border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-end items-end gap-12">
             {qrDataUrl && invoice.type !== 'Estimate' && (
-              <div className="flex flex-col items-center bg-white p-3 rounded-2xl shadow-sm border border-gray-100 mb-6 sm:mb-0 mr-auto sm:mr-0">
+              <div className="flex flex-col items-center bg-white p-3 rounded-2xl shadow-sm border border-gray-100 mb-6 sm:mb-0 mr-auto sm:mr-0 max-w-[200px]">
                 <img src={qrDataUrl} alt="Scan to Pay" className="w-24 h-24" />
                 <p className="text-[8px] font-black text-navy uppercase tracking-widest mt-2">Scan to Pay</p>
+                {(() => {
+                  const currentUpi = invoice.upiId || settings?.upiId || 'mustakansari9582-3@okhdfcbank';
+                  return (
+                    <div className="mt-2 w-full flex items-center justify-between gap-1 bg-gray-50 border border-gray-200/60 rounded-lg px-2 py-1">
+                      <div className="overflow-x-auto whitespace-nowrap scrollbar-thin text-[9px] font-bold text-teal tracking-tight touch-pan-x pr-1">
+                        {currentUpi}
+                      </div>
+                      <button
+                        type="button"
+                        title="Copy UPI ID"
+                        onClick={() => {
+                          navigator.clipboard.writeText(currentUpi);
+                          toast.success('UPI ID copied to clipboard');
+                        }}
+                        className="shrink-0 p-1 rounded hover:bg-gray-200 text-gray-400 hover:text-teal transition-colors"
+                      >
+                        <Copy size={11} />
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             )}
              <div className="w-full md:w-80 space-y-3">

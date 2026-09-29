@@ -587,6 +587,39 @@ By: *Atomic Solutions*`;
     }
   };
 
+  const handleBulkDeleteBookings = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setIsDeleting(true);
+    try {
+      console.log(`[AdminDashboard] Bulk deleting ${ids.length} bookings:`, ids);
+      await Promise.all(ids.map(id => dataService.deleteDoc('bookings', id)));
+      setBookings(prev => prev.filter(b => !ids.includes(b.id)));
+      toast.success(`${ids.length} booking(s) permanently deleted`);
+    } catch (error) {
+      console.error('Error bulk deleting bookings:', error);
+      toast.error('Failed to delete some bookings. Please check internet connection.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteInvoices = async (ids: string[]) => {
+    if (!ids || ids.length === 0) return;
+    setIsDeleting(true);
+    try {
+      console.log(`[AdminDashboard] Bulk deleting ${ids.length} invoices:`, ids);
+      await Promise.all(ids.map(id => dataService.deleteDoc('invoices', id)));
+      setAllInvoices(prev => prev.filter(inv => !ids.includes(inv.id)));
+      setUserInvoices(prev => prev.filter(inv => !ids.includes(inv.id)));
+      toast.success(`${ids.length} invoice(s) permanently deleted`);
+    } catch (error) {
+      console.error('Error bulk deleting invoices:', error);
+      toast.error('Failed to delete some invoices. Check connection.');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const deleteUser = async () => {
     if (!userToDelete) return;
     
@@ -1102,6 +1135,7 @@ By: *Atomic Solutions*`;
     try {
       setIsDeleting(true);
       await dataService.deleteDoc('services', serviceToDeleteId);
+      setServices(prev => prev.filter(s => s.id !== serviceToDeleteId));
       toast.success('Service deleted');
     } catch (e) {
       toast.error('Failed to delete service');
@@ -1300,6 +1334,7 @@ By: *Atomic Solutions*`;
             updateBooking={updateBooking}
             setBookingToDeleteId={setBookingToDeleteId}
             setIsManualBookingOpen={setIsManualBookingOpen}
+            handleBulkDeleteBookings={handleBulkDeleteBookings}
           />
 
           <TabSchedule
@@ -1331,6 +1366,7 @@ By: *Atomic Solutions*`;
             navigate={navigate}
             downloadInvoicePDF={downloadInvoicePDF}
             handleDeleteInvoice={handleDeleteInvoice}
+            handleBulkDeleteInvoices={handleBulkDeleteInvoices}
           />
 
           <TabStaff
@@ -2749,7 +2785,7 @@ By: *Atomic Solutions*`;
               variant="destructive" 
               onClick={confirmDeleteInvoice}
               disabled={isDeleting}
-              className="flex-1 rounded-xl font-black uppercase tracking-widest text-[10px] h-12 bg-red-600 hover:bg-red-700 text-black"
+              className="flex-1 rounded-xl font-black uppercase tracking-widest text-[10px] h-12 bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-200"
             >
               {isDeleting ? 'DELETING...' : 'DELETE'}
             </Button>

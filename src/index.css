@@ -284,5 +284,12 @@
   [class*="rounded-full"][class*="blur-"] {
     display: none !important;
   }
+
+  .slideable-text {
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x;
+  }
 }
 

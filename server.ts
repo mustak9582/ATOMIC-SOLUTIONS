@@ -405,6 +405,15 @@ CRITICAL MULTILINGUAL & UNLIMITED CONTINUOUS Q&A RULES:
     res.json({ success: true, service: all[serviceId] });
   });
 
+  app.delete('/api/services/:id', (req, res) => {
+    const serviceId = req.params.id;
+    if (!serviceId) return res.status(400).json({ error: 'Service ID is required' });
+    const all = getStoredServices();
+    delete all[serviceId];
+    saveStoredServices(all);
+    res.json({ success: true, message: 'Service deleted' });
+  });
+
   // --- Persistent Bookings Storage ---
   const bookingsFilePath = path.join(process.cwd(), 'data', 'bookings.json');
   const getStoredBookings = (): any[] => {
@@ -470,6 +479,14 @@ CRITICAL MULTILINGUAL & UNLIMITED CONTINUOUS Q&A RULES:
     }
   });
 
+  app.delete('/api/bookings/:id', (req, res) => {
+    const { id } = req.params;
+    let list = getStoredBookings();
+    list = list.filter(b => b.id !== id);
+    saveStoredBookings(list);
+    res.json({ success: true, message: 'Booking deleted' });
+  });
+
   // --- Persistent Notifications Storage ---
   const notifsFilePath = path.join(process.cwd(), 'data', 'notifications.json');
   const getStoredNotifs = (): any[] => {
@@ -521,6 +538,75 @@ CRITICAL MULTILINGUAL & UNLIMITED CONTINUOUS Q&A RULES:
     } else {
       res.status(404).json({ error: 'Not found' });
     }
+  });
+
+  // --- Persistent Invoices Storage ---
+  const invoicesFilePath = path.join(process.cwd(), 'data', 'invoices.json');
+  const getStoredInvoices = (): any[] => {
+    try {
+      if (!fs.existsSync(path.dirname(invoicesFilePath))) {
+        fs.mkdirSync(path.dirname(invoicesFilePath), { recursive: true });
+      }
+      if (fs.existsSync(invoicesFilePath)) {
+        const raw = fs.readFileSync(invoicesFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {}
+    return [];
+  };
+
+  const saveStoredInvoices = (list: any[]) => {
+    try {
+      if (!fs.existsSync(path.dirname(invoicesFilePath))) {
+        fs.mkdirSync(path.dirname(invoicesFilePath), { recursive: true });
+      }
+      fs.writeFileSync(invoicesFilePath, JSON.stringify(list, null, 2), 'utf-8');
+    } catch (e) {}
+  };
+
+  app.get('/api/invoices', (_req, res) => {
+    res.json(getStoredInvoices());
+  });
+
+  app.post('/api/invoices', (req, res) => {
+    const newInvoice = req.body;
+    if (!newInvoice) return res.status(400).json({ error: 'Invoice payload required' });
+    const id = newInvoice.id || `inv_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const full = { ...newInvoice, id };
+    const list = getStoredInvoices();
+    const existingIdx = list.findIndex(i => i.id === id);
+    if (existingIdx !== -1) {
+      list[existingIdx] = { ...list[existingIdx], ...full };
+    } else {
+      list.unshift(full);
+    }
+    saveStoredInvoices(list);
+    res.json({ success: true, invoice: full });
+  });
+
+  app.patch('/api/invoices/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    const list = getStoredInvoices();
+    const idx = list.findIndex(i => i.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updates };
+      saveStoredInvoices(list);
+      res.json({ success: true, invoice: list[idx] });
+    } else {
+      const created = { ...updates, id };
+      list.unshift(created);
+      saveStoredInvoices(list);
+      res.json({ success: true, invoice: created });
+    }
+  });
+
+  app.delete('/api/invoices/:id', (req, res) => {
+    const { id } = req.params;
+    let list = getStoredInvoices();
+    list = list.filter(i => i.id !== id);
+    saveStoredInvoices(list);
+    res.json({ success: true, message: 'Invoice deleted' });
   });
 
   // Vite middleware for development

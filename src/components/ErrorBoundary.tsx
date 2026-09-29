@@ -43,10 +43,22 @@ export default class AppErrorBoundary extends React.Component<ErrorBoundaryProps
 
             <div className="space-y-4">
               <Button 
-                onClick={() => window.location.reload()}
+                onClick={async () => {
+                  try {
+                    if ('serviceWorker' in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations();
+                      for (const reg of regs) await reg.unregister();
+                    }
+                    if ('caches' in window) {
+                      const keys = await caches.keys();
+                      for (const key of keys) await caches.delete(key);
+                    }
+                  } catch (e) {}
+                  window.location.href = window.location.origin + window.location.pathname + '?clear=' + Date.now();
+                }}
                 className="w-full h-14 rounded-2xl bg-teal text-navy font-black uppercase tracking-widest hover:scale-[1.02] transition-transform shadow-lg shadow-teal/20"
               >
-                <RefreshCw size={18} className="mr-2" /> Reload App
+                <RefreshCw size={18} className="mr-2" /> Reload App & Clear Cache
               </Button>
               <Button 
                 variant="ghost" 

@@ -5,6 +5,46 @@
     "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
     "type": "alert",
     "read": false,
+    "timestamp": "2026-09-29T16:23:28.033Z",
+    "link": "/dashboard",
+    "id": "notifications_1790699008033_nt2blz"
+  },
+  {
+    "userId": "admin_mustak_9582",
+    "title": "Booking Removed",
+    "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
+    "type": "alert",
+    "read": false,
+    "timestamp": "2026-09-29T16:21:56.251Z",
+    "link": "/dashboard",
+    "id": "notifications_1790698916252_njiqts"
+  },
+  {
+    "userId": "admin_mustak_9582",
+    "title": "Booking Removed",
+    "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
+    "type": "alert",
+    "read": false,
+    "timestamp": "2026-09-29T16:04:24.929Z",
+    "link": "/dashboard",
+    "id": "notifications_1790697864929_qiz1l2"
+  },
+  {
+    "userId": "admin_mustak_9582",
+    "title": "Booking Removed",
+    "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
+    "type": "alert",
+    "read": false,
+    "timestamp": "2026-09-29T16:04:08.732Z",
+    "link": "/dashboard",
+    "id": "notifications_1790697848733_x78ccp"
+  },
+  {
+    "userId": "admin_mustak_9582",
+    "title": "Booking Removed",
+    "message": "Your booking for HVAC Solutions (AC & Ventilation) has been archived by administration.",
+    "type": "alert",
+    "read": false,
     "timestamp": "2026-09-18T12:13:07.054Z",
     "link": "/dashboard",
     "id": "notifications_1789733587055_2u3961"

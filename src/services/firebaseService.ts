@@ -196,7 +196,7 @@ export const dataService = {
     };
 
     // Initial server sync
-    if (['bookings', 'notifications'].includes(path)) {
+    if (['bookings', 'notifications', 'invoices'].includes(path)) {
       fetch(`/api/${path}`)
         .then(res => res.ok ? res.json() : null)
         .then(serverDocs => {
@@ -287,7 +287,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -316,6 +316,14 @@ export const dataService = {
       }
     } catch (e) {}
 
+    try {
+      if (['bookings', 'notifications', 'services', 'invoices'].includes(path)) {
+        await fetch(`/api/${path}/${encodeURIComponent(id)}`, {
+          method: 'DELETE'
+        });
+      }
+    } catch (e) {}
+
     if (db) {
       try {
         await deleteDoc(doc(db, path, id));
@@ -340,6 +348,16 @@ export const dataService = {
         else existing.unshift(fullDoc);
         localStorage.setItem(localKey, JSON.stringify(existing));
         window.dispatchEvent(new CustomEvent(`atomic_${path}_updated`, { detail: fullDoc }));
+      }
+    } catch (e) {}
+
+    try {
+      if (['bookings', 'notifications', 'invoices'].includes(path)) {
+        fetch(`/api/${path}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(fullDoc)
+        }).catch(() => {});
       }
     } catch (e) {}
 

@@ -40,10 +40,6 @@ const buttonVariants = cva(
   }
 )
 
-import { motion } from "motion/react"
-
-const MotionButton = motion.create(ButtonPrimitive)
-
 function Button({
   className,
   variant = "default",
@@ -51,12 +47,10 @@ function Button({
   ...props
 }: ButtonPrimitive.Props & VariantProps<typeof buttonVariants>) {
   return (
-    <MotionButton
+    <ButtonPrimitive
       data-slot="button"
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.95 }}
       className={cn(buttonVariants({ variant, size, className }))}
-      {...(props as any)}
+      {...props}
     />
   )
 }

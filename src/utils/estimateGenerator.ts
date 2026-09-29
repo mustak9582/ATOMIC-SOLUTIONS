@@ -100,8 +100,8 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
   doc.text('Proforma Inv No.:', rightColX, customerY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.number || '', rightValX, customerY);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.number || 'PI/26-27/01', rightValX, customerY);
   customerY += 4.5;
 
   // Customer Name & Date
@@ -245,8 +245,8 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.setPage(pageCount);
   let tableEndY = (doc as any).lastAutoTable.finalY;
 
-  // Anchored Bottom Footer for Proforma Invoice
-  const totalFooterHeight = 78;
+  // Anchored Bottom Footer for Proforma Invoice (pushed lower down to eliminate blank space)
+  const totalFooterHeight = 56;
   let footerBoxStartY = pageHeight - margin - totalFooterHeight;
 
   if (tableEndY > footerBoxStartY) {
@@ -280,48 +280,48 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   // --- LEFT COLUMN ---
   // Words Box
   doc.setFillColor(...yellowColor);
-  doc.rect(margin, finalY + 2, leftWidth, 6, 'F');
-  doc.setFontSize(9);
+  doc.rect(margin, finalY + 1.5, leftWidth, 5.5, 'F');
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
-  doc.text('Proforma Invoice Amount in Words:', margin + 2, finalY + 6);
+  doc.text('Proforma Invoice Amount in Words:', margin + 2, finalY + 5.2);
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   const wordsText = doc.splitTextToSize(numberToWords(data.totalAmount), leftWidth - 4);
-  doc.text(wordsText, margin + 2, finalY + 12);
-  const wordsHeight = (Array.isArray(wordsText) ? wordsText.length : 1) * 4;
+  doc.text(wordsText, margin + 2, finalY + 10.5);
+  const wordsHeight = (Array.isArray(wordsText) ? wordsText.length : 1) * 3.5;
 
   // Terms Box - placed cleanly below Words Box
-  const termsY = finalY + 12 + wordsHeight + 4;
+  const termsY = finalY + 11.5 + wordsHeight;
   doc.setFillColor(...yellowColor);
-  doc.rect(margin, termsY, leftWidth, 6, 'F');
-  doc.setFontSize(9);
+  doc.rect(margin, termsY, leftWidth, 5.5, 'F');
+  doc.setFontSize(8.5);
   doc.setFont('helvetica', 'bold');
   doc.text('Terms and Conditions:', margin + 2, termsY + 4);
   
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   const defaultTerms = '1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.';
   const termsLines = (data.terms || defaultTerms).split('\n').filter((l: string) => l.trim().length > 0);
   termsLines.forEach((line: string, i: number) => {
-    doc.text(line, margin + 2, termsY + 10 + (i * 4));
+    doc.text(line, margin + 2, termsY + 8 + (i * 3.5));
   });
 
   // --- RIGHT COLUMN ---
   // Totals
-  let rightY = finalY + 6;
+  let rightY = finalY + 5;
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.text('Sub Total:', rightColStart, rightY);
   doc.setFont('helvetica', 'normal');
   doc.text('Rs. ' + (data.summary?.taxableAmount || data.totalAmount).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 5.5;
+  rightY += 4.5;
 
   doc.setFont('helvetica', 'bold');
   doc.text('Discount:', rightColStart, rightY);
   doc.setFont('helvetica', 'normal');
   doc.text('Rs. ' + (data.summary?.discountAmount || 0).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 5.5;
+  rightY += 4.5;
 
   const cgst = data.summary?.cgstAmount || 0;
   const sgst = data.summary?.sgstAmount || 0;
@@ -332,31 +332,31 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
     doc.text('IGST Amt:', rightColStart, rightY);
     doc.setFont('helvetica', 'normal');
     doc.text('Rs. ' + igst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 5.5;
+    rightY += 4.5;
   } else if (cgst > 0 || sgst > 0) {
     doc.setFont('helvetica', 'bold');
     doc.text('CGST Amt:', rightColStart, rightY);
     doc.setFont('helvetica', 'normal');
     doc.text('Rs. ' + cgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 5;
+    rightY += 4;
 
     doc.setFont('helvetica', 'bold');
     doc.text('SGST Amt:', rightColStart, rightY);
     doc.setFont('helvetica', 'normal');
     doc.text('Rs. ' + sgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 5.5;
+    rightY += 4.5;
   }
 
   // Final Amount Box
   doc.setFillColor(...yellowColor);
-  doc.rect(rightColStart, rightY - 3, rightWidth, 7, 'F');
+  doc.rect(rightColStart, rightY - 2.5, rightWidth, 6.5, 'F');
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9);
-  doc.text('Final Amount:', rightColStart + 2, rightY + 2);
-  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY + 2, { align: 'right' });
+  doc.setFontSize(8.5);
+  doc.text('Final Amount:', rightColStart + 2, rightY + 1.8);
+  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY + 1.8, { align: 'right' });
 
-  // Signature - positioned below Final Amount on the right side
-  const sigY = pageHeight - margin - 12;
+  // Signature - positioned right below Final Amount on the right side
+  const sigY = pageHeight - margin - 8;
   const sigImg = (data.signatureUrl && data.signatureUrl.startsWith('data:')) ? data.signatureUrl : signatureBase64;
   try {
     if (sigImg) doc.addImage(sigImg, 'PNG', pageWidth - margin - 40, sigY - 12, 35, 12);

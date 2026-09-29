@@ -16,7 +16,8 @@ import {
   Search,
   CheckCircle2,
   ArrowLeft,
-  QrCode
+  QrCode,
+  Copy
 } from 'lucide-react';
 import { Button } from './ui/button';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -27,24 +28,7 @@ import { Service, SubCategory, UserProfile, BillingItem, Invoice, AppSettings, B
 import { toast } from 'sonner';
 import { dataService } from '../services/firebaseService';
 import { autoDetectStateCode } from '../utils/stateCodeHelper';
-
-export function getFinancialYearString(date = new Date()): string {
-  const year = date.getFullYear();
-  const month = date.getMonth();
-  const startYear = month >= 3 ? year : year - 1;
-  const endYear = startYear + 1;
-  return `${startYear.toString().slice(-2)}-${endYear.toString().slice(-2)}`;
-}
-
-export function getDefaultSerialNumber(docType: 'Estimate' | 'Tax Invoice', count = 1): string {
-  const fy = getFinancialYearString();
-  const num = count.toString().padStart(2, '0');
-  if (docType === 'Estimate') {
-    return `PI/${fy}/${num}`;
-  } else {
-    return `AS/${fy}/${num}`;
-  }
-}
+import { getFinancialYearString, getDefaultSerialNumber } from '../utils/serialNumberHelper';
 
 const commonUnits = ['Nos', 'Meter', 'Unit', 'HP', 'Job', 'Sq.Ft.', 'Sq. Ft.', 'Square Feet', 'Per Sq. Ft.', 'Kg'];
 
@@ -183,6 +167,26 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         setInternalServices(data as Service[]);
       });
     }
+
+    // Auto-detect next serial number for this financial year (starting from 01)
+    dataService.getCollection('invoices').then((allInvoices: any[]) => {
+      if (allInvoices && allInvoices.length > 0) {
+        const fy = getFinancialYearString();
+        let maxNum = 0;
+        allInvoices.forEach(inv => {
+          const numStr = (inv.estimateNumber || inv.number || '').toString();
+          if (numStr.includes(fy)) {
+            const m = numStr.match(/\/(\d+)$/) || numStr.match(/-(\d+)$/);
+            if (m) {
+              const val = parseInt(m[1], 10);
+              if (!isNaN(val) && val > maxNum) maxNum = val;
+            }
+          }
+        });
+        const nextCount = maxNum > 0 ? maxNum + 1 : 1;
+        setEstimateNumber(prev => prev.startsWith('PI/') ? getDefaultSerialNumber('Estimate', nextCount) : getDefaultSerialNumber('Tax Invoice', nextCount));
+      }
+    }).catch(() => {});
   }, [propServices]);
 
   const updateOwnerGSTIN = async (val: string) => {
@@ -362,7 +366,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         customerPhone,
         customerAddress,
         customerGSTIN,
-        estimateNumber: isInvoice ? estimateNumber.replace('EST', 'INV') : estimateNumber,
+        estimateNumber: estimateNumber || getDefaultSerialNumber(documentType),
         type: documentType,
         date: invoiceDate,
         items: items.filter(item => item.name.trim() !== ''),
@@ -394,7 +398,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     const logoUrl = settings?.logoUrl || window.location.origin + '/logo.png';
     const pdfData: PDFInvoiceData = {
       type: documentType,
-      number: `${isInvoice ? 'INV-' : 'EST-'}${estimateNumber.split('-').pop()}`,
+      number: estimateNumber || getDefaultSerialNumber(documentType),
       date: invoiceDate,
       customerName: customerName || 'Valued Customer',
       customerPhone: customerPhone,
@@ -498,40 +502,68 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     return (
       <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col font-sans">
         {/* Editor Toolbar */}
-        <div className="bg-navy p-4 flex justify-between items-center text-white border-b border-white/10">
-          <div className="flex items-center gap-4">
+        <div className="bg-navy p-3 sm:p-4 flex flex-col md:flex-row justify-between items-stretch md:items-center text-white border-b border-white/10 gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <button 
+                type="button"
+                onClick={() => navigate(-1)}
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white transition-all shrink-0 cursor-pointer"
+                title="Back"
+              >
+                <ArrowLeft size={18} />
+              </button>
+              <Logo />
+              <div className="hidden sm:block h-6 w-px bg-white/20 mx-1" />
+              <h1 className="font-black text-[11px] sm:text-xs uppercase tracking-widest text-teal truncate">Live Invoice Builder</h1>
+            </div>
             <button 
-              onClick={() => navigate(-1)}
-              className="w-10 h-10 rounded-xl bg-white/5 hover:bg-white/10 flex items-center justify-center text-white transition-all mr-2"
+              type="button"
+              onClick={() => setShowEditor(false)} 
+              className="md:hidden bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shrink-0 cursor-pointer"
             >
-              <ArrowLeft size={20} />
+              Close
             </button>
-            <Logo />
-            <div className="h-8 w-px bg-white/20 mx-2" />
-            <h1 className="font-black text-xs uppercase tracking-widest text-teal">Live Invoice Builder</h1>
           </div>
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
+
+          <div className="flex items-center justify-between md:justify-end gap-2 sm:gap-4">
+             <div className="flex items-center gap-1 sm:gap-2 bg-white/5 p-1 rounded-xl w-full md:w-auto">
                <button 
+                 type="button"
                  onClick={() => {
                    setDocumentType('Estimate');
-                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-') || estimateNumber.startsWith('AS/')) {
+                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-')) {
                      setEstimateNumber(getDefaultSerialNumber('Estimate'));
                    }
                  }}
-                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${documentType === 'Estimate' ? 'bg-teal text-navy' : 'text-white/40 hover:text-white'}`}
-               >Proforma Invoice</button>
+                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
+                   documentType === 'Estimate' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
+                 }`}
+               >
+                 Proforma Invoice
+               </button>
                <button 
+                 type="button"
                  onClick={() => {
                    setDocumentType('Tax Invoice');
-                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-') || estimateNumber.startsWith('PI/')) {
+                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-')) {
                      setEstimateNumber(getDefaultSerialNumber('Tax Invoice'));
                    }
                  }}
-                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${documentType === 'Tax Invoice' ? 'bg-teal text-navy' : 'text-white/40 hover:text-white'}`}
-               >Tax Invoice</button>
+                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
+                   documentType === 'Tax Invoice' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
+                 }`}
+               >
+                 Tax Invoice
+               </button>
              </div>
-             <button onClick={() => setShowEditor(false)} className="bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">Close Editor</button>
+             <button 
+               type="button"
+               onClick={() => setShowEditor(false)} 
+               className="hidden md:block bg-white/10 hover:bg-white/20 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all cursor-pointer"
+             >
+               Close Editor
+             </button>
           </div>
         </div>
 
@@ -657,7 +689,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             </div>
 
             {/* Customer Area */}
-            <div className="p-12 border-b border-gray-50">
+            <div className="p-4 sm:p-6 md:p-12 border-b border-gray-50">
                {/* Quick Link User */}
                <div className="bg-gray-50/50 p-6 rounded-[32px] border border-gray-100 mb-8 flex flex-col md:flex-row items-center justify-between gap-4">
                   <h5 className="text-[9px] font-black text-navy uppercase tracking-widest shrink-0">Quick Link User</h5>
@@ -787,7 +819,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             </div>
 
             {/* Order Details (Optional) */}
-            <div className="p-12 border-b border-gray-50 bg-gray-50/10">
+            <div className="p-4 sm:p-6 md:p-12 border-b border-gray-50 bg-gray-50/10">
                <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                  <span className="w-2 h-2 bg-indigo-400 rounded-full" /> Additional Details (Optional)
                </h4>
@@ -849,112 +881,247 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             {/* Dynamic Items Table */}
             <div className="flex-1 p-0">
                <div className="w-full">
-                  <div className="bg-navy text-white text-[10px] font-black uppercase tracking-widest flex items-center py-4 px-12">
-                    <div className="w-12 text-center text-[8px] opacity-70">S.No</div>
-                    <div className="flex-1 px-4">PARTICULARS (Service Name & Details)</div>
-                    <div className="w-20 text-center">HSN</div>
-                    <div className="w-20 text-center">QTY</div>
-                    <div className="w-28 text-center">UNIT (UOM)</div>
-                    <div className="w-28 text-center">RATE (₹)</div>
-                    <div className="w-28 text-right">AMOUNT (₹)</div>
-                    <div className="w-12"></div>
-                  </div>
-                  
-                  <div className="divide-y divide-gray-50 bg-white">
-                    {items.map((item, index) => (
-                      <div key={item.id} className="flex items-start py-6 px-12 group hover:bg-gray-50/50 transition-colors">
-                        <div className="w-12 pt-2 text-center font-black text-navy text-sm">{index + 1}</div>
-                        <div className="flex-1 px-4 space-y-2">
-                          <input 
-                            className="w-full bg-transparent font-black text-base text-navy outline-none placeholder:text-gray-400"
-                            placeholder="Particulars (Service Name / Material)"
-                            value={item.name || ""}
-                            onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                          />
-                                <textarea 
-                                  className="w-full bg-gray-50/50 border border-transparent focus:border-teal/30 focus:bg-white rounded-xl p-3 font-medium text-xs text-gray-500 outline-none transition-all placeholder:text-gray-400 resize-none"
-                                  placeholder="Describe details..."
-                                  rows={2}
-                                  value={item.description || ""}
-                                  onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                                />
-                              </div>
-                              <div className="w-24 pt-1 text-center">
-                                <input 
-                                  className="w-20 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                  placeholder="HSN/SAC"
-                                  value={item.hsn || ''}
-                                  onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleDetectHsn(item.id, item.name, item.type)}
-                                  className="mt-1 text-[9px] font-black text-teal hover:underline flex items-center justify-center gap-0.5 mx-auto"
-                                  title="Search GST Portal & Google AI for HSN/SAC Code"
-                                >
-                                  ✨ Detect
-                                </button>
-                              </div>
-                              <div className="w-20 pt-1 text-center">
-                                <input 
-                                  type="number"
-                                  className="w-16 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                  value={(!item.quantity || isNaN(item.quantity)) ? '' : item.quantity}
-                                  onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                                  onFocus={(e) => e.target.select()}
-                                />
-                                <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">QTY</p>
-                              </div>
-                              <div className="w-28 pt-1 text-center px-1">
-                                <select
-                                  className="w-full bg-white border border-gray-100 rounded-lg py-2 px-1 text-center font-bold text-xs outline-none focus:ring-2 focus:ring-teal/20"
-                                  value={commonUnits.includes(item.unit || '') ? (item.unit || 'Unit') : 'Custom'}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'Custom') {
-                                      updateItem(item.id, 'unit', '');
-                                    } else {
-                                      updateItem(item.id, 'unit', val);
-                                    }
-                                  }}
-                                >
-                                  {commonUnits.map((u) => (
-                                    <option key={u} value={u}>{u}</option>
-                                  ))}
-                                  <option value="Custom">Custom...</option>
-                                </select>
-                                {(!commonUnits.includes(item.unit || '') || item.unit === '') && (
-                                  <input 
-                                    className="mt-1 w-full bg-white border border-gray-100 rounded-lg py-1 px-2 text-[10px] font-bold text-center outline-none focus:ring-1 focus:ring-teal/20"
-                                    placeholder="Specify Unit"
-                                    value={item.unit || ''}
-                                    onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                                  />
-                                )}
-                              </div>
-                              <div className="w-28 pt-1 text-center">
-                                <input 
-                                  type="number"
-                                  className="w-24 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                  value={(!item.rate || isNaN(item.rate)) ? '' : item.rate}
-                                  onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
-                                  onFocus={(e) => e.target.select()}
-                                />
-                                <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">Per {item.unit || 'Unit'}</p>
-                              </div>
-                              <div className="w-28 pt-3 text-right font-black text-navy text-base">
-                                ₹{(item.rate * item.quantity).toLocaleString('en-IN')}
-                              </div>
-                              <div className="w-12 pt-3 flex justify-end">
-                                <button 
-                                  onClick={() => removeItem(item.id)}
-                                  className="text-red-200 hover:text-red-500 transition-all p-2 rounded-lg hover:bg-red-50"
-                                >
-                                  <Trash2 size={18} />
-                                </button>
-                              </div>
+                  {/* DESKTOP TABLE VIEW */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <div className="min-w-[760px]">
+                      <div className="bg-navy text-white text-[10px] font-black uppercase tracking-widest flex items-center py-4 px-6 md:px-12">
+                        <div className="w-12 text-center text-[8px] opacity-70">S.No</div>
+                        <div className="flex-1 px-4">PARTICULARS (Service Name & Details)</div>
+                        <div className="w-24 text-center">HSN</div>
+                        <div className="w-20 text-center">QTY</div>
+                        <div className="w-28 text-center">UNIT (UOM)</div>
+                        <div className="w-28 text-center">RATE (₹)</div>
+                        <div className="w-28 text-right">AMOUNT (₹)</div>
+                        <div className="w-12"></div>
+                      </div>
+                      
+                      <div className="divide-y divide-gray-50 bg-white">
+                        {items.map((item, index) => (
+                          <div key={item.id} className="flex items-start py-6 px-6 md:px-12 group hover:bg-gray-50/50 transition-colors">
+                            <div className="w-12 pt-2 text-center font-black text-navy text-sm">{index + 1}</div>
+                            <div className="flex-1 px-4 space-y-2">
+                              <input 
+                                className="w-full bg-transparent font-black text-base text-navy outline-none placeholder:text-gray-400"
+                                placeholder="Particulars (Service Name / Material)"
+                                value={item.name || ""}
+                                onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                              />
+                              <textarea 
+                                className="w-full bg-gray-50/50 border border-transparent focus:border-teal/30 focus:bg-white rounded-xl p-3 font-medium text-xs text-gray-500 outline-none transition-all placeholder:text-gray-400 resize-none"
+                                placeholder="Describe details..."
+                                rows={2}
+                                value={item.description || ""}
+                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                              />
                             </div>
-                          ))}
+                            <div className="w-24 pt-1 text-center">
+                              <input 
+                                className="w-20 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
+                                placeholder="HSN/SAC"
+                                value={item.hsn || ''}
+                                onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleDetectHsn(item.id, item.name, item.type)}
+                                className="mt-1 text-[9px] font-black text-teal hover:underline flex items-center justify-center gap-0.5 mx-auto cursor-pointer"
+                                title="Search GST Portal & Google AI for HSN/SAC Code"
+                              >
+                                ✨ Detect
+                              </button>
+                            </div>
+                            <div className="w-20 pt-1 text-center">
+                              <input 
+                                type="number"
+                                className="w-16 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
+                                value={(!item.quantity || isNaN(item.quantity)) ? '' : item.quantity}
+                                onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                              />
+                              <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">QTY</p>
+                            </div>
+                            <div className="w-28 pt-1 text-center px-1">
+                              <select
+                                className="w-full bg-white border border-gray-100 rounded-lg py-2 px-1 text-center font-bold text-xs outline-none focus:ring-2 focus:ring-teal/20 cursor-pointer"
+                                value={commonUnits.includes(item.unit || '') ? (item.unit || 'Unit') : 'Custom'}
+                                onChange={(e) => {
+                                  const val = e.target.value;
+                                  if (val === 'Custom') {
+                                    updateItem(item.id, 'unit', '');
+                                  } else {
+                                    updateItem(item.id, 'unit', val);
+                                  }
+                                }}
+                              >
+                                {commonUnits.map((u) => (
+                                  <option key={u} value={u}>{u}</option>
+                                ))}
+                                <option value="Custom">Custom...</option>
+                              </select>
+                              {(!commonUnits.includes(item.unit || '') || item.unit === '') && (
+                                <input 
+                                  className="mt-1 w-full bg-white border border-gray-100 rounded-lg py-1 px-2 text-[10px] font-bold text-center outline-none focus:ring-1 focus:ring-teal/20"
+                                  placeholder="Specify Unit"
+                                  value={item.unit || ''}
+                                  onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                                />
+                              )}
+                            </div>
+                            <div className="w-28 pt-1 text-center">
+                              <input 
+                                type="number"
+                                className="w-24 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
+                                value={(!item.rate || isNaN(item.rate)) ? '' : item.rate}
+                                onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
+                                onFocus={(e) => e.target.select()}
+                              />
+                              <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">Per {item.unit || 'Unit'}</p>
+                            </div>
+                            <div className="w-28 pt-3 text-right font-black text-navy text-base">
+                              ₹{(item.rate * item.quantity).toLocaleString('en-IN')}
+                            </div>
+                            <div className="w-12 pt-3 flex justify-end">
+                              <button 
+                                type="button"
+                                onClick={() => removeItem(item.id)}
+                                className="text-red-200 hover:text-red-500 transition-all p-2 rounded-lg hover:bg-red-50 cursor-pointer"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* MOBILE RESPONSIVE CARD VIEW (Prices & UOM 100% visible) */}
+                  <div className="md:hidden divide-y divide-gray-100 bg-white">
+                    <div className="bg-navy text-white text-[10px] font-black uppercase tracking-wider py-2.5 px-4 flex justify-between items-center">
+                      <span>Items List ({items.length})</span>
+                      <span className="text-teal font-extrabold text-[9px]">UOM & Rates Auto-Calculated</span>
+                    </div>
+
+                    {items.map((item, index) => (
+                      <div key={item.id} className="p-4 space-y-3 bg-white">
+                        {/* Row 1: S.No + Particulars + Delete */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <span className="w-6 h-6 rounded-full bg-navy/10 text-navy font-black text-xs flex items-center justify-center shrink-0">
+                              {index + 1}
+                            </span>
+                            <input 
+                              className="w-full bg-transparent font-black text-sm text-navy outline-none placeholder:text-gray-400 border-b border-gray-100 focus:border-teal pb-1"
+                              placeholder="Particulars (Service / Material)"
+                              value={item.name || ""}
+                              onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                            />
+                          </div>
+                          <button 
+                            type="button"
+                            onClick={() => removeItem(item.id)}
+                            className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 shrink-0 cursor-pointer"
+                            title="Remove item"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        {/* Description */}
+                        <textarea 
+                          className="w-full bg-gray-50/70 border border-gray-100 focus:border-teal/30 focus:bg-white rounded-xl p-2.5 font-medium text-xs text-gray-600 outline-none transition-all placeholder:text-gray-400 resize-none"
+                          placeholder="Description / work details..."
+                          rows={2}
+                          value={item.description || ""}
+                          onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                        />
+
+                        {/* Grid 1: HSN & Quantity */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider">HSN / SAC</label>
+                              <button
+                                type="button"
+                                onClick={() => handleDetectHsn(item.id, item.name, item.type)}
+                                className="text-[9px] font-black text-teal hover:underline flex items-center gap-0.5 cursor-pointer"
+                              >
+                                ✨ Detect
+                              </button>
+                            </div>
+                            <input 
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy outline-none focus:border-teal"
+                              placeholder="HSN/SAC"
+                              value={item.hsn || ''}
+                              onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">Quantity (QTY)</label>
+                            <input 
+                              type="number"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy text-center outline-none focus:border-teal"
+                              value={(!item.quantity || isNaN(item.quantity)) ? '' : item.quantity}
+                              onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Grid 2: Unit (UOM) & Rate (₹) */}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">Unit (UOM)</label>
+                            <select
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2 text-xs font-bold text-navy outline-none focus:border-teal cursor-pointer"
+                              value={commonUnits.includes(item.unit || '') ? (item.unit || 'Unit') : 'Custom'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'Custom') {
+                                  updateItem(item.id, 'unit', '');
+                                } else {
+                                  updateItem(item.id, 'unit', val);
+                                }
+                              }}
+                            >
+                              {commonUnits.map((u) => (
+                                <option key={u} value={u}>{u}</option>
+                              ))}
+                              <option value="Custom">Custom...</option>
+                            </select>
+                            {(!commonUnits.includes(item.unit || '') || item.unit === '') && (
+                              <input 
+                                className="mt-1.5 w-full bg-white border border-gray-200 rounded-lg py-1 px-2 text-[10px] font-bold outline-none focus:border-teal"
+                                placeholder="Enter Unit"
+                                value={item.unit || ''}
+                                onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
+                              />
+                            )}
+                          </div>
+                          <div>
+                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">
+                              Rate (₹) / {item.unit || 'Unit'}
+                            </label>
+                            <input 
+                              type="number"
+                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy text-right outline-none focus:border-teal"
+                              placeholder="0"
+                              value={(!item.rate || isNaN(item.rate)) ? '' : item.rate}
+                              onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Bottom Row: Amount Highlight */}
+                        <div className="flex items-center justify-between bg-teal/10 px-3.5 py-2.5 rounded-xl border border-teal/20">
+                          <span className="text-[10px] font-black text-teal uppercase tracking-wider">Item Total:</span>
+                          <span className="text-sm font-black text-navy">
+                            ₹{(item.rate * item.quantity).toLocaleString('en-IN')}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                </div>
 
@@ -1053,7 +1220,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                </div>
 
             {/* Footer Terms & Bank */}
-            <div className="p-12 bg-gray-50/30 grid grid-cols-1 md:grid-cols-2 gap-12">
+            <div className="p-4 sm:p-6 md:p-12 bg-gray-50/30 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                <div className="space-y-4">
                   <h6 className="text-[10px] font-black text-navy uppercase tracking-widest">Bank Details & Billing Policy</h6>
                   <textarea 
@@ -1062,14 +1229,34 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     value={bankDetails}
                     onChange={(e) => setBankDetails(e.target.value)}
                   />
-                  <div className="flex items-center gap-2 pt-2">
-                    <span className="text-[9px] font-black text-navy uppercase tracking-widest shrink-0">UPI ID / Link for QR:</span>
-                    <input 
-                      className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-teal outline-none focus:border-teal flex-1"
-                      placeholder="e.g. 9582268658@ybl or mustakansari9582-3@okhdfcbank"
-                      value={upiId}
-                      onChange={(e) => setUpiId(e.target.value)}
-                    />
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className="text-[9px] font-black text-navy uppercase tracking-widest">UPI ID / Link for QR:</span>
+                      <span className="text-[8px] font-bold text-teal bg-teal/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Slideable ↔</span>
+                    </div>
+                    <div className="flex items-center gap-2 w-full sm:flex-1 min-w-0 bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus-within:border-teal focus-within:ring-1 focus-within:ring-teal/20 transition-all shadow-sm">
+                      <div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scroll-smooth flex items-center pr-1 touch-pan-x">
+                        <input 
+                          className="bg-transparent text-xs font-bold text-teal outline-none w-full min-w-[280px] tracking-wide"
+                          placeholder="e.g. 9582268658@ybl or mustakansari9582-3@okhdfcbank"
+                          value={upiId}
+                          onChange={(e) => setUpiId(e.target.value)}
+                        />
+                      </div>
+                      {upiId && (
+                        <button
+                          type="button"
+                          title="Copy UPI ID"
+                          onClick={() => {
+                            navigator.clipboard.writeText(upiId);
+                            toast.success('UPI ID copied to clipboard');
+                          }}
+                          className="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-teal transition-colors"
+                        >
+                          <Copy size={13} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                </div>
                {!isTaxInvoice ? (
