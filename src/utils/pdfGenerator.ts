@@ -590,15 +590,17 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   doc.setFont('helvetica', 'normal');
   doc.text('Authorised Signatory', margin + contentWidth - 2, decY + 16, { align: 'right' });
   
-  // Customer Signature
+  // Customer Signature (Blank space with line for manual customer signature)
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(margin + 18, decY + 12, margin + 62, decY + 12);
   doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
   doc.text('Customer Signature', margin + 40, decY + 16, { align: 'center' });
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.customerName || '', margin + 40, decY + 21, { align: 'center' });
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  const footerBottomY = Math.max(decY + 4 + (decLines.length * 4), decY + 23);
+  const footerBottomY = Math.max(decY + 4 + (decLines.length * 4), decY + 20);
   const thX = pageWidth / 2 - 30;
   const thY = footerBottomY + 5;
   doc.rect(thX, thY, 60, 5);
