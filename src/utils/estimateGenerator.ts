@@ -311,44 +311,45 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   });
 
   // --- RIGHT COLUMN ---
-  // Totals
-  let rightY = finalY + 5;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('Sub Total:', rightColStart, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rs. ' + (data.summary?.taxableAmount || data.totalAmount).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 4.5;
+  // Dynamic Summary Rows
+  const estimateSummaryRows: { label: string; value: string }[] = [
+    { label: 'Sub Total:', value: 'Rs. ' + (data.summary?.taxableAmount || data.totalAmount).toFixed(2) }
+  ];
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('Discount:', rightColStart, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rs. ' + (data.summary?.discountAmount || 0).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 4.5;
+  if (data.summary?.discountAmount && data.summary.discountAmount > 0) {
+    estimateSummaryRows.push({ label: 'Discount (-):', value: 'Rs. ' + data.summary.discountAmount.toFixed(2) });
+  }
 
   const cgst = data.summary?.cgstAmount || 0;
   const sgst = data.summary?.sgstAmount || 0;
   const igst = data.summary?.igstAmount || 0;
 
   if (igst > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('IGST Amt:', rightColStart, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Rs. ' + igst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 4.5;
+    estimateSummaryRows.push({ label: 'IGST Amt:', value: 'Rs. ' + igst.toFixed(2) });
   } else if (cgst > 0 || sgst > 0) {
-    doc.setFont('helvetica', 'bold');
-    doc.text('CGST Amt:', rightColStart, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Rs. ' + cgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 4;
-
-    doc.setFont('helvetica', 'bold');
-    doc.text('SGST Amt:', rightColStart, rightY);
-    doc.setFont('helvetica', 'normal');
-    doc.text('Rs. ' + sgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-    rightY += 4.5;
+    if (cgst > 0) estimateSummaryRows.push({ label: 'CGST Amt:', value: 'Rs. ' + cgst.toFixed(2) });
+    if (sgst > 0) estimateSummaryRows.push({ label: 'SGST Amt:', value: 'Rs. ' + sgst.toFixed(2) });
   }
+
+  if (data.summary?.freightCharges && data.summary.freightCharges > 0) {
+    estimateSummaryRows.push({ label: 'Freight Charges:', value: 'Rs. ' + data.summary.freightCharges.toFixed(2) });
+  }
+
+  if (data.summary?.roundOff && Math.abs(data.summary.roundOff) >= 0.01) {
+    const sign = data.summary.roundOff > 0 ? '+' : '';
+    estimateSummaryRows.push({ label: 'Round Off:', value: 'Rs. ' + sign + data.summary.roundOff.toFixed(2) });
+  }
+
+  let rightY = finalY + 5;
+  const elh = estimateSummaryRows.length > 4 ? 3.8 : 4.5;
+  estimateSummaryRows.forEach((row) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text(row.label, rightColStart, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(row.value, margin + contentWidth - 2, rightY, { align: 'right' });
+    rightY += elh;
+  });
 
   // Final Amount Box
   doc.setFillColor(...yellowColor);

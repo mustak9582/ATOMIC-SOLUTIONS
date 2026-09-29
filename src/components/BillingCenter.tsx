@@ -63,6 +63,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     { id: '1', name: '', description: '', hsn: '', rate: 0, quantity: 1, unit: 'Unit', type: 'Labor' }
   ]);
   const [discount, setDiscount] = useState(0);
+  const [freight, setFreight] = useState(0);
   const [roundOff, setRoundOff] = useState(0);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [estimateNumber, setEstimateNumber] = useState(() => getDefaultSerialNumber('Estimate'));
@@ -345,7 +346,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const subTotal = items.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
   const discountedTotal = subTotal - discount;
   const gstAmount = (discountedTotal * gstPercentage) / 100;
-  const total = discountedTotal + gstAmount + roundOff;
+  const total = discountedTotal + gstAmount + freight + roundOff;
 
   const saveToDatabase = async () => {
     if (items.length === 0) return;
@@ -363,6 +364,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         items: items.filter(item => item.name.trim() !== ''),
         subTotal,
         discount,
+        freightCharges: freight,
         roundOff,
         gstPercentage,
         gstAmount,
@@ -434,7 +436,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         cgstAmount: gstType === 'cgst_sgst' ? gstAmount / 2 : 0,
         sgstAmount: gstType === 'cgst_sgst' ? gstAmount / 2 : 0,
         igstAmount: gstType === 'igst' ? gstAmount : 0,
-        freightCharges: 0,
+        freightCharges: freight,
         discountAmount: discount,
         roundOff: roundOff
       },
@@ -1168,6 +1170,29 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                               className="w-24 bg-teal/5 border border-teal/10 rounded-lg py-1 px-2 text-right font-bold text-teal outline-none focus:ring-2 focus:ring-teal/20"
                               value={(!discount || isNaN(discount)) ? '' : discount}
                               onChange={(e) => setDiscount(e.target.value === '' ? 0 : Number(e.target.value))}
+                              onFocus={(e) => e.target.select()}
+                           />
+                        </div>
+                        <div className="flex justify-between items-center px-4">
+                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Freight & Pkg (+)</span>
+                           <input 
+                              type="number"
+                              className="w-24 bg-teal/5 border border-teal/10 rounded-lg py-1 px-2 text-right font-bold text-teal outline-none focus:ring-2 focus:ring-teal/20"
+                              value={(!freight || isNaN(freight)) ? '' : freight}
+                              onChange={(e) => setFreight(e.target.value === '' ? 0 : Number(e.target.value))}
+                              placeholder="0"
+                              onFocus={(e) => e.target.select()}
+                           />
+                        </div>
+                        <div className="flex justify-between items-center px-4">
+                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Round Off (+/-)</span>
+                           <input 
+                              type="number"
+                              step="any"
+                              className="w-24 bg-teal/5 border border-teal/10 rounded-lg py-1 px-2 text-right font-bold text-teal outline-none focus:ring-2 focus:ring-teal/20"
+                              value={(!roundOff || isNaN(roundOff)) ? '' : roundOff}
+                              onChange={(e) => setRoundOff(e.target.value === '' ? 0 : Number(e.target.value))}
+                              placeholder="0"
                               onFocus={(e) => e.target.select()}
                            />
                         </div>

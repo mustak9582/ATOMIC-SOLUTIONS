@@ -172,6 +172,7 @@ export interface Invoice {
   items: BillingItem[];
   subTotal: number;
   discount: number;
+  freightCharges?: number;
   roundOff?: number;
   gstPercentage: number;
   gstAmount: number;

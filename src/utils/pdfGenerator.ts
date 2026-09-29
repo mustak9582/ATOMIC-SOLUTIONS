@@ -487,45 +487,48 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
     doc.setFont('helvetica', 'bold');
     doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, sY, { align: 'right' });
   } else {
-    doc.text('Taxable Amount :', sumBoxX + 2, sY);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.taxableAmount.toFixed(2), margin + contentWidth - 2, sY, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('CGST Amt :', sumBoxX + 2, sY + lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.cgstAmount.toFixed(2), margin + contentWidth - 2, sY + lh, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('SGST Amt :', sumBoxX + 2, sY + 2*lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.sgstAmount.toFixed(2), margin + contentWidth - 2, sY + 2*lh, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('IGST Amt :', sumBoxX + 2, sY + 3*lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text(data.summary.igstAmount > 0 ? 'Rs. ' + data.summary.igstAmount.toFixed(2) : 'Rs. 0.00', margin + contentWidth - 2, sY + 3*lh, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('Freight Packing Charges :', sumBoxX + 2, sY + 4*lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.freightCharges.toFixed(2), margin + contentWidth - 2, sY + 4*lh, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('Discount Amount :', sumBoxX + 2, sY + 5*lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.discountAmount.toFixed(2), margin + contentWidth - 2, sY + 5*lh, { align: 'right' });
-    
-    doc.setFont('helvetica', 'normal');
-    doc.text('Round off :', sumBoxX + 2, sY + 6*lh);
-    doc.setFont('helvetica', 'bold');
-    doc.text('Rs. ' + data.summary.roundOff.toFixed(2), margin + contentWidth - 2, sY + 6*lh, { align: 'right' });
+    // Dynamic summary: ONLY show rows that are active / non-zero!
+    const summaryRows: { label: string; value: string }[] = [
+      { label: 'Taxable Amount :', value: `Rs. ${data.summary.taxableAmount.toFixed(2)}` }
+    ];
 
-    doc.line(sumBoxX, footerBoxStartY + 45, margin + contentWidth, footerBoxStartY + 45);
-    doc.setFontSize(10);
+    if (data.summary.cgstAmount > 0) {
+      summaryRows.push({ label: 'CGST Amt :', value: `Rs. ${data.summary.cgstAmount.toFixed(2)}` });
+    }
+    if (data.summary.sgstAmount > 0) {
+      summaryRows.push({ label: 'SGST Amt :', value: `Rs. ${data.summary.sgstAmount.toFixed(2)}` });
+    }
+    if (data.summary.igstAmount > 0) {
+      summaryRows.push({ label: 'IGST Amt :', value: `Rs. ${data.summary.igstAmount.toFixed(2)}` });
+    }
+    if (data.summary.freightCharges && data.summary.freightCharges > 0) {
+      summaryRows.push({ label: 'Freight Charges :', value: `Rs. ${data.summary.freightCharges.toFixed(2)}` });
+    }
+    if (data.summary.discountAmount && data.summary.discountAmount > 0) {
+      summaryRows.push({ label: 'Discount Amount (-):', value: `Rs. ${data.summary.discountAmount.toFixed(2)}` });
+    }
+    if (data.summary.roundOff && Math.abs(data.summary.roundOff) >= 0.01) {
+      const sign = data.summary.roundOff > 0 ? '+' : '';
+      summaryRows.push({ label: 'Round Off :', value: `Rs. ${sign}${data.summary.roundOff.toFixed(2)}` });
+    }
+
+    const rowLh = summaryRows.length > 5 ? 4.0 : 4.5;
+    summaryRows.forEach((row, idx) => {
+      const curY = sY + (idx * rowLh);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.5);
+      doc.text(row.label, sumBoxX + 2, curY);
+      doc.setFont('helvetica', 'bold');
+      doc.text(row.value, margin + contentWidth - 2, curY, { align: 'right' });
+    });
+
+    const totalDividerY = footerBoxStartY + 45;
+    doc.line(sumBoxX, totalDividerY, margin + contentWidth, totalDividerY);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
     doc.text('Total Amount :', sumBoxX + 2, footerBoxStartY + 51);
     doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, footerBoxStartY + 51, { align: 'right' });
-    doc.line(margin, footerBoxStartY + 45, sumBoxX, footerBoxStartY + 45);
+    doc.line(margin, totalDividerY, sumBoxX, totalDividerY);
   }
 
   // Draw the outer border of the summary/bank box
