@@ -82,7 +82,7 @@ export default function Footer() {
               <div className="absolute -top-5 bg-teal text-white font-bold text-[10px] uppercase tracking-[0.2em] px-6 py-2 rounded-full">Scan contact</div>
               <div className="w-48 h-48 bg-white rounded-lg mb-6 flex items-center justify-center p-4 overflow-hidden border border-slate-100">
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`BEGIN:VCARD\nVERSION:3.0\nN:Ansari;Mustak;;;\nFN:Mustak Ansari\nORG:Atomic Solutions\nTEL;TYPE=WORK,VOICE:+919582268658\nTEL;TYPE=CELL,VOICE:+919582268658\nEMAIL;TYPE=PREF,INTERNET:atomichvacsolutions@gmail.com\nURL:https://atomicsolutions.in\nADR;TYPE=WORK:;;Binjha, Sonraithari;Deoghar;JH;814149;India\nEND:VCARD`)}`} 
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`BEGIN:VCARD\nVERSION:3.0\nN:Ansari;Mustak;;;\nFN:Mustak Ansari\nORG:Atomic Solutions\nTEL;TYPE=WORK,VOICE:+919582268658\nTEL;TYPE=CELL,VOICE:+919582268658\nEMAIL;TYPE=PREF,INTERNET:atomichvacsolution@gmail.com\nURL:https://atomicsolutions.in\nADR;TYPE=WORK:;;Binjha, Sonraithari;Deoghar;JH;814149;India\nEND:VCARD`)}`} 
                   alt="Atomic Solutions Contact QR" 
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"

@@ -210,7 +210,7 @@ export default function InvoiceViewer() {
                 </div>
                 <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
                    <Mail size={14} className="text-teal" />
-                   <span>atomichvacsolutions@gmail.com</span>
+                   <span>atomichvacsolution@gmail.com</span>
                 </div>
               </div>
             </div>

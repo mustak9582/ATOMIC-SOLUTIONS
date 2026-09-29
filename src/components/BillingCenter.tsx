@@ -89,7 +89,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [companyPin, setCompanyPin] = useState('814149');
   const [companyBranch, setCompanyBranch] = useState('Deoghar, Jharkhand - 814149');
   const [companyPhone, setCompanyPhone] = useState('+91 95822 68658');
-  const [companyEmail, setCompanyEmail] = useState('atomichvacsolutions@gmail.com');
+  const [companyEmail, setCompanyEmail] = useState('atomichvacsolution@gmail.com');
   const [companyAddress, setCompanyAddress] = useState('96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149');
   const [msmeNumber, setMsmeNumber] = useState('');
   const [gstType, setGstType] = useState<'cgst_sgst' | 'igst'>('cgst_sgst');

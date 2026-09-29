@@ -178,7 +178,7 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
     doc.text('We Bring Comfort Life', pageWidth / 2, margin + 18, { align: 'center' });
     doc.text(data.companyAddress || '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149', pageWidth / 2, margin + 22, { align: 'center' });
     const cleanPhone = (data.companyPhone || '9582268658').replace(/^\+?91-?\s*/, '');
-    doc.text(`Contact No.: +91 ${cleanPhone} | Email: ${data.companyEmail || 'atomichvacsolutions@gmail.com'}`, pageWidth / 2, margin + 26, { align: 'center' });
+    doc.text(`Contact No.: +91 ${cleanPhone} | Email: ${data.companyEmail || 'atomichvacsolution@gmail.com'}`, pageWidth / 2, margin + 26, { align: 'center' });
     
     let topBoxY = margin + 30;
     if (data.ownerGSTIN) {
