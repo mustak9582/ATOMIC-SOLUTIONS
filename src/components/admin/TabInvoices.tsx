@@ -36,8 +36,8 @@ export function TabInvoices({
             <div className="bg-white rounded-[40px] border border-gray-100 shadow-2xl overflow-hidden mb-8">
               <div className="p-8 border-b border-gray-50 flex flex-col md:flex-row justify-between items-start md:items-center bg-gray-50/30 gap-4">
                 <div>
-                  <h2 className="text-2xl font-black text-navy uppercase tracking-tighter">Estimates Archive</h2>
-                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Full Estimate History & PDF Access</p>
+                  <h2 className="text-2xl font-black text-navy uppercase tracking-tighter">Proforma Invoice Archive</h2>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">Full Proforma Invoice History & PDF Access</p>
                 </div>
                 <div className="flex gap-2">
                    <Button 
@@ -60,7 +60,7 @@ export function TabInvoices({
                 <Table>
                   <TableHeader className="bg-gray-50/50">
                     <TableRow className="border-none">
-                      <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Estimate No</TableHead>
+                      <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Proforma Inv No</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Customer</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14 text-center">Status</TableHead>
                       <TableHead className="text-[10px] font-black uppercase tracking-widest px-8 h-14">Date</TableHead>
@@ -125,7 +125,7 @@ export function TabInvoices({
                             <div className="w-16 h-16 bg-navy/5 rounded-full flex items-center justify-center text-navy/20">
                               <FileText size={32} />
                             </div>
-                            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No estimates generated yet</p>
+                            <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No proforma invoices generated yet</p>
                           </div>
                         </TableCell>
                       </TableRow>

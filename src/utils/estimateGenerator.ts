@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import autoTablePkg from 'jspdf-autotable';
 import { numberToWords, PDFInvoiceData } from './pdfGenerator';
 import { logoBase64, signatureBase64 } from './pdfAssets';
+import { autoDetectStateCode } from './stateCodeHelper';
 
 export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   const doc = new jsPDF({ format: 'a4', unit: 'mm' });
@@ -20,7 +21,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.setFontSize(14);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(0, 0, 0);
-  doc.text('Estimate Format', pageWidth / 2, currentY + 6, { align: 'center' });
+  doc.text('Proforma Invoice', pageWidth / 2, currentY + 6, { align: 'center' });
   
   currentY += 12;
 
@@ -61,81 +62,139 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.text(data.companyEmail || '', leftValX, currentY);
   currentY += 4;
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('GSTIN:', leftColX, currentY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.companyGSTIN || '', leftValX, currentY);
-  currentY += 4;
+  if (data.companyGSTIN) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('GSTIN:', leftColX, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.companyGSTIN, leftValX, currentY);
+    currentY += 4;
+  }
+
+  if (data.msmeNumber) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('MSME/Udyam:', leftColX, currentY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.msmeNumber, leftValX, currentY);
+    currentY += 4;
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.text('State:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
-  doc.text('Jharkhand', leftValX, currentY);
+  doc.text('Jharkhand 20', leftValX, currentY);
   currentY += 8;
-
-  // Estimate For
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
-  doc.text('Estimate For:', leftColX, currentY);
-  currentY += 5;
 
   // Customer Info & Document Info
   doc.setFontSize(9);
-  const rightColX = pageWidth / 2 + 20;
-  const rightValX = rightColX + 30;
+  const rightColX = pageWidth / 2 + 10; // 115mm
+  const rightValX = rightColX + 32;
+  const maxLeftValWidth = rightColX - margin - 30; // 75mm max width to prevent collision with right column
 
   let customerY = currentY;
 
+  // Proforma Invoice For (Bill To) Header
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.text('Proforma Invoice For (Bill To):', leftColX, customerY);
+  
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('Proforma Inv No.:', rightColX, customerY);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.number || '', rightValX, customerY);
+  customerY += 4.5;
+
+  // Customer Name & Date
   doc.setFont('helvetica', 'bold');
   doc.text('Customer Name:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.customerName || '', leftValX, customerY);
-  
-  doc.setFont('helvetica', 'bold');
-  doc.text('Estimate No.:', rightColX, customerY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.number || '', rightValX, customerY);
-  customerY += 4;
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Address:', leftColX, customerY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.customerAddress || '', leftValX, customerY);
+  const splitCustName = doc.splitTextToSize(data.customerName || '', maxLeftValWidth);
+  doc.text(splitCustName, margin + 28, customerY);
   
   doc.setFont('helvetica', 'bold');
   doc.text('Date:', rightColX, customerY);
   doc.setFont('helvetica', 'normal');
   doc.text(data.date ? new Date(data.date).toISOString().split('T')[0] : '', rightValX, customerY);
-  customerY += 4;
+  customerY += Math.max(splitCustName.length * 4, 4.5);
 
+  // Address & State of supply
   doc.setFont('helvetica', 'bold');
-  doc.text('Phone No.:', leftColX, customerY);
+  doc.text('Address:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.customerPhone || '', leftValX, customerY);
+  const splitCustAddr = doc.splitTextToSize(data.customerAddress || '', maxLeftValWidth);
+  doc.text(splitCustAddr, margin + 28, customerY);
   
+  const stateSupplyStr = autoDetectStateCode(data.stateSupply || data.shippingState || data.customerState || 'Jharkhand 20');
   doc.setFont('helvetica', 'bold');
   doc.text('State of supply:', rightColX, customerY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.customerState || 'Jharkhand - 20', rightValX, customerY);
-  customerY += 4;
+  doc.text(stateSupplyStr, rightValX, customerY);
+  customerY += Math.max(splitCustAddr.length * 4, 4.5);
 
+  // Phone No.
   doc.setFont('helvetica', 'bold');
-  doc.text('Email ID:', leftColX, customerY);
+  doc.text('Phone No.:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.customerEmail || '', leftValX, customerY);
-  customerY += 4;
+  doc.text(data.customerPhone || '', margin + 28, customerY);
+  customerY += 4.5;
 
-  doc.setFont('helvetica', 'bold');
-  doc.text('GSTIN:', leftColX, customerY);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.customerGSTIN || '', leftValX, customerY);
-  customerY += 4;
+  // GSTIN (if present)
+  if (data.customerGSTIN) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('GSTIN:', leftColX, customerY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.customerGSTIN, margin + 28, customerY);
+    customerY += 4.5;
+  }
 
+  // State
+  const custStateStr = autoDetectStateCode(data.customerState || 'Jharkhand 20');
   doc.setFont('helvetica', 'bold');
   doc.text('State:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.customerState || 'Jharkhand - 20', leftValX, customerY);
-  customerY += 8;
+  doc.text(custStateStr, margin + 28, customerY);
+  customerY += 5;
+
+  // Ship To Details (if present and different/provided)
+  const hasShipTo = data.shippingName || data.shippingAddress;
+  if (hasShipTo) {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9.5);
+    doc.text('Ship To:', leftColX, customerY);
+    customerY += 4;
+    doc.setFontSize(9);
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('Name:', leftColX, customerY);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.shippingName || data.customerName || '', leftValX + 15, customerY);
+    customerY += 4;
+
+    if (data.shippingAddress) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('Address:', leftColX, customerY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.shippingAddress, leftValX + 15, customerY);
+      customerY += 4;
+    }
+
+    if (data.shippingGSTIN) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('GSTIN:', leftColX, customerY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(data.shippingGSTIN, leftValX + 15, customerY);
+      customerY += 4;
+    }
+
+    if (data.shippingState) {
+      doc.setFont('helvetica', 'bold');
+      doc.text('State:', leftColX, customerY);
+      doc.setFont('helvetica', 'normal');
+      doc.text(autoDetectStateCode(data.shippingState), leftValX + 15, customerY);
+      customerY += 4;
+    }
+    customerY += 2;
+  }
 
   // Table
   const tableData = data.items.map((item, idx) => [
@@ -184,59 +243,56 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
 
   const pageCount = (doc as any).internal.getNumberOfPages();
   doc.setPage(pageCount);
-  let finalY = (doc as any).lastAutoTable.finalY + 10;
+  let tableEndY = (doc as any).lastAutoTable.finalY;
 
-  // Check if we have enough space for footer (approx 60mm)
-  if (finalY + 60 > pageHeight - margin) {
+  // Anchored Bottom Footer for Proforma Invoice
+  const totalFooterHeight = 78;
+  let footerBoxStartY = pageHeight - margin - totalFooterHeight;
+
+  if (tableEndY > footerBoxStartY) {
     doc.addPage();
-    finalY = margin + 10;
+    footerBoxStartY = pageHeight - margin - totalFooterHeight;
   }
 
-  // Footer: Amount in words & Terms on left, Totals on right
-  const leftWidth = contentWidth * 0.6;
-  const rightWidth = contentWidth * 0.35;
+  // Extend vertical table grid lines seamlessly down to the top of the footer box
+  const colWidths = [12, 65, 18, 15, 15, 25, 15, 25];
+  let curColX = margin;
+  const colPositions = [curColX];
+  colWidths.forEach(w => {
+    curColX += w;
+    colPositions.push(curColX);
+  });
+
+  doc.setLineWidth(0.1);
+  doc.setDrawColor(0, 0, 0);
+  colPositions.forEach((x) => {
+    doc.line(x, tableEndY, x, footerBoxStartY);
+  });
+  doc.line(margin, footerBoxStartY, margin + contentWidth, footerBoxStartY);
+
+  const finalY = footerBoxStartY;
+
+  // Footer: Amount in words & Terms on left, Totals & Signature on right
+  const leftWidth = contentWidth * 0.54;
+  const rightWidth = contentWidth * 0.42;
   const rightColStart = margin + contentWidth - rightWidth;
 
+  // --- LEFT COLUMN ---
   // Words Box
   doc.setFillColor(...yellowColor);
-  doc.rect(margin, finalY, leftWidth, 6, 'F');
+  doc.rect(margin, finalY + 2, leftWidth, 6, 'F');
   doc.setFontSize(9);
   doc.setFont('helvetica', 'bold');
-  doc.text('Estimate Amount in Words:', margin + 2, finalY + 4);
+  doc.text('Proforma Invoice Amount in Words:', margin + 2, finalY + 6);
   
   doc.setFont('helvetica', 'normal');
-  doc.text(numberToWords(data.totalAmount), margin + 2, finalY + 11);
+  doc.setFontSize(8);
+  const wordsText = doc.splitTextToSize(numberToWords(data.totalAmount), leftWidth - 4);
+  doc.text(wordsText, margin + 2, finalY + 12);
+  const wordsHeight = (Array.isArray(wordsText) ? wordsText.length : 1) * 4;
 
-  // Totals Right Side
-  let rightY = finalY + 4;
-  doc.setFont('helvetica', 'bold');
-  doc.text('Sub Total:', rightColStart, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rs. ' + (data.summary?.taxableAmount || data.totalAmount).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 6;
-
-  doc.setFont('helvetica', 'bold');
-  doc.text('Discount:', rightColStart, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rs. ' + (data.summary?.discountAmount || 0).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 6;
-
-  const totalGst = (data.summary?.cgstAmount || 0) + (data.summary?.sgstAmount || 0) + (data.summary?.igstAmount || 0);
-  doc.setFont('helvetica', 'bold');
-  doc.text('GST Total Amt:', rightColStart, rightY);
-  doc.setFont('helvetica', 'normal');
-  doc.text('Rs. ' + totalGst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-  rightY += 8;
-
-  // Final Amount Box
-  doc.setFillColor(...yellowColor);
-  doc.rect(rightColStart, rightY - 5, rightWidth, 7, 'F');
-  doc.setFont('helvetica', 'bold');
-  doc.text('Final Amount:', rightColStart + 2, rightY);
-  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
-
-  // Terms Box
-  const termsY = finalY + 18;
+  // Terms Box - placed cleanly below Words Box
+  const termsY = finalY + 12 + wordsHeight + 4;
   doc.setFillColor(...yellowColor);
   doc.rect(margin, termsY, leftWidth, 6, 'F');
   doc.setFontSize(9);
@@ -244,15 +300,63 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.text('Terms and Conditions:', margin + 2, termsY + 4);
   
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
   const defaultTerms = '1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.';
   const termsLines = (data.terms || defaultTerms).split('\n').filter((l: string) => l.trim().length > 0);
   termsLines.forEach((line: string, i: number) => {
-    doc.text(line, margin + 2, termsY + 11 + (i * 4));
+    doc.text(line, margin + 2, termsY + 10 + (i * 4));
   });
 
-  // Signature
-  const sigY = pageHeight - margin - 15;
-  
+  // --- RIGHT COLUMN ---
+  // Totals
+  let rightY = finalY + 6;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8.5);
+  doc.text('Sub Total:', rightColStart, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Rs. ' + (data.summary?.taxableAmount || data.totalAmount).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
+  rightY += 5.5;
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Discount:', rightColStart, rightY);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Rs. ' + (data.summary?.discountAmount || 0).toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
+  rightY += 5.5;
+
+  const cgst = data.summary?.cgstAmount || 0;
+  const sgst = data.summary?.sgstAmount || 0;
+  const igst = data.summary?.igstAmount || 0;
+
+  if (igst > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('IGST Amt:', rightColStart, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Rs. ' + igst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
+    rightY += 5.5;
+  } else if (cgst > 0 || sgst > 0) {
+    doc.setFont('helvetica', 'bold');
+    doc.text('CGST Amt:', rightColStart, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Rs. ' + cgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
+    rightY += 5;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text('SGST Amt:', rightColStart, rightY);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Rs. ' + sgst.toFixed(2), margin + contentWidth - 2, rightY, { align: 'right' });
+    rightY += 5.5;
+  }
+
+  // Final Amount Box
+  doc.setFillColor(...yellowColor);
+  doc.rect(rightColStart, rightY - 3, rightWidth, 7, 'F');
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9);
+  doc.text('Final Amount:', rightColStart + 2, rightY + 2);
+  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY + 2, { align: 'right' });
+
+  // Signature - positioned below Final Amount on the right side
+  const sigY = pageHeight - margin - 12;
   const sigImg = (data.signatureUrl && data.signatureUrl.startsWith('data:')) ? data.signatureUrl : signatureBase64;
   try {
     if (sigImg) doc.addImage(sigImg, 'PNG', pageWidth - margin - 40, sigY - 12, 35, 12);
@@ -261,10 +365,10 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
   doc.setLineWidth(0.2);
   doc.line(pageWidth - margin - 45, sigY, pageWidth - margin, sigY);
   doc.setFont('helvetica', 'bold');
-  doc.text('Seal & Signature', pageWidth - margin - 22.5, sigY + 5, { align: 'center' });
+  doc.setFontSize(8);
+  doc.text('Seal & Signature', pageWidth - margin - 22.5, sigY + 4.5, { align: 'center' });
 
-  // Draw border around the entire page content to match grid aesthetic if needed?
-  // The provided image shows a thin border around the main container.
+  // Draw outer border around content area down to page bottom
   doc.setLineWidth(0.2);
   doc.setDrawColor(0, 0, 0);
   doc.rect(margin - 2, margin - 2, contentWidth + 4, pageHeight - margin * 2 + 4);

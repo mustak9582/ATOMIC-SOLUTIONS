@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Bot, X, Send, User, Sparkles, Mic, MicOff, AlertCircle, Volume2, CheckCircle2, Calendar, Clock, MapPin, Phone, ShieldCheck, ArrowRight, Calculator, Wrench } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { WHATSAPP_NUMBER } from '../constants';
+import { WHATSAPP_NUMBER, CORE_SERVICES } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
 import { dataService } from '../services/firebaseService';
-import { generateLocalAIResponse, detectBookingIntent, getServiceRateList, calculateCustomEstimation, getInstallationGuidelines, BookingIntent } from '../utils/aiKnowledgeEngine';
+import { generateLocalAIResponse, generateSmartAIResponse, detectBookingIntent, getServiceRateList, calculateCustomEstimation, getInstallationGuidelines, searchWebKnowledge, BookingIntent } from '../utils/aiKnowledgeEngine';
 
 export interface BookingCardData {
   serviceName: string;
@@ -29,22 +29,98 @@ interface Message {
 // Check for SpeechRecognition
 const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
-function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardData; onConfirmBooking: (cardData: BookingCardData, details: { name: string; phone: string; address: string; date: string }) => void }) {
+function BookingCardComponent({ 
+  card, 
+  onConfirmBooking 
+}: { 
+  card: BookingCardData; 
+  onConfirmBooking: (cardData: BookingCardData, details: { name: string; phone: string; address: string; date: string }) => void 
+}) {
   const { user, profile } = useAuth();
   const [name, setName] = useState(profile?.name || user?.displayName || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [address, setAddress] = useState(profile?.address || '');
   const [date, setDate] = useState(card.appointmentDate || 'Tomorrow');
+  const [timeSlot, setTimeSlot] = useState(card.appointmentTime || '10:00 AM');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Active Service Selection state (supports sliding & switching)
+  const [selectedServiceId, setSelectedServiceId] = useState<string>(() => {
+    const found = CORE_SERVICES.find(s => 
+      s.name.toLowerCase() === card.serviceName.toLowerCase() || 
+      s.id.toLowerCase() === card.serviceName.toLowerCase() ||
+      s.subCategories.some(sub => sub.name.toLowerCase() === card.subCategory.toLowerCase())
+    );
+    return found ? found.id : CORE_SERVICES[0].id;
+  });
+
+  const activeService = CORE_SERVICES.find(s => s.id === selectedServiceId) || CORE_SERVICES[0];
+
+  const [selectedSubCategory, setSelectedSubCategory] = useState<string>(() => {
+    const exists = activeService.subCategories.some(sub => sub.name === card.subCategory);
+    return exists ? card.subCategory : activeService.subCategories[0].name;
+  });
+
+  const handleServiceChange = (serviceId: string) => {
+    setSelectedServiceId(serviceId);
+    const newService = CORE_SERVICES.find(s => s.id === serviceId) || CORE_SERVICES[0];
+    setSelectedSubCategory(newService.subCategories[0].name);
+  };
+
+  const currentSub = activeService.subCategories.find(sub => sub.name === selectedSubCategory) || activeService.subCategories[0];
+  const currentPrice = currentSub.minPrice;
+
+  const getServiceIcon = (id: string) => {
+    switch (id) {
+      case 'hvac': return '❄️';
+      case 'electrical': return '⚡';
+      case 'construction': return '🧱';
+      case 'plumbing': return '🔧';
+      case 'false-ceiling': return '✨';
+      case 'tiles-marble': return '🏛️';
+      case 'painting': return '🎨';
+      case 'doors-windows': return '🚪';
+      case 'carpentry': return '🪵';
+      case 'deep-cleaning': return '🧹';
+      case 'home-planning': return '📐';
+      default: return '🛠️';
+    }
+  };
+
+  const getServiceShortName = (s: any) => {
+    switch (s.id) {
+      case 'hvac': return 'AC & HVAC';
+      case 'electrical': return 'Electrical';
+      case 'construction': return 'Civil Work';
+      case 'plumbing': return 'Plumbing';
+      case 'false-ceiling': return 'False Ceiling';
+      case 'tiles-marble': return 'Tiles/Marble';
+      case 'painting': return 'Painting';
+      case 'doors-windows': return 'Doors/Windows';
+      case 'carpentry': return 'Carpentry';
+      case 'deep-cleaning': return 'Cleaning';
+      case 'home-planning': return 'Home Planning';
+      default: return s.name.split(' ')[0];
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !address.trim()) {
-      alert('Please fill in your name, phone number, and address to confirm booking.');
+      alert('कृपया अपना नाम, मोबाइल नंबर और पता भरें।');
       return;
     }
     setIsSubmitting(true);
-    await onConfirmBooking(card, { name, phone, address, date });
+    await onConfirmBooking({
+      ...card,
+      serviceName: activeService.name,
+      subCategory: currentSub.name,
+      category: activeService.category,
+      price: currentPrice,
+      staffCategory: activeService.staffCategory,
+      appointmentDate: date,
+      appointmentTime: timeSlot
+    }, { name, phone, address, date });
     setIsSubmitting(false);
   };
 
@@ -66,7 +142,7 @@ function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardDat
 
         <div className="space-y-1">
           <h4 className="font-extrabold text-sm text-navy">{card.subCategory}</h4>
-          <p className="text-[11px] text-gray-500 font-medium">{card.serviceName}</p>
+          <p className="text-[11px] text-gray-500 font-medium">{card.serviceName} ({card.staffCategory})</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 bg-white/80 p-2.5 rounded-xl border border-gray-100 text-[11px]">
@@ -103,24 +179,101 @@ function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardDat
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       onSubmit={handleSubmit}
-      className="mt-3 p-3.5 bg-slate-900 text-white rounded-2xl shadow-xl border border-teal/30 flex flex-col gap-2.5"
+      className="mt-3 p-3.5 bg-slate-900 text-white rounded-2xl shadow-xl border border-teal/40 flex flex-col gap-3"
     >
       <div className="flex items-center justify-between border-b border-gray-800 pb-2">
         <span className="text-xs font-black text-teal uppercase tracking-widest flex items-center gap-1.5">
           <Sparkles size={14} /> Quick Direct Booking
         </span>
-        <span className="text-[11px] font-bold text-emerald-400">₹{card.price}</span>
+        <span className="text-[10px] bg-teal/20 text-teal border border-teal/30 px-2 py-0.5 rounded-full font-bold">
+          11 Services Available
+        </span>
       </div>
 
-      <div className="bg-gray-800/60 p-2 rounded-xl border border-gray-700 text-[11px] space-y-0.5">
-        <p className="font-bold text-white">{card.subCategory}</p>
-        <p className="text-gray-400">{card.serviceName}</p>
+      {/* 1. Horizontal Scrollable / Sliding Category Carousel */}
+      <div className="space-y-1.5">
+        <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+          <span>Choose Service (स्लाइड करके बदलें 👉)</span>
+          <span className="text-teal font-extrabold">{getServiceShortName(activeService)}</span>
+        </div>
+        
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 pt-0.5 no-scrollbar touch-pan-x scroll-smooth">
+          {CORE_SERVICES.map(s => {
+            const isSelected = s.id === selectedServiceId;
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => handleServiceChange(s.id)}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer border shrink-0 ${
+                  isSelected 
+                    ? 'bg-gradient-to-r from-teal to-emerald-600 text-white border-teal shadow-md shadow-teal/30 scale-[1.02]' 
+                    : 'bg-slate-800/90 hover:bg-slate-800 text-slate-300 border-slate-700/80 hover:border-slate-600'
+                }`}
+              >
+                <span>{getServiceIcon(s.id)}</span>
+                <span>{getServiceShortName(s)}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
+      {/* 2. Sub-Category Picker */}
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold text-gray-300 uppercase tracking-wider flex items-center justify-between">
+          <span>Select Sub-Service:</span>
+          <span className="text-emerald-400 font-bold">₹{currentPrice.toLocaleString()} {currentSub.unit ? `/${currentSub.unit}` : ''}</span>
+        </label>
+        <select
+          value={selectedSubCategory}
+          onChange={(e) => setSelectedSubCategory(e.target.value)}
+          className="w-full bg-slate-800 border border-teal/40 rounded-xl px-3 py-2 text-xs text-white font-medium focus:outline-none focus:border-teal"
+        >
+          {activeService.subCategories.map(sub => (
+            <option key={sub.id} value={sub.name} className="bg-slate-900 text-white py-1">
+              {sub.name} — Starting ₹{sub.minPrice.toLocaleString()} {sub.unit ? `/${sub.unit}` : ''}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* 3. Appointment Date & Slot Picker */}
+      <div className="grid grid-cols-2 gap-2 text-xs">
+        <div>
+          <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1">Appointment Date</label>
+          <select
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal"
+          >
+            <option value="Today">Today (आज)</option>
+            <option value="Tomorrow">Tomorrow (कल)</option>
+            <option value="Day After Tomorrow">Day After (परसों)</option>
+            <option value="This Weekend">This Weekend</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-[10px] text-gray-400 font-bold uppercase tracking-wider block mb-1">Preferred Time Slot</label>
+          <select
+            value={timeSlot}
+            onChange={(e) => setTimeSlot(e.target.value)}
+            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal"
+          >
+            <option value="09:00 AM">09:00 AM (Morning)</option>
+            <option value="11:00 AM">11:00 AM</option>
+            <option value="02:00 PM">02:00 PM (Afternoon)</option>
+            <option value="05:00 PM">05:00 PM (Evening)</option>
+            <option value="07:00 PM">07:00 PM (Night)</option>
+          </select>
+        </div>
+      </div>
+
+      {/* 4. Contact Inputs */}
       <div className="space-y-2">
         <input
           type="text"
-          placeholder="Your Name *"
+          placeholder="Your Full Name *"
           value={name}
           onChange={(e) => setName(e.target.value)}
           required
@@ -128,7 +281,7 @@ function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardDat
         />
         <input
           type="tel"
-          placeholder="Phone Number *"
+          placeholder="Phone Number (10 Digits) *"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           required
@@ -136,7 +289,7 @@ function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardDat
         />
         <input
           type="text"
-          placeholder="Full Address / Landmark *"
+          placeholder="Service Address / Area in Deoghar *"
           value={address}
           onChange={(e) => setAddress(e.target.value)}
           required
@@ -147,9 +300,9 @@ function BookingCardComponent({ card, onConfirmBooking }: { card: BookingCardDat
       <button
         type="submit"
         disabled={isSubmitting}
-        className="w-full mt-1 py-2 bg-gradient-to-r from-teal to-emerald-500 hover:from-teal/90 hover:to-emerald-600 text-navy font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all active:scale-[0.98]"
+        className="w-full mt-1 py-2.5 bg-gradient-to-r from-teal to-emerald-500 hover:from-teal/90 hover:to-emerald-600 text-navy font-black text-xs rounded-xl shadow-lg flex items-center justify-center gap-1.5 transition-all active:scale-[0.98] cursor-pointer"
       >
-        {isSubmitting ? 'Booking...' : 'Confirm Booking Now'} <ArrowRight size={14} />
+        {isSubmitting ? 'Booking Technician...' : `Confirm ${getServiceShortName(activeService)} Booking`} <ArrowRight size={14} />
       </button>
     </motion.form>
   );
@@ -159,16 +312,19 @@ function AtomicBotInner() {
   const { user, profile, isAdmin } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: 'welcome-1',
-      text: "Hi there! 👋 I'm **Atomic Bot**, your AI consultant for Atomic Solutions.",
+      text: "Hi there! 👋 I'm **Atomic AI**, your AI consultant for Atomic Solutions.",
       isBot: true,
       time: new Date()
     },
     {
       id: 'welcome-2',
-      text: "How can I assist you today?\n• **Installation Guidelines** (e.g. 'AC installation process kya hai?', 'Fan kaise lagate hain?')\n• **AC Tonnage & Room Estimations**\n• **Service Rate Lists**\n• Say **'Book AC service'** to schedule!",
+      text: "How can I assist you today?\n• **Installation Guidelines** (e.g. 'AC installation process kya hai?', 'Fan kaise lagate hain?')\n• **Estimations & Rate Lists** (AC, Electrical, Plumbing, Civil, Painting)\n• **Book Any Service**: Type **'Service book kar do'** to open our interactive service booking slider!",
       isBot: true,
       time: new Date()
     }
@@ -266,7 +422,7 @@ function AtomicBotInner() {
       dataService.addDoc('notifications', {
         userId: 'admin',
         title: 'New AI Direct Booking!',
-        message: `${userDetails.name} booked ${intent.subCategory} via Atomic Bot.`,
+        message: `${userDetails.name} booked ${intent.subCategory} via Atomic AI.`,
         type: 'booking_new',
         read: false,
         timestamp: new Date().toISOString(),
@@ -294,11 +450,11 @@ function AtomicBotInner() {
     }, details);
 
     setMessages(prev => prev.map(m => {
-      if (m.bookingCard && m.bookingCard.subCategory === card.subCategory && m.bookingCard.status === 'pending_form') {
+      if (m.bookingCard && m.bookingCard.status === 'pending_form') {
         return {
           ...m,
           bookingCard: {
-            ...m.bookingCard,
+            ...card,
             status: 'confirmed',
             bookingId,
             appointmentDate: details.date
@@ -313,98 +469,29 @@ function AtomicBotInner() {
     if (!text.trim()) return;
 
     const userMsg: Message = { id: Date.now().toString(), text: text.trim(), isBot: false, time: new Date() };
-    setMessages(prev => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInputMessage('');
     setIsTyping(true);
 
-    // 1. Check EXPLICIT BOOKING INTENT FIRST (Only open booking window when user wants to book!)
+    // 1. Check EXPLICIT BOOKING INTENT FIRST (Opens interactive booking window with service carousel)
     const bookingIntent = detectBookingIntent(text);
     if (bookingIntent) {
-      const userPhone = profile?.phone || '';
-      const userAddress = profile?.address || '';
-      const userName = profile?.name || user?.displayName || '';
-
-      if (user?.uid && userPhone && userAddress) {
-        const bookingId = await executeBookingCreation(bookingIntent, { name: userName, phone: userPhone, address: userAddress });
-        const botMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          text: `🎉 **Booking Confirmed Automatically!**\n\nI have scheduled **${bookingIntent.subCategory}** for you on **${bookingIntent.appointmentDate}** at **${bookingIntent.appointmentTime}**.\n\nOur certified ${bookingIntent.staffCategory} will contact you shortly!`,
-          isBot: true,
-          time: new Date(),
-          bookingCard: {
-            serviceName: bookingIntent.serviceName,
-            subCategory: bookingIntent.subCategory,
-            category: bookingIntent.category,
-            price: bookingIntent.price,
-            staffCategory: bookingIntent.staffCategory,
-            appointmentDate: bookingIntent.appointmentDate || 'Tomorrow',
-            appointmentTime: bookingIntent.appointmentTime || '10:00 AM',
-            status: 'confirmed',
-            bookingId
-          }
-        };
-        setMessages(prev => [...prev, botMsg]);
-        setIsTyping(false);
-        return;
-      } else {
-        const botMsg: Message = {
-          id: (Date.now() + 1).toString(),
-          text: `⚡ **Direct Service Booking Window**\n\nPlease confirm your contact details below to dispatch technician for **${bookingIntent.subCategory}**:`,
-          isBot: true,
-          time: new Date(),
-          bookingCard: {
-            serviceName: bookingIntent.serviceName,
-            subCategory: bookingIntent.subCategory,
-            category: bookingIntent.category,
-            price: bookingIntent.price,
-            staffCategory: bookingIntent.staffCategory,
-            appointmentDate: bookingIntent.appointmentDate || 'Tomorrow',
-            appointmentTime: bookingIntent.appointmentTime || '10:00 AM',
-            status: 'pending_form'
-          }
-        };
-        setMessages(prev => [...prev, botMsg]);
-        setIsTyping(false);
-        return;
-      }
-    }
-
-    // 2. Check for Installation Guidelines Process (Returns step-by-step installation rules)
-    const installGuideReply = getInstallationGuidelines(text);
-    if (installGuideReply) {
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: installGuideReply,
+        text: `⚡ **सर्विस बुकिंग विंडो (Direct Service Booking)**\n\nआप नीचे दिए गए स्लाइडर से कोई भी सर्विस (जैसे AC, इलेक्ट्रिकल, प्लंबिंग, पेंटिंग, सिविल वर्क, सफ़ाई) चुन सकते हैं और तारीख/समय सेट करके बुक कर सकते हैं:`,
         isBot: true,
-        time: new Date()
-      };
-      setMessages(prev => [...prev, botMsg]);
-      setIsTyping(false);
-      return;
-    }
-
-    // 3. Check for Room Dimension Estimation calculation (Returns ONLY clean material calculation report)
-    const customEstimateReply = calculateCustomEstimation(text);
-    if (customEstimateReply) {
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        text: customEstimateReply,
-        isBot: true,
-        time: new Date()
-      };
-      setMessages(prev => [...prev, botMsg]);
-      setIsTyping(false);
-      return;
-    }
-
-    // 4. Check for Rate List query (Returns ONLY clean Rate Table)
-    const rateListReply = getServiceRateList(text);
-    if (rateListReply) {
-      const botMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        text: rateListReply,
-        isBot: true,
-        time: new Date()
+        time: new Date(),
+        bookingCard: {
+          serviceName: bookingIntent.serviceName,
+          subCategory: bookingIntent.subCategory,
+          category: bookingIntent.category,
+          price: bookingIntent.price,
+          staffCategory: bookingIntent.staffCategory,
+          appointmentDate: bookingIntent.appointmentDate || 'Tomorrow',
+          appointmentTime: bookingIntent.appointmentTime || '10:00 AM',
+          status: 'pending_form'
+        }
       };
       setMessages(prev => [...prev, botMsg]);
       setIsTyping(false);
@@ -423,28 +510,92 @@ function AtomicBotInner() {
       } catch (e) {}
     }
 
-    // 5. Standard AI fetch logic (Strict prompt: answer ONLY what was asked)
-    const prompt = `You are Atomic Bot, the official AI consultant for Atomic Solutions.
-CRITICAL INSTRUCTION: Answer ONLY the user's exact query cleanly, accurately, and professionally. Include step-by-step installation guidelines if asked about installation or fitting process. Do NOT dump unrelated contact details, rate tables, or booking cards unless specifically asked for.
-${adminContext}
-User asks: "${text}"`;
+    // 2. CHECK SPECIFIC LOCAL KNOWLEDGE FIRST (0ms Instant, 100% Accurate Expert Answer)
+    const localResult = generateLocalAIResponse(text, adminContext);
 
+    if (localResult.isSpecificMatch && localResult.text) {
+      const botMsg: Message = { id: (Date.now() + 1).toString(), text: localResult.text, isBot: true, time: new Date() };
+      setMessages(prev => [...prev, botMsg]);
+      setIsTyping(false);
+      return;
+    }
+
+    // 3. FOR GENERAL / RANDOM QUERIES: Query the Server AI Proxy (/api/chat) which queries the live AI!
     let replyText = "";
+
+    // Prepare multi-turn chat history
+    const chatHistory = updatedMessages.slice(-8).map(m => ({
+      role: m.isBot ? 'assistant' : 'user',
+      content: m.text
+    }));
+
     try {
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt })
+        body: JSON.stringify({ prompt: text, messages: chatHistory })
       });
       if (response.ok) {
         const data = await response.json();
-        if (data.text) replyText = data.text.trim();
+        if (data.text && !data.text.includes("Namaste! Main Atomic AI") && !data.text.includes("Namaste! Main Atomic Bot")) {
+          replyText = data.text.trim();
+        }
       }
     } catch (e) {}
 
-    // Fallback to Tier 3 Smart AI Knowledge Engine if API is offline or returns empty
+    // 4. Backup 1: Direct Browser Pollinations AI (POST)
     if (!replyText) {
-      const localResult = generateLocalAIResponse(text, adminContext);
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+        const freeRes = await fetch('https://text.pollinations.ai/', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            messages: [
+              { role: 'system', content: `You are Atomic AI, the AI consultant for Atomic Solutions in Deoghar. Answer naturally in Hindi or Hinglish.` },
+              ...chatHistory
+            ]
+          }),
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        if (freeRes.ok) {
+          const freeTxt = await freeRes.text();
+          if (freeTxt && freeTxt.trim() && !freeTxt.includes('{"error":') && freeTxt !== '{}') {
+            replyText = freeTxt.trim();
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 5. Backup 2: Direct Pollinations GET
+    if (!replyText) {
+      try {
+        const getRes = await fetch(`https://text.pollinations.ai/${encodeURIComponent(text + ' (Respond concisely in Hindi or Hinglish)')}`);
+        if (getRes.ok) {
+          const getTxt = await getRes.text();
+          if (getTxt && getTxt.trim() && !getTxt.includes('{"error":') && getTxt !== '{}') {
+            replyText = getTxt.trim();
+          }
+        }
+      } catch (e) {}
+    }
+
+    // 6. Backup 3: Live Web Knowledge (DuckDuckGo / Wikipedia)
+    if (!replyText) {
+      try {
+        const webRes = await searchWebKnowledge(text);
+        if (webRes && webRes.text) {
+          replyText = `💡 **जानकारी (${webRes.source})**:\n\n${webRes.text}`;
+        }
+      } catch (e) {}
+    }
+
+    // 7. Final Fallback: Local Assistant Intro
+    if (!replyText) {
       replyText = localResult.text;
     }
 
@@ -464,19 +615,20 @@ User asks: "${text}"`;
     { label: '❄️ 10x12 AC Size', query: '10/12 room me kitne ton ki AC lagegi?' },
     { label: '🧱 Bricks Count', query: '10x10 wall me kitni eet lagegi?' },
     { label: '📞 Contact Details', query: 'Company contact number, email, and address' },
-    { label: '📅 Book Service', query: 'Book AC Service for tomorrow' }
+    { label: '📅 Book Any Service', query: 'service book kar do' }
   ];
 
   return (
     <>
-      <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-[9999] flex flex-col items-end max-w-[calc(100vw-2rem)]">
-        <AnimatePresence>
-          {isOpen && (
+      {/* Floating Chat Modal */}
+      <AnimatePresence>
+        {isOpen && (
+          <div className="fixed bottom-20 md:bottom-6 right-4 sm:right-6 z-[9999] flex flex-col items-end max-w-[calc(100vw-2rem)]">
             <motion.div
               initial={{ opacity: 0, y: 20, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 20, scale: 0.95 }}
-              className="bg-white rounded-[24px] shadow-2xl border border-gray-100 w-[calc(100vw-2rem)] sm:w-[380px] h-[75vh] sm:h-[580px] max-h-[620px] mb-3 sm:mb-4 flex flex-col overflow-hidden"
+              className="bg-white rounded-[24px] shadow-2xl border border-gray-100 w-[calc(100vw-2rem)] sm:w-[380px] h-[75vh] sm:h-[580px] max-h-[620px] flex flex-col overflow-hidden"
             >
               {/* Header */}
               <div className="p-4 bg-navy text-white flex justify-between items-center rounded-t-[24px] relative overflow-hidden">
@@ -491,7 +643,7 @@ User asks: "${text}"`;
                   </motion.div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-extrabold text-sm tracking-wide">Atomic Bot</h3>
+                      <h3 className="font-extrabold text-sm tracking-wide">Atomic AI</h3>
                       <span className="px-1.5 py-0.5 bg-teal/20 text-teal-100 text-[8px] font-black uppercase tracking-widest rounded-full border border-teal/30 flex items-center gap-1">
                         <Wrench size={8} /> Smart Engineering AI
                       </span>
@@ -499,7 +651,7 @@ User asks: "${text}"`;
                     <p className="text-[10px] text-teal-100 font-medium mt-0.5">Installation Guidelines & Calculations</p>
                   </div>
                 </div>
-                <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors relative z-10">
+                <button onClick={() => setIsOpen(false)} className="hover:bg-white/10 p-2 rounded-full transition-colors relative z-10 cursor-pointer">
                   <X size={20} />
                 </button>
               </div>
@@ -521,18 +673,18 @@ User asks: "${text}"`;
                       {msg.isBot && (
                         <div className="flex justify-between items-center border-b border-gray-100 pb-2 mb-2">
                           <span className="text-[10px] font-bold text-teal flex items-center gap-1">
-                            <Bot size={12} /> Atomic Assistant
+                            <Bot size={12} /> Atomic AI Assistant
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button 
                               onClick={() => handleSpeak(msg.text)} 
-                              className="text-teal flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity bg-teal/5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase"
+                              className="text-teal flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity bg-teal/5 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase cursor-pointer"
                             >
                               <Volume2 size={11} /> Listen
                             </button>
                             <button 
                               onClick={handleStop} 
-                              className="text-rose-500 flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity bg-rose-50 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase"
+                              className="text-rose-500 flex items-center gap-1 opacity-80 hover:opacity-100 transition-opacity bg-rose-50 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase cursor-pointer"
                             >
                               <X size={11} /> Stop
                             </button>
@@ -572,7 +724,7 @@ User asks: "${text}"`;
                   <button
                     key={i}
                     onClick={() => processUserMessage(chip.query)}
-                    className="shrink-0 px-2.5 py-1 bg-white hover:bg-teal hover:text-white border border-gray-200 rounded-full text-[10px] font-bold text-navy transition-all shadow-xs active:scale-95 flex items-center gap-1"
+                    className="shrink-0 px-2.5 py-1 bg-white hover:bg-teal hover:text-white border border-gray-200 rounded-full text-[10px] font-bold text-navy transition-all shadow-xs active:scale-95 flex items-center gap-1 cursor-pointer"
                   >
                     {chip.label}
                   </button>
@@ -595,7 +747,7 @@ User asks: "${text}"`;
                     <button 
                       type="button" 
                       onClick={toggleListening}
-                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 ${
+                      className={`w-11 h-11 rounded-full flex items-center justify-center transition-all shadow-md shrink-0 cursor-pointer ${
                         isListening ? 'bg-rose-500 text-white animate-pulse' : 'bg-white border border-gray-200 text-gray-500 hover:text-teal'
                       }`}
                     >
@@ -606,24 +758,52 @@ User asks: "${text}"`;
                   <button 
                     type="submit" 
                     disabled={!inputMessage.trim() || isTyping}
-                    className="bg-navy hover:bg-navy/90 text-white w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-50 transition-colors shadow-md shrink-0"
+                    className="bg-navy hover:bg-navy/90 text-white w-11 h-11 rounded-full flex items-center justify-center disabled:opacity-50 transition-colors shadow-md shrink-0 cursor-pointer"
                   >
                     <Send size={18} className="ml-0.5" />
                   </button>
                 </form>
               </div>
             </motion.div>
-          )}
-        </AnimatePresence>
+          </div>
+        )}
+      </AnimatePresence>
 
-        {!isOpen && (
+      {/* Draggable Viewport Boundary for Floating Launcher Button */}
+      <div 
+        ref={constraintsRef} 
+        className={`fixed inset-2 sm:inset-4 pointer-events-none z-[9998] overflow-hidden transition-opacity duration-200 ${
+          isOpen ? 'opacity-0 invisible pointer-events-none' : 'opacity-100 visible'
+        }`}
+      >
+        <motion.div
+          drag
+          dragConstraints={constraintsRef}
+          dragElastic={0.12}
+          dragMomentum={false}
+          onDragStart={() => {
+            isDraggingRef.current = true;
+          }}
+          onDragEnd={() => {
+            setTimeout(() => {
+              isDraggingRef.current = false;
+            }, 120);
+          }}
+          className="absolute bottom-20 md:bottom-6 right-2 sm:right-4 pointer-events-auto touch-none select-none cursor-grab active:cursor-grabbing"
+        >
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={() => setIsOpen(true)}
-            className="bg-navy hover:bg-navy/90 text-white h-12 sm:h-14 rounded-full shadow-[0_8px_30px_rgb(0,0,0,0.25)] flex items-center gap-2.5 sm:gap-3 px-2 pr-4 sm:pr-6 group relative overflow-hidden ring-2 sm:ring-4 ring-white transition-colors"
+            onClick={(e) => {
+              if (isDraggingRef.current) {
+                e.preventDefault();
+                e.stopPropagation();
+                return;
+              }
+              setIsOpen(true);
+            }}
+            className="bg-navy hover:bg-navy/90 text-white h-10 sm:h-11 rounded-full shadow-[0_6px_20px_rgb(0,0,0,0.25)] flex items-center gap-2 pl-1.5 pr-3.5 sm:pl-2 sm:pr-4 group relative overflow-hidden ring-2 ring-white transition-all cursor-grab active:cursor-grabbing border border-teal/40"
+            title="Atomic AI • कहीं भी ड्रैग करें (Drag anywhere)"
           >
             <motion.div 
               animate={{ x: ['-100%', '200%'] }}
@@ -632,27 +812,27 @@ User asks: "${text}"`;
             />
             
             <motion.div 
-              animate={{ y: [-3, 3, -3] }} 
+              animate={{ y: [-2, 2, -2] }} 
               transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="w-8 h-8 sm:w-10 sm:h-10 bg-white rounded-full flex items-center justify-center p-1 sm:p-1.5 relative z-10 shadow-[0_2px_10px_rgb(0,0,0,0.2)]"
+              className="w-7 h-7 sm:w-8 sm:h-8 bg-white rounded-full flex items-center justify-center p-1 relative z-10 shadow-sm shrink-0"
             >
-              <img src="/logo_small.png" alt="Atomic Logo" className="w-full h-full object-contain" />
+              <img src="/logo_small.png" alt="Atomic Logo" className="w-full h-full object-contain pointer-events-none" />
             </motion.div>
 
-            <div className="flex flex-col items-start relative z-10">
-              <span className="font-extrabold text-xs sm:text-sm tracking-wide leading-none flex items-center gap-1.5">
-                Atomic Bot <Sparkles size={12} className="text-teal" />
+            <div className="flex items-center gap-1.5 relative z-10">
+              <span className="font-extrabold text-xs tracking-wide">
+                Atomic AI
               </span>
-              <span className="hidden sm:inline text-[9px] text-teal-100 font-medium uppercase tracking-widest mt-0.5">Installation & Technical Guide</span>
+              <Sparkles size={11} className="text-teal" />
             </div>
 
             <motion.div 
               animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.2, 0.8] }} 
               transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute top-2.5 sm:top-3 right-2.5 sm:right-3 w-1.5 h-1.5 bg-teal rounded-full z-10" 
+              className="w-1.5 h-1.5 bg-emerald-400 rounded-full z-10 shadow-[0_0_6px_#34d399] ml-0.5" 
             />
           </motion.button>
-        )}
+        </motion.div>
       </div>
     </>
   );
@@ -674,7 +854,7 @@ class BotErrorBoundary extends React.Component<BotErrorBoundaryProps, BotErrorBo
   }
 
   componentDidCatch(error: any, errorInfo: React.ErrorInfo) {
-    console.error("AtomicBot crashed:", error, errorInfo);
+    console.error("Atomic AI crashed:", error, errorInfo);
   }
 
   render() {
@@ -683,7 +863,7 @@ class BotErrorBoundary extends React.Component<BotErrorBoundaryProps, BotErrorBo
         <div 
           onClick={() => (this as any).setState({ hasError: false })}
           className="fixed bottom-6 right-6 z-[9999] bg-red-50 p-4 rounded-2xl shadow-xl text-red-500 font-bold text-[10px] uppercase tracking-widest flex items-center gap-2 border border-red-100 cursor-pointer hover:bg-red-100 transition-colors"
-          title="Click to restart AI Bot"
+          title="Click to restart Atomic AI"
         >
           <AlertCircle size={16} /> AI Offline (Click to restart)
         </div>

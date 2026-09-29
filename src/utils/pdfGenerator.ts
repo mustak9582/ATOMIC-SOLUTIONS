@@ -54,10 +54,13 @@ export interface PDFInvoiceData {
   companyAddress?: string;
   companyEmail?: string;
   companyGSTIN?: string;
+  msmeNumber?: string;
   customerEmail?: string;
   logoUrl?: string;
   qrCodeUrl?: string;
   signatureUrl?: string;
+  upiId?: string;
+  upiString?: string;
 }
 
 // Convert numbers to Indian words
@@ -94,8 +97,10 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   if (includeQR && !isEstimate && !dynamicQrCodeUrl) {
     try {
       const QRCode = (await import('qrcode')).default;
-      const upiId = 'mustakansari9582-3@okhdfcbank'; // fallback if not provided in settings
-      const upiString = `upi://pay?pa=${upiId}&pn=Atomic%20Solutions&am=${data.totalAmount}&cu=INR`;
+      const targetUpi = data.upiId || 'mustakansari9582-3@okhdfcbank';
+      const upiString = targetUpi.startsWith('upi://')
+        ? targetUpi
+        : `upi://pay?pa=${targetUpi}&pn=${encodeURIComponent(data.companyName || 'Atomic Solutions')}&am=${data.totalAmount}&cu=INR`;
       dynamicQrCodeUrl = await QRCode.toDataURL(upiString, { width: 150, margin: 1 });
     } catch (e) {
       console.error('Failed to generate dynamic QR code', e);
@@ -165,14 +170,15 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
     doc.setFontSize(16);
     doc.setFont('helvetica', 'bold');
     doc.setTextColor(20, 25, 60);
-    doc.text('ATOMIC SOLUTIONS', pageWidth / 2, margin + 14, { align: 'center' });
+    doc.text(data.companyName || 'ATOMIC SOLUTIONS', pageWidth / 2, margin + 14, { align: 'center' });
     
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
     doc.text('We Bring Comfort Life', pageWidth / 2, margin + 18, { align: 'center' });
     doc.text(data.companyAddress || '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149', pageWidth / 2, margin + 22, { align: 'center' });
-    doc.text(`Contact No.: +91-${data.companyPhone || '9582268658'} , Email: ${data.companyEmail || 'atomichvacsolutions@gmail.com'}`, pageWidth / 2, margin + 26, { align: 'center' });
+    const cleanPhone = (data.companyPhone || '9582268658').replace(/^\+?91-?\s*/, '');
+    doc.text(`Contact No.: +91 ${cleanPhone} | Email: ${data.companyEmail || 'atomichvacsolutions@gmail.com'}`, pageWidth / 2, margin + 26, { align: 'center' });
     
     let topBoxY = margin + 30;
     if (data.ownerGSTIN) {
@@ -180,6 +186,12 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       doc.text(`GSTIN: ${data.ownerGSTIN}`, pageWidth / 2, margin + 30, { align: 'center' });
       doc.setFont('helvetica', 'normal');
       topBoxY = margin + 34;
+    }
+    if (data.msmeNumber) {
+      doc.setFont('helvetica', 'bold');
+      doc.text(`MSME/Udyam: ${data.msmeNumber}`, pageWidth / 2, topBoxY, { align: 'center' });
+      doc.setFont('helvetica', 'normal');
+      topBoxY += 4;
     }
 
     doc.line(margin, topBoxY, margin + contentWidth, topBoxY);
@@ -233,12 +245,12 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       doc.setTextColor(0, 0, 0);
       doc.text('Name:', v1X + 2, topBoxY + 10);
       doc.setFont('helvetica', 'normal');
-      doc.text(data.shippingName || data.customerName || '', v1X + 14, topBoxY + 10);
+      doc.text(data.shippingName ?? data.customerName ?? '', v1X + 14, topBoxY + 10);
       
       doc.setFont('helvetica', 'bold');
       doc.text('Address:', v1X + 2, topBoxY + 15);
       doc.setFont('helvetica', 'normal');
-      const splitShippingAddress = doc.splitTextToSize(data.shippingAddress || data.customerAddress || '', col2Width - 16);
+      const splitShippingAddress = doc.splitTextToSize(data.shippingAddress ?? data.customerAddress ?? '', col2Width - 16);
       doc.text(splitShippingAddress, v1X + 14, topBoxY + 15);
       
       // Calculate max stateY based on the longer address to avoid overlap
@@ -248,9 +260,9 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       doc.setFont('helvetica', 'bold');
       doc.text('State:', v1X + 2, finalStateY);
       doc.setFont('helvetica', 'normal');
-      doc.text(data.shippingState || data.customerState || 'Jharkhand - 20', v1X + 14, finalStateY);
+      doc.text(data.shippingState ?? data.customerState ?? 'Jharkhand - 20', v1X + 14, finalStateY);
       
-      const shippingGSTIN = data.shippingGSTIN || data.customerGSTIN;
+      const shippingGSTIN = data.shippingGSTIN ?? data.customerGSTIN;
       if (shippingGSTIN) {
         doc.setFont('helvetica', 'bold');
         doc.text('GSTIN:', v1X + 2, finalStateY + 5);
@@ -406,23 +418,26 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
 
   const pageCount = (doc as any).internal.getNumberOfPages();
   doc.setPage(pageCount);
-  let finalY = (doc as any).lastAutoTable.finalY;
+  let tableEndY = (doc as any).lastAutoTable.finalY;
 
-  // We need 85 units of space for the final footer (summary, bank, signatures)
-  const requiredSpace = isSimpleInvoice ? 60 : 85; 
-  if (finalY + requiredSpace > pageHeight - margin) {
+  // Fixed footer anchoring: footer ALWAYS sits at the bottom of the page
+  const totalFooterHeight = isSimpleInvoice ? 75 : 93;
+  let footerBoxStartY = pageHeight - margin - totalFooterHeight;
+
+  // If items spill past footer start, create a new page for footer
+  if (tableEndY > footerBoxStartY) {
     doc.addPage();
     drawHeader();
-    finalY = tableStartY;
-    // Draw an empty table top border if it spilled to a completely new page just for the footer
-    doc.line(margin, finalY, margin + contentWidth, finalY);
+    tableEndY = tableStartY;
   }
 
-  // Draw the Final Footer
+  // Extend vertical table grid lines seamlessly down to the top of the footer box
   doc.setLineWidth(0.2);
-  doc.line(margin, finalY, margin + contentWidth, finalY);
-
-  const footerBoxStartY = finalY;
+  doc.setDrawColor(0, 0, 0);
+  colX.forEach((x) => {
+    doc.line(x, tableEndY, x, footerBoxStartY);
+  });
+  doc.line(margin, footerBoxStartY, margin + contentWidth, footerBoxStartY);
   const sumBoxX = margin + 120;
   const summaryHeight = isSimpleInvoice ? 45 : 60;
   
@@ -517,7 +532,8 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   doc.setFontSize(8);
   doc.text('Total in Word :', margin + 2, wordY);
   doc.setFont('helvetica', 'normal');
-  doc.text(numberToWords(data.totalAmount), margin + 2, wordY + 5);
+  const wordText = doc.splitTextToSize(numberToWords(data.totalAmount), sumBoxX - margin - 4);
+  doc.text(wordText, margin + 2, wordY + 5);
 
   const decY = footerBoxStartY + summaryHeight + 5;
   doc.setFontSize(8);
@@ -564,8 +580,9 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
+  const footerBottomY = Math.max(decY + 4 + (decLines.length * 4), decY + 23);
   const thX = pageWidth / 2 - 30;
-  const thY = pageHeight - margin - 5;
+  const thY = footerBottomY + 5;
   doc.rect(thX, thY, 60, 5);
   doc.text('Thank You For Business With US!', pageWidth / 2, thY + 3.5, { align: 'center' });
 

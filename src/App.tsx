@@ -83,10 +83,10 @@ const AppContent: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (user && activeRole === 'staff' && !isAdmin && location.pathname === '/') {
+    if (!loading && user && activeRole === 'staff' && !isAdmin && location.pathname === '/') {
       navigate('/professional', { replace: true });
     }
-  }, [user, activeRole, isAdmin, location.pathname, navigate]);
+  }, [user, activeRole, isAdmin, location.pathname, navigate, loading]);
 
   // 3. LOGIC FOR RENDERING
   const isActuallyAdminView = isAdmin && activeRole === 'admin';
@@ -96,8 +96,8 @@ const AppContent: React.FC = () => {
   const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname === '/billing';
   const isStaffRoute = location.pathname.startsWith('/professional');
   
-  // Restricted access for Staff: only when active role is 'staff'
-  const shouldBlockWebsiteForStaff = isStaffOnly && !isStaffRoute && location.pathname !== '/login';
+  // Restricted access for Staff: only when active role is 'staff' AND auth is confirmed
+  const shouldBlockWebsiteForStaff = !loading && isStaffOnly && !isStaffRoute && location.pathname !== '/login';
 
   useEffect(() => {
     if (shouldBlockWebsiteForStaff) {
@@ -108,8 +108,8 @@ const AppContent: React.FC = () => {
   const shouldHideUI = location.pathname === '/login' || (isAdmin && isAdminRoute) || ((isStaff || activeRole === 'staff') && isStaffRoute);
 
   // 4. EARLY RETURNS FOR LOADING/SPLASH
-  // Only show splash screen briefly during initial app load, never block guest browsing forever
-  if (showSplash && loading && !profile) {
+  // Only show a brief splash for visual polish - NEVER block guest browsing waiting for auth
+  if (showSplash) {
     return <SplashScreen />;
   }
 

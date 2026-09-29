@@ -26,6 +26,25 @@ import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Service, SubCategory, UserProfile, BillingItem, Invoice, AppSettings, Booking } from '../types';
 import { toast } from 'sonner';
 import { dataService } from '../services/firebaseService';
+import { autoDetectStateCode } from '../utils/stateCodeHelper';
+
+export function getFinancialYearString(date = new Date()): string {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  const startYear = month >= 3 ? year : year - 1;
+  const endYear = startYear + 1;
+  return `${startYear.toString().slice(-2)}-${endYear.toString().slice(-2)}`;
+}
+
+export function getDefaultSerialNumber(docType: 'Estimate' | 'Tax Invoice', count = 1): string {
+  const fy = getFinancialYearString();
+  const num = count.toString().padStart(2, '0');
+  if (docType === 'Estimate') {
+    return `PI/${fy}/${num}`;
+  } else {
+    return `AS/${fy}/${num}`;
+  }
+}
 
 const commonUnits = ['Nos', 'Meter', 'Unit', 'HP', 'Job', 'Sq.Ft.', 'Sq. Ft.', 'Square Feet', 'Per Sq. Ft.', 'Kg'];
 
@@ -49,6 +68,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   
   const [buyerOrder, setBuyerOrder] = useState('');
   const [delivDate, setDelivDate] = useState('');
+  const [stateSupply, setStateSupply] = useState('');
   const [transport, setTransport] = useState('');
   const [payMode, setPayMode] = useState('UPI');
 
@@ -60,9 +80,10 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [discount, setDiscount] = useState(0);
   const [roundOff, setRoundOff] = useState(0);
   const [gstPercentage, setGstPercentage] = useState(0);
-  const [estimateNumber, setEstimateNumber] = useState(`EST-${Date.now().toString().slice(-6)}`);
+  const [estimateNumber, setEstimateNumber] = useState(() => getDefaultSerialNumber('Estimate'));
+  const [upiId, setUpiId] = useState('mustakansari9582-3@okhdfcbank');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice' | 'Simple Invoice'>('Estimate');
+  const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice'>('Estimate');
   const [isSaving, setIsSaving] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -73,6 +94,18 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [ownerGSTIN, setOwnerGSTIN] = useState('');
   const [includeQR, setIncludeQR] = useState(true);
+  
+  // Editable Company Branding State
+  const [companyName, setCompanyName] = useState('ATOMIC SOLUTIONS');
+  const [companyTagline, setCompanyTagline] = useState('We Bring Comfort Life');
+  const [founderName, setFounderName] = useState('Mustak Ansari');
+  const [companyPin, setCompanyPin] = useState('814149');
+  const [companyBranch, setCompanyBranch] = useState('Deoghar, Jharkhand - 814149');
+  const [companyPhone, setCompanyPhone] = useState('+91 95822 68658');
+  const [companyEmail, setCompanyEmail] = useState('atomichvacsolutions@gmail.com');
+  const [companyAddress, setCompanyAddress] = useState('96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149');
+  const [msmeNumber, setMsmeNumber] = useState('');
+  const [gstType, setGstType] = useState<'cgst_sgst' | 'igst'>('cgst_sgst');
   
   // Shipping details state
   const [shippingSameAsBilling, setShippingSameAsBilling] = useState(true);
@@ -141,6 +174,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         const s = data[0] as AppSettings;
         setSettings(s);
         if (s.ownerGSTIN) setOwnerGSTIN(s.ownerGSTIN);
+        if ((s as any).upiId) setUpiId((s as any).upiId);
       }
     });
 
@@ -230,6 +264,63 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     return '';
   };
 
+  const handleDetectHsn = async (itemId: string, itemName: string, itemType?: string) => {
+    if (!itemName || !itemName.trim()) {
+      toast.error('Please enter item name first');
+      return;
+    }
+    toast.info('Searching GST Portal & Google AI for official HSN/SAC code...');
+    let detectedCode = '';
+    try {
+      const res = await fetch('/api/detect-hsn', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: itemName, itemType: itemType || 'Labor' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.code) detectedCode = data.code;
+      }
+    } catch (e) {
+      console.warn('GST search error:', e);
+    }
+
+    try {
+      const aiRes = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            { role: 'user', content: `What is the exact official 6-digit SAC code (starts with 99) or HSN code for Indian GST for: "${itemName}" (${itemType || 'Service'})? Return ONLY the 6-digit code number without any other text.` }
+          ]
+        })
+      });
+      if (aiRes.ok) {
+        const aiData = await aiRes.json();
+        const text = aiData.reply || aiData.text || '';
+        const match = text.match(/\b(99\d{4}|84\d{4}|85\d{4}|74\d{4}|38\d{4}|39\d{4}|25\d{4}|69\d{4}|72\d{4}|\d{6}|\d{4})\b/);
+        if (match) {
+          if (!detectedCode || (itemType === 'Labor' && match[1].startsWith('99'))) {
+            detectedCode = match[1];
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('AI HSN lookup error:', e);
+    }
+
+    if (!detectedCode) {
+      detectedCode = getAutoHsnCode(itemName);
+    }
+
+    if (detectedCode) {
+      updateItem(itemId, 'hsn', detectedCode);
+      toast.success(`Detected SAC/HSN Code: ${detectedCode}`);
+    } else {
+      toast.error('Could not detect HSN code. Please enter manually.');
+    }
+  };
+
   const updateItem = (id: string, field: keyof BillingItem, value: string | number) => {
     let finalValue = value;
     if (field === 'rate' || field === 'quantity') {
@@ -258,7 +349,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
 
   const subTotal = items.reduce((sum, item) => sum + (item.rate * item.quantity), 0);
   const discountedTotal = subTotal - discount;
-  const gstAmount = isTaxInvoice ? (discountedTotal * gstPercentage) / 100 : 0;
+  const gstAmount = (discountedTotal * gstPercentage) / 100;
   const total = discountedTotal + gstAmount + roundOff;
 
   const saveToDatabase = async () => {
@@ -315,14 +406,20 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       shippingAddress: !shippingSameAsBilling ? shippingAddress : undefined,
       shippingGSTIN: !shippingSameAsBilling ? shippingGSTIN : undefined,
       shippingState: !shippingSameAsBilling ? shippingState : undefined,
+      companyName: companyName,
+      companyPhone: companyPhone,
+      companyAddress: companyAddress,
+      companyEmail: companyEmail,
       ownerGSTIN: ownerGSTIN,
+      msmeNumber: msmeNumber,
       payMode: payMode || undefined,
       buyerOrder: buyerOrder || undefined,
       delivDate: delivDate || undefined,
       transport: transport || undefined,
+      stateSupply: stateSupply ? autoDetectStateCode(stateSupply) : undefined,
       items: items.filter(i => i.name.trim() !== '').map(i => {
         const taxable = i.rate * i.quantity;
-        const itemGstAmt = isTaxInvoice ? (taxable * gstPercentage) / 100 : 0;
+        const itemGstAmt = (taxable * gstPercentage) / 100;
         return {
           name: i.name,
           description: i.description,
@@ -331,27 +428,26 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
           quantity: i.quantity,
           rate: i.rate,
           taxable: taxable,
-          gstPercent: isTaxInvoice && gstPercentage > 0 ? gstPercentage : undefined,
-          gstAmount: isTaxInvoice && itemGstAmt > 0 ? itemGstAmt : undefined,
+          gstPercent: gstPercentage > 0 ? gstPercentage : undefined,
+          gstAmount: itemGstAmt > 0 ? itemGstAmt : undefined,
           amount: taxable + itemGstAmt
         };
       }),
       summary: {
-        taxableAmount: isTaxInvoice ? discountedTotal : subTotal,
-        cgstAmount: isTaxInvoice ? gstAmount / 2 : 0,
-        sgstAmount: isTaxInvoice ? gstAmount / 2 : 0,
-        igstAmount: 0,
+        taxableAmount: discountedTotal,
+        cgstAmount: gstType === 'cgst_sgst' ? gstAmount / 2 : 0,
+        sgstAmount: gstType === 'cgst_sgst' ? gstAmount / 2 : 0,
+        igstAmount: gstType === 'igst' ? gstAmount : 0,
         freightCharges: 0,
         discountAmount: discount,
         roundOff: roundOff
       },
-      totalAmount: isInvoice ? total : (subTotal + roundOff),
+      totalAmount: total,
       bankDetails: bankDetails,
       terms: terms,
       declaration: declaration,
-      companyPhone: settings?.phone || '9582268658',
-      companyAddress: settings?.address || '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149',
-      logoUrl: logoUrl
+      logoUrl: logoUrl,
+      upiId: upiId
     };
     return await generateInvoicePDF(pdfData, { includeQR });
   };
@@ -360,7 +456,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     try {
       toast.info('Generating PDF...');
       const doc = await generatePDF();
-      const cleanFileName = `${isInvoice ? 'Invoice' : 'Estimate'}_${estimateNumber}`.replace(/[^a-z0-9_-]/gi, '_');
+      const cleanFileName = `${isInvoice ? 'Invoice' : 'Proforma Invoice'}_${estimateNumber}`.replace(/[^a-z0-9_-]/gi, '_');
       doc.save(`${cleanFileName}.pdf`);
       toast.success('PDF Downloaded Successfully');
       
@@ -417,15 +513,21 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
           <div className="flex items-center gap-4">
              <div className="flex items-center gap-2 bg-white/5 p-1 rounded-xl">
                <button 
-                 onClick={() => setDocumentType('Estimate')}
+                 onClick={() => {
+                   setDocumentType('Estimate');
+                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-') || estimateNumber.startsWith('AS/')) {
+                     setEstimateNumber(getDefaultSerialNumber('Estimate'));
+                   }
+                 }}
                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${documentType === 'Estimate' ? 'bg-teal text-navy' : 'text-white/40 hover:text-white'}`}
-               >Estimate</button>
+               >Proforma Invoice</button>
                <button 
-                 onClick={() => setDocumentType('Simple Invoice')}
-                 className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${documentType === 'Simple Invoice' ? 'bg-teal text-navy' : 'text-white/40 hover:text-white'}`}
-               >Simple Invoice</button>
-               <button 
-                 onClick={() => setDocumentType('Tax Invoice')}
+                 onClick={() => {
+                   setDocumentType('Tax Invoice');
+                   if (!estimateNumber || estimateNumber.startsWith('EST-') || estimateNumber.startsWith('INV-') || estimateNumber.startsWith('PI/')) {
+                     setEstimateNumber(getDefaultSerialNumber('Tax Invoice'));
+                   }
+                 }}
                  className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase transition-all ${documentType === 'Tax Invoice' ? 'bg-teal text-navy' : 'text-white/40 hover:text-white'}`}
                >Tax Invoice</button>
              </div>
@@ -437,28 +539,100 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         <div className="flex-1 overflow-y-auto p-4 md:p-12">
           <div className="max-w-5xl mx-auto bg-white shadow-2xl rounded-[40px] overflow-hidden min-h-screen flex flex-col border border-gray-100 mb-12">
             {/* Branding Header Area */}
-            <div className="bg-gray-50/50 p-12 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-8">
-              <div>
-                <h2 className="text-3xl font-black text-navy tracking-tight mb-1">ATOMIC SOLUTIONS</h2>
-                <p className="text-xs font-bold text-teal italic mb-6">"We Bring Comfort Life"</p>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-black text-navy uppercase tracking-widest">Founder: Mustak Ansari | PIN: 814149</p>
-                  <p className="text-[10px] font-medium text-gray-400">Branch: Deoghar, Jharkhand - 814149</p>
-                  <p className="text-[10px] font-medium text-gray-400">Mob: +91 95822 68658 | Email: atomichvacsolutions@gmail.com</p>
-                  <div className="pt-2 flex items-center gap-2">
-                    <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">My GSTIN:</span>
+            <div className="bg-gray-50/50 p-8 md:p-12 border-b border-gray-100 flex flex-col md:flex-row justify-between gap-8">
+              <div className="space-y-3 flex-1">
+                <input 
+                  className="text-2xl md:text-3xl font-black text-navy tracking-tight bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal outline-none w-full transition-all"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="Company Name"
+                />
+                <div className="flex items-center gap-1">
+                  <span className="text-xs font-bold text-teal italic">"</span>
+                  <input 
+                    className="text-xs font-bold text-teal italic bg-transparent border-b border-transparent hover:border-gray-300 focus:border-teal outline-none w-full transition-all"
+                    value={companyTagline}
+                    onChange={(e) => setCompanyTagline(e.target.value)}
+                    placeholder="Tagline"
+                  />
+                  <span className="text-xs font-bold text-teal italic">"</span>
+                </div>
+                <div className="space-y-2 pt-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-black text-navy uppercase tracking-widest shrink-0">Founder:</span>
                     <input 
-                      className="bg-teal/5 border border-teal/10 rounded px-2 py-0.5 text-[9px] font-bold text-teal outline-none w-32"
-                      placeholder="Your GSTIN"
-                      value={ownerGSTIN}
-                      onChange={(e) => updateOwnerGSTIN(e.target.value)}
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-navy outline-none focus:border-teal"
+                      value={founderName}
+                      onChange={(e) => setFounderName(e.target.value)}
+                      placeholder="Founder Name"
                     />
+                    <span className="text-[10px] font-black text-navy uppercase tracking-widest shrink-0">| PIN:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-bold text-navy outline-none focus:border-teal w-24"
+                      value={companyPin}
+                      onChange={(e) => setCompanyPin(e.target.value)}
+                      placeholder="PIN Code"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 shrink-0">Branch:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-medium text-gray-700 outline-none focus:border-teal flex-1"
+                      value={companyBranch}
+                      onChange={(e) => setCompanyBranch(e.target.value)}
+                      placeholder="Branch Info"
+                    />
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 shrink-0">Mob:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-medium text-gray-700 outline-none focus:border-teal w-36"
+                      value={companyPhone}
+                      onChange={(e) => setCompanyPhone(e.target.value)}
+                      placeholder="Phone"
+                    />
+                    <span className="text-[10px] font-bold text-gray-400 shrink-0">| Email:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-medium text-gray-700 outline-none focus:border-teal flex-1"
+                      value={companyEmail}
+                      onChange={(e) => setCompanyEmail(e.target.value)}
+                      placeholder="Email Address"
+                    />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold text-gray-400 shrink-0">Address:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded px-2 py-1 text-[10px] font-medium text-gray-700 outline-none focus:border-teal flex-1"
+                      value={companyAddress}
+                      onChange={(e) => setCompanyAddress(e.target.value)}
+                      placeholder="Company Address"
+                    />
+                  </div>
+                  <div className="pt-2 flex flex-wrap items-center gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">My GSTIN:</span>
+                      <input 
+                        className="bg-teal/5 border border-teal/10 rounded px-2 py-0.5 text-[9px] font-bold text-teal outline-none w-36"
+                        placeholder="Your GSTIN"
+                        value={ownerGSTIN}
+                        onChange={(e) => updateOwnerGSTIN(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">MSME/Udyam:</span>
+                      <input 
+                        className="bg-teal/5 border border-teal/10 rounded px-2 py-0.5 text-[9px] font-bold text-teal outline-none w-36"
+                        placeholder="MSME/Udyam Reg No."
+                        value={msmeNumber}
+                        onChange={(e) => setMsmeNumber(e.target.value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
               <div className="text-right space-y-4">
                 <div className="inline-block bg-navy px-6 py-2 rounded-xl">
-                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isInvoice ? 'Invoice' : 'Estimate'}</h3>
+                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isInvoice ? 'Invoice' : 'Proforma Invoice'}</h3>
                 </div>
                 <div className="space-y-2">
                    <div className="flex justify-end items-center gap-3">
@@ -539,6 +713,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                        className="w-full text-sm font-bold text-gray-700 placeholder:text-gray-400 outline-none pb-2 border-b border-gray-50 focus:border-teal transition-all"
                        value={customerState || ""}
                        onChange={(e) => setCustomerState(e.target.value)}
+                       onBlur={() => { if (customerState) setCustomerState(autoDetectStateCode(customerState)); }}
                      />
                      <input 
                        placeholder="GSTIN (Optional)"
@@ -550,8 +725,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                  </div>
 
                  {/* Ship To */}
-                 {isInvoice && (
-                   <div className="space-y-6">
+                 <div className="space-y-6">
                      <div className="flex items-center justify-between mb-4">
                        <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] flex items-center gap-2">
                          <span className="w-2 h-2 bg-navy rounded-full" /> Ship To
@@ -609,7 +783,6 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                        </div>
                      )}
                    </div>
-                 )}
                </div>
             </div>
 
@@ -618,7 +791,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
                  <span className="w-2 h-2 bg-indigo-400 rounded-full" /> Additional Details (Optional)
                </h4>
-               <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+               <div className="grid grid-cols-2 md:grid-cols-5 gap-6">
                  <div>
                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Pay Mode</label>
                    <select 
@@ -658,6 +831,16 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                      className="w-full bg-transparent border-b border-gray-200 pb-2 text-sm font-bold text-navy outline-none focus:border-teal text-gray-500"
                      value={delivDate}
                      onChange={(e) => setDelivDate(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-gray-400 uppercase tracking-widest block mb-2">Place of Supply</label>
+                    <input 
+                      placeholder="e.g. Jharkhand - 20"
+                      className="w-full bg-transparent border-b border-gray-200 pb-2 text-sm font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
+                      value={stateSupply}
+                      onChange={(e) => setStateSupply(e.target.value)}
+                      onBlur={() => { if (stateSupply) setStateSupply(autoDetectStateCode(stateSupply)); }}
                    />
                  </div>
                </div>
@@ -677,56 +860,17 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     <div className="w-12"></div>
                   </div>
                   
-                  <div className="divide-y divide-gray-50">
-                    {/* Render Sections */}
-                    {['Labor', 'Material', 'General'].map(sectionType => {
-                      const sectionItems = items.filter(i => (sectionType === 'General' ? (!i.type || i.type === 'General') : i.type === sectionType));
-                      if (sectionItems.length === 0 && sectionType !== 'Labor') return null;
-
-                      return (
-                        <div key={sectionType} className="bg-white">
-                          <div className={cn(
-                            "px-12 py-3 flex items-center justify-between",
-                            sectionType === 'Labor' ? "bg-teal/5" : sectionType === 'Material' ? "bg-amber-50/30" : "bg-gray-50/30"
-                          )}>
-                             <h4 className="text-[10px] font-black text-navy uppercase tracking-widest flex items-center gap-2">
-                               {sectionType === 'Labor' ? (
-                                 <Calculator size={14} className="text-teal" />
-                               ) : sectionType === 'Material' ? (
-                                 <Plus size={14} className="text-amber-500" />
-                               ) : (
-                                 <FileText size={14} className="text-gray-400" />
-                               )}
-                               {sectionType} Charges
-                             </h4>
-                             <div className="flex items-center gap-2">
-                               <button 
-                                 onClick={() => addNewRow(sectionType as any)}
-                                 className="text-[9px] font-black text-teal uppercase hover:underline"
-                               >+ Add {sectionType} Item</button>
-                               {sectionItems.length > 0 && (
-                                 <button 
-                                   onClick={() => {
-                                     if(window.confirm(`Remove all ${sectionType} items?`)) {
-                                       setItems(items.filter(i => (sectionType === 'General' ? (i.type && i.type !== 'General') : i.type !== sectionType)));
-                                     }
-                                   }}
-                                   className="text-[9px] font-black text-red-400 uppercase hover:underline ml-4"
-                                 >Remove Section</button>
-                               )}
-                             </div>
-                          </div>
-                          
-                          {sectionItems.map((item, index) => (
-                            <div key={item.id} className="flex items-start py-6 px-12 group hover:bg-gray-50/50 transition-colors">
-                              <div className="w-12 pt-2 text-center font-black text-navy text-sm">{index + 1}</div>
-                              <div className="flex-1 px-4 space-y-2">
-                                <input 
-                                  className="w-full bg-transparent font-black text-base text-navy outline-none placeholder:text-gray-400"
-                                  placeholder={sectionType === 'Labor' ? "Labor Name (e.g. Plan Drawing)" : "Item Name"}
-                                  value={item.name || ""}
-                                  onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                                />
+                  <div className="divide-y divide-gray-50 bg-white">
+                    {items.map((item, index) => (
+                      <div key={item.id} className="flex items-start py-6 px-12 group hover:bg-gray-50/50 transition-colors">
+                        <div className="w-12 pt-2 text-center font-black text-navy text-sm">{index + 1}</div>
+                        <div className="flex-1 px-4 space-y-2">
+                          <input 
+                            className="w-full bg-transparent font-black text-base text-navy outline-none placeholder:text-gray-400"
+                            placeholder="Particulars (Service Name / Material)"
+                            value={item.name || ""}
+                            onChange={(e) => updateItem(item.id, 'name', e.target.value)}
+                          />
                                 <textarea 
                                   className="w-full bg-gray-50/50 border border-transparent focus:border-teal/30 focus:bg-white rounded-xl p-3 font-medium text-xs text-gray-500 outline-none transition-all placeholder:text-gray-400 resize-none"
                                   placeholder="Describe details..."
@@ -735,14 +879,21 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                                   onChange={(e) => updateItem(item.id, 'description', e.target.value)}
                                 />
                               </div>
-                              <div className="w-20 pt-1 text-center">
+                              <div className="w-24 pt-1 text-center">
                                 <input 
-                                  className="w-16 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                  placeholder="HSN"
+                                  className="w-20 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
+                                  placeholder="HSN/SAC"
                                   value={item.hsn || ''}
                                   onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
                                 />
-                                <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">HSN</p>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDetectHsn(item.id, item.name, item.type)}
+                                  className="mt-1 text-[9px] font-black text-teal hover:underline flex items-center justify-center gap-0.5 mx-auto"
+                                  title="Search GST Portal & Google AI for HSN/SAC Code"
+                                >
+                                  ✨ Detect
+                                </button>
                               </div>
                               <div className="w-20 pt-1 text-center">
                                 <input 
@@ -804,9 +955,6 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                               </div>
                             </div>
                           ))}
-                        </div>
-                      );
-                    })}
                   </div>
                </div>
 
@@ -842,29 +990,59 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                               onFocus={(e) => e.target.select()}
                            />
                         </div>
-                        {isTaxInvoice && (
-                          <>
-                            <div className="flex justify-between items-center px-4 pt-2 border-t border-gray-50">
-                               <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Apply GST</span>
-                               <select 
-                                  className="bg-navy text-white text-[10px] font-black px-3 py-1.5 rounded-lg outline-none cursor-pointer"
-                                  value={gstPercentage}
-                                  onChange={(e) => setGstPercentage(Number(e.target.value))}
-                               >
-                                  <option value="0">0% (Exempt)</option>
-                                  <option value="5">5% GST</option>
-                                  <option value="12">12% GST</option>
-                                  <option value="18">18% GST</option>
-                                  <option value="28">28% GST</option>
-                               </select>
-                            </div>
-                            {gstPercentage > 0 && (
-                               <div className="flex justify-between items-center px-4">
-                                  <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GST Amount</span>
-                                  <span className="font-bold text-navy">₹{gstAmount.toLocaleString('en-IN')}</span>
+                        <div className="flex justify-between items-center px-4 pt-2 border-t border-gray-50">
+                           <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Apply GST</span>
+                           <select 
+                              className="bg-navy text-white text-[10px] font-black px-3 py-1.5 rounded-lg outline-none cursor-pointer"
+                              value={gstPercentage}
+                              onChange={(e) => setGstPercentage(Number(e.target.value))}
+                           >
+                              <option value="0">0% (Exempt)</option>
+                              <option value="5">5% GST</option>
+                              <option value="12">12% GST</option>
+                              <option value="18">18% GST</option>
+                              <option value="28">28% GST</option>
+                           </select>
+                        </div>
+                        {gstPercentage > 0 && (
+                           <>
+                             <div className="flex justify-between items-center px-4 pt-1">
+                                <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">GST Type</span>
+                                <div className="flex bg-gray-100 p-0.5 rounded-lg text-[9px] font-black">
+                                  <button
+                                    type="button"
+                                    onClick={() => setGstType('cgst_sgst')}
+                                    className={cn("px-2 py-1 rounded-md transition-all", gstType === 'cgst_sgst' ? "bg-teal text-navy shadow-sm font-black" : "text-gray-500 hover:text-navy")}
+                                  >
+                                    CGST+SGST
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setGstType('igst')}
+                                    className={cn("px-2 py-1 rounded-md transition-all", gstType === 'igst' ? "bg-teal text-navy shadow-sm font-black" : "text-gray-500 hover:text-navy")}
+                                  >
+                                    IGST
+                                  </button>
+                                </div>
+                             </div>
+                             {gstType === 'cgst_sgst' ? (
+                               <>
+                                 <div className="flex justify-between items-center px-4 text-xs">
+                                   <span className="text-[10px] font-medium text-gray-400">CGST ({gstPercentage / 2}%)</span>
+                                   <span className="font-bold text-navy">₹{(gstAmount / 2).toLocaleString('en-IN')}</span>
+                                 </div>
+                                 <div className="flex justify-between items-center px-4 text-xs">
+                                   <span className="text-[10px] font-medium text-gray-400">SGST ({gstPercentage / 2}%)</span>
+                                   <span className="font-bold text-navy">₹{(gstAmount / 2).toLocaleString('en-IN')}</span>
+                                 </div>
+                               </>
+                             ) : (
+                               <div className="flex justify-between items-center px-4 text-xs">
+                                 <span className="text-[10px] font-medium text-gray-400">IGST ({gstPercentage}%)</span>
+                                 <span className="font-bold text-navy">₹{gstAmount.toLocaleString('en-IN')}</span>
                                </div>
-                            )}
-                          </>
+                             )}
+                           </>
                         )}
                         <div className="bg-navy p-6 rounded-3xl flex justify-between items-center shadow-xl shadow-navy/10 mt-6 relative overflow-hidden">
                            <div className="absolute top-0 left-0 w-1 h-full bg-teal" />
@@ -884,6 +1062,15 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     value={bankDetails}
                     onChange={(e) => setBankDetails(e.target.value)}
                   />
+                  <div className="flex items-center gap-2 pt-2">
+                    <span className="text-[9px] font-black text-navy uppercase tracking-widest shrink-0">UPI ID / Link for QR:</span>
+                    <input 
+                      className="bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-teal outline-none focus:border-teal flex-1"
+                      placeholder="e.g. 9582268658@ybl or mustakansari9582-3@okhdfcbank"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                    />
+                  </div>
                </div>
                {!isTaxInvoice ? (
                  <div className="space-y-4">
@@ -986,32 +1173,22 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         <Button 
           onClick={() => {
             setDocumentType('Estimate');
-            setEstimateNumber(`EST-${Date.now().toString().slice(-6)}`);
+            setEstimateNumber(getDefaultSerialNumber('Estimate'));
             setShowEditor(true);
           }}
           className="bg-navy text-white h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
         >
-          Create New Estimate
+          Create Proforma Invoice
         </Button>
         <Button 
           onClick={() => {
             setDocumentType('Tax Invoice');
-            setEstimateNumber(`INV-${Date.now().toString().slice(-6)}`);
+            setEstimateNumber(getDefaultSerialNumber('Tax Invoice'));
             setShowEditor(true);
           }}
           className="bg-teal text-navy h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
         >
           Create Tax Invoice
-        </Button>
-        <Button 
-          onClick={() => {
-            setDocumentType('Simple Invoice');
-            setEstimateNumber(`INV-${Date.now().toString().slice(-6)}`);
-            setShowEditor(true);
-          }}
-          className="bg-navy/80 text-white md:col-span-2 h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
-        >
-          Create Simple Invoice
         </Button>
       </div>
 
