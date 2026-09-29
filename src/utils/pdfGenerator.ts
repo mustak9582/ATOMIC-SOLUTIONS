@@ -289,7 +289,7 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       fields.push({ label: 'Deliv Date:', value: data.delivDate });
     }
     if (!isSimpleInvoice) {
-      fields.push({ label: 'Original/Dup:', value: data.originalDup || 'Original Copy' });
+      fields.push({ label: '', value: data.originalDup || 'Original Copy' });
       fields.push({ label: 'State Supply:', value: data.stateSupply || data.shippingState || data.customerState || 'Jharkhand - 20' });
     }
 
@@ -314,17 +314,25 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
        const xBase = colIdx === 0 ? v2X : subColMid;
        const yBase = topBoxY + rowIdx * rowH + 4;
        
-       doc.setFont('helvetica', 'bold');
-       doc.text(fields[i].label, xBase + 1, yBase);
-       if (i === 0) {
+       if (fields[i].label) {
+         doc.setFont('helvetica', 'bold');
+         doc.text(fields[i].label, xBase + 1, yBase);
+         if (i === 0) {
+           doc.setFont('helvetica', 'bold');
+           doc.setTextColor(20, 25, 60);
+         } else {
+           doc.setFont('helvetica', 'normal');
+           doc.setTextColor(0, 0, 0);
+         }
+         doc.text(fields[i].value || '', xBase + 16, yBase);
+         doc.setTextColor(0, 0, 0);
+       } else {
+         // Direct standalone value (e.g., "Original Copy", "Duplicate Copy", "Triplicate Copy")
          doc.setFont('helvetica', 'bold');
          doc.setTextColor(20, 25, 60);
-       } else {
-         doc.setFont('helvetica', 'normal');
+         doc.text(fields[i].value || '', xBase + 1, yBase);
          doc.setTextColor(0, 0, 0);
        }
-       doc.text(fields[i].value || '', xBase + 16, yBase);
-       doc.setTextColor(0, 0, 0);
     }
   };
 
