@@ -102,14 +102,58 @@ export const sanitizeForFirestore = (obj: any): any => {
   return clean;
 };
 
+// Persistent Deleted IDs tracking to prevent deleted documents from resurrecting on refresh/re-sync
+const getDeletedIds = (path: string): Set<string> => {
+  try {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('atomic_deleted_' + path);
+      if (stored) {
+        return new Set(JSON.parse(stored));
+      }
+    }
+  } catch (e) {}
+  return new Set();
+};
+
+const markIdDeleted = (path: string, id: string) => {
+  if (!id) return;
+  try {
+    if (typeof window !== 'undefined') {
+      const set = getDeletedIds(path);
+      set.add(id);
+      localStorage.setItem('atomic_deleted_' + path, JSON.stringify(Array.from(set)));
+    }
+  } catch (e) {}
+};
+
+const unmarkIdDeleted = (path: string, id: string) => {
+  if (!id) return;
+  try {
+    if (typeof window !== 'undefined') {
+      const set = getDeletedIds(path);
+      if (set.has(id)) {
+        set.delete(id);
+        localStorage.setItem('atomic_deleted_' + path, JSON.stringify(Array.from(set)));
+      }
+    }
+  } catch (e) {}
+};
+
 export const dataService = {
   async getDoc<T = any>(path: string, id: string): Promise<T | null> {
+    const deletedIds = getDeletedIds(path);
+    if (deletedIds.has(id)) return null;
+
     if (!db) return null;
     const snap = await getDoc(doc(db, path, id));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as any as T) : null;
+    if (!snap.exists()) return null;
+    const data = { id: snap.id, ...snap.data() } as any;
+    if (data.isDeleted || data._deleted || data.status === 'Deleted') return null;
+    return data as T;
   },
 
   async setDoc(path: string, id: string, data: any) {
+    unmarkIdDeleted(path, id);
     const sanitized = sanitizeForFirestore(data);
     const full = { ...sanitized, id };
 
@@ -126,7 +170,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -145,7 +189,19 @@ export const dataService = {
   },
 
   async list<T = any>(path: string, constraints: any[] = []): Promise<T[]> {
-    if (!db) return [];
+    const deletedIds = getDeletedIds(path);
+    const isValid = (d: any) => d && d.id && !deletedIds.has(d.id) && !d.isDeleted && !d._deleted && d.status !== 'Deleted';
+
+    if (!db) {
+      try {
+        if (typeof window !== 'undefined') {
+          const local = JSON.parse(localStorage.getItem('atomic_local_' + path) || '[]');
+          return local.filter(isValid);
+        }
+      } catch (err) {}
+      return [];
+    }
+
     try {
       const processedConstraints = constraints.map(c => 
         (c && typeof c === 'object' && 'field' in c) 
@@ -154,11 +210,13 @@ export const dataService = {
       );
       const q = query(collection(db, path), ...processedConstraints);
       const snap = await getDocs(q);
-      return snap.docs.map(d => ({ ...d.data(), id: d.id } as any as T));
+      const list = snap.docs.map(d => ({ ...d.data(), id: d.id } as any as T));
+      return list.filter(isValid);
     } catch (e) {
       try {
         if (typeof window !== 'undefined') {
-          return JSON.parse(localStorage.getItem('atomic_local_' + path) || '[]');
+          const local = JSON.parse(localStorage.getItem('atomic_local_' + path) || '[]');
+          return local.filter(isValid);
         }
       } catch (err) {}
       return [];
@@ -173,6 +231,9 @@ export const dataService = {
     const localKey = 'atomic_local_' + path;
 
     const getMerged = (fsDocs: any[] = []) => {
+      const deletedIds = getDeletedIds(path);
+      const isValid = (d: any) => d && d.id && !deletedIds.has(d.id) && !d.isDeleted && !d._deleted && d.status !== 'Deleted';
+
       let localDocs: any[] = [];
       try {
         if (typeof window !== 'undefined') {
@@ -181,10 +242,10 @@ export const dataService = {
       } catch (e) {}
 
       const map = new Map<string, any>();
-      localDocs.forEach(d => { if (d && d.id) map.set(d.id, d); });
-      fsDocs.forEach(d => { if (d && d.id) map.set(d.id, { ...(map.get(d.id) || {}), ...d }); });
+      localDocs.filter(isValid).forEach(d => { if (d && d.id) map.set(d.id, d); });
+      fsDocs.filter(isValid).forEach(d => { if (d && d.id) map.set(d.id, { ...(map.get(d.id) || {}), ...d }); });
 
-      let list = Array.from(map.values());
+      let list = Array.from(map.values()).filter(isValid);
       if (constraints && constraints.length > 0) {
         constraints.forEach(c => {
           if (c && typeof c === 'object' && 'field' in c && c.operator === '==') {
@@ -200,13 +261,17 @@ export const dataService = {
       fetch(`/api/${path}`)
         .then(res => res.ok ? res.json() : null)
         .then(serverDocs => {
-          if (Array.isArray(serverDocs) && serverDocs.length > 0) {
+          if (Array.isArray(serverDocs)) {
+            const deletedIds = getDeletedIds(path);
+            const isValid = (d: any) => d && d.id && !deletedIds.has(d.id) && !d.isDeleted && !d._deleted && d.status !== 'Deleted';
+            const validServerDocs = serverDocs.filter(isValid);
+
             try {
               if (typeof window !== 'undefined') {
-                const current: any[] = JSON.parse(localStorage.getItem(localKey) || '[]');
+                const current: any[] = JSON.parse(localStorage.getItem(localKey) || '[]').filter(isValid);
                 const map = new Map();
                 current.forEach(d => { if (d?.id) map.set(d.id, d); });
-                serverDocs.forEach(d => { if (d?.id) map.set(d.id, { ...(map.get(d.id) || {}), ...d }); });
+                validServerDocs.forEach(d => { if (d?.id) map.set(d.id, { ...(map.get(d.id) || {}), ...d }); });
                 localStorage.setItem(localKey, JSON.stringify(Array.from(map.values())));
               }
             } catch (e) {}
@@ -306,11 +371,14 @@ export const dataService = {
   },
 
   async deleteDoc(path: string, id: string) {
+    if (!id) return;
+    markIdDeleted(path, id);
+
     try {
       if (typeof window !== 'undefined') {
         const localKey = 'atomic_local_' + path;
         const existing: any[] = JSON.parse(localStorage.getItem(localKey) || '[]');
-        const filtered = existing.filter((d: any) => d.id !== id);
+        const filtered = existing.filter((d: any) => d && d.id !== id);
         localStorage.setItem(localKey, JSON.stringify(filtered));
         window.dispatchEvent(new CustomEvent(`atomic_${path}_updated`, { detail: { id, deleted: true } }));
       }
@@ -329,6 +397,9 @@ export const dataService = {
         await deleteDoc(doc(db, path, id));
       } catch (err: any) {
         console.warn(`Firestore deleteDoc fallback on ${path}:`, err?.message || err);
+        try {
+          await setDoc(doc(db, path, id), { isDeleted: true, status: 'Deleted', _deleted: true }, { merge: true });
+        } catch (err2: any) {}
       }
     }
   },
@@ -336,6 +407,7 @@ export const dataService = {
   async addDoc(path: string, data: any) {
     const sanitized = sanitizeForFirestore(data);
     const assignedId = sanitized.id || `${path}_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    unmarkIdDeleted(path, assignedId);
     const fullDoc = { ...sanitized, id: assignedId };
 
     // 1. Always save to local cache and server immediately
@@ -361,25 +433,14 @@ export const dataService = {
       }
     } catch (e) {}
 
-    // 2. Persistent server write
-    try {
-      if (['bookings', 'notifications'].includes(path)) {
-        fetch(`/api/${path}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(fullDoc)
-        }).catch(() => {});
-      }
-    } catch (e) {}
-
     // 3. Attempt Firestore
     if (db) {
       try {
         const docRef = await addDoc(collection(db, path), sanitized);
+        unmarkIdDeleted(path, docRef.id);
         return { ...sanitized, id: docRef.id };
       } catch (err: any) {
         console.warn(`Firestore addDoc permission/network fallback on ${path}:`, err?.message || err);
-        // Fallback: return fullDoc which was already stored locally and on server!
         return fullDoc;
       }
     }

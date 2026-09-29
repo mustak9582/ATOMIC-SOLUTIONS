@@ -66,40 +66,32 @@ service cloud.firestore {
 
     // --- BOOKINGS ---
     match /bookings/{bookingId} {
-      allow get, list: if true;
-      allow create: if true; // Any customer can place a booking request
-      allow update: if isSignedIn() || isAdmin();
-      allow delete: if isAdmin();
+      allow read, write: if true;
     }
 
     // --- SERVICES & CATEGORIES ---
     match /services/{serviceId} {
-      allow read: if true; // Publicly readable
-      allow write: if isAdmin(); // Only admins can modify services
+      allow read: if true; 
+      allow write: if true;
     }
     match /categories/{categoryId} {
-      allow read: if true; // Publicly readable
-      allow write: if isAdmin(); // Only admins can modify categories
+      allow read: if true; 
+      allow write: if true;
     }
 
     // --- NOTIFICATIONS ---
     match /notifications/{notifId} {
-      allow get, list: if true;
-      allow create: if true;
-      allow update, delete: if isSignedIn() || isAdmin();
+      allow read, write: if true;
     }
 
     // --- GALLERY ---
     match /gallery/{itemId} {
-      allow read: if true;
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // --- INVOICES ---
     match /invoices/{invoiceId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
-      allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
+      allow read, write: if true;
     }
 
     // --- SETTINGS ---
