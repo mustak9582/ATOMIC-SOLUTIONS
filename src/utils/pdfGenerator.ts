@@ -554,56 +554,60 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   doc.text(wordText, margin + 2, wordY + 5);
 
   const decY = footerBoxStartY + summaryHeight + 5;
+
+  // 1. Left Side: Declaration (constrained width to prevent overlapping other sections)
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('Declaration', margin + 2, decY);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7);
+  doc.setFontSize(6.5);
   const defaultDeclaration = '1. Subject to Deoghar (Jharkhand) jurisdiction\n2. Terms & conditions are subject to our trade policy\n3. Our risk & responsibility ceases after the delivery of goods.\nE. & O.E.';
-  const decLines = (data.declaration || defaultDeclaration).split('\n').filter((l: string) => l.trim().length > 0);
+  const decLines = doc.splitTextToSize(data.declaration || defaultDeclaration, 72);
   decLines.forEach((line: string, i: number) => {
-    doc.text(line, margin + 2, decY + 4 + (i * 4));
+    doc.text(line, margin + 2, decY + 4 + (i * 3.2));
   });
 
-  // QR Code nicely placed left of the CEO signature
+  // 2. Middle: Customer Signature (completely separate position, never overlaps Declaration)
+  const custSigCenterX = margin + 92;
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(custSigCenterX - 18, decY + 12, custSigCenterX + 18, decY + 12);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.text('Customer Signature', custSigCenterX, decY + 16, { align: 'center' });
+
+  // 3. QR Code (placed nicely between customer signature and authorised signature)
   if (includeQR) {
     const qrImg = (dynamicQrCodeUrl && dynamicQrCodeUrl.startsWith('data:')) ? dynamicQrCodeUrl : qrCodeBase64;
-    const qrX = sumBoxX - 10;
+    const qrX = margin + 122;
     const qrY = decY;
     try {
-      if (qrImg) doc.addImage(qrImg, 'JPEG', qrX, qrY, 18, 18);
+      if (qrImg) doc.addImage(qrImg, 'JPEG', qrX, qrY, 14, 14);
     } catch (e) {}
-    doc.setFontSize(6);
-    doc.text('SCAN TO PAY', qrX + 9, qrY + 21, { align: 'center' });
+    doc.setFontSize(5.5);
+    doc.text('SCAN TO PAY', qrX + 7, qrY + 16.5, { align: 'center' });
   }
 
-  // Signatures
+  // 4. Right Side: For ATOMIC SOLUTIONS & Authorised Signatory
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
   doc.text('For, ATOMIC SOLUTIONS', margin + contentWidth - 2, decY, { align: 'right' });
   
   const sigImg = (data.signatureUrl && data.signatureUrl.startsWith('data:')) ? data.signatureUrl : signatureBase64;
   try {
-    if (sigImg) doc.addImage(sigImg, 'PNG', margin + contentWidth - 30, decY + 3, 25, 10);
+    if (sigImg) doc.addImage(sigImg, 'PNG', margin + contentWidth - 30, decY + 2, 25, 10);
   } catch (e) {}
   
   doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
   doc.text('Authorised Signatory', margin + contentWidth - 2, decY + 16, { align: 'right' });
-  
-  // Customer Signature (Blank space with line for manual customer signature)
-  doc.setLineWidth(0.2);
-  doc.setDrawColor(0, 0, 0);
-  doc.line(margin + 18, decY + 12, margin + 62, decY + 12);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('Customer Signature', margin + 40, decY + 16, { align: 'center' });
 
   doc.setFontSize(7);
   doc.setFont('helvetica', 'bold');
-  const footerBottomY = Math.max(decY + 4 + (decLines.length * 4), decY + 20);
-  const thX = pageWidth / 2 - 30;
-  const thY = footerBottomY + 5;
-  doc.rect(thX, thY, 60, 5);
+  const footerBottomY = Math.max(decY + 4 + (decLines.length * 3.2), decY + 19);
+  const thX = pageWidth / 2 - 35;
+  const thY = footerBottomY + 4;
+  doc.rect(thX, thY, 70, 5);
   doc.text('Thank You For Business With US!', pageWidth / 2, thY + 3.5, { align: 'center' });
 
   return doc;
