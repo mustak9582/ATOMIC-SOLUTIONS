@@ -59,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [viewAsCustomer, setViewAsCustomer] = useState(false);
   const [activeRole, setActiveRoleState] = useState<'customer' | 'staff' | 'admin'>(() => {
+    const storedUser = localStorage.getItem('atomic_auth_user');
+    if (!storedUser) return 'customer';
     const stored = localStorage.getItem('atomic_active_role');
     if (stored === 'customer' || stored === 'staff' || stored === 'admin') return stored;
     return 'customer';
@@ -170,8 +172,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
             setUser(null);
             setProfile(null);
+            setActiveRoleState('customer');
             localStorage.removeItem('atomic_auth_user');
             localStorage.removeItem('atomic_auth_profile');
+            localStorage.removeItem('atomic_active_role');
+            localStorage.removeItem('atomic_view_mode');
           }
         } catch (error) {
           console.error("Auth state change error:", error);

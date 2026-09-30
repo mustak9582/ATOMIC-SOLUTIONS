@@ -82,30 +82,16 @@ const AppContent: React.FC = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  useEffect(() => {
-    if (!loading && user && activeRole === 'staff' && !isAdmin && location.pathname === '/') {
-      navigate('/professional', { replace: true });
-    }
-  }, [user, activeRole, isAdmin, location.pathname, navigate, loading]);
-
   // 3. LOGIC FOR RENDERING
-  const isActuallyAdminView = isAdmin && activeRole === 'admin';
-  const isActuallyStaffView = (isStaff || activeRole === 'staff') && activeRole === 'staff' && !isAdmin;
+  const isActuallyAdminView = !!user && isAdmin && activeRole === 'admin';
+  const isActuallyStaffView = !!user && (isStaff || activeRole === 'staff') && activeRole === 'staff' && !isAdmin;
   const isStaffOnly = isActuallyStaffView;
 
   const isAdminRoute = location.pathname.startsWith('/admin') || location.pathname === '/billing';
   const isStaffRoute = location.pathname.startsWith('/professional');
-  
-  // Restricted access for Staff: only when active role is 'staff' AND auth is confirmed
-  const shouldBlockWebsiteForStaff = !loading && isStaffOnly && !isStaffRoute && location.pathname !== '/login';
 
-  useEffect(() => {
-    if (shouldBlockWebsiteForStaff) {
-      navigate('/professional', { replace: true });
-    }
-  }, [shouldBlockWebsiteForStaff, navigate]);
-
-  const shouldHideUI = location.pathname === '/login' || (isAdmin && isAdminRoute) || ((isStaff || activeRole === 'staff') && isStaffRoute);
+  // Do not hide UI on public routes; hide only on login or dedicated admin/staff portal pages
+  const shouldHideUI = location.pathname === '/login' || (!!user && isAdmin && isAdminRoute) || (!!user && (isStaff || activeRole === 'staff') && isStaffRoute);
 
   // 4. EARLY RETURNS FOR LOADING/SPLASH
   // Only show a brief splash for visual polish - NEVER block guest browsing waiting for auth
