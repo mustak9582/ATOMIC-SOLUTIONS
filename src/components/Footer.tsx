@@ -1,10 +1,14 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { MapPin, ShieldCheck, Heart, LayoutGrid, Globe, PhoneCall, Facebook, Instagram, Youtube, Phone, Mail } from 'lucide-react';
 import { motion } from 'motion/react';
 import Logo from './Logo';
 import { WHATSAPP_NUMBER, INSTAGRAM_URL, YOUTUBE_URL, PHONE_NUMBER, FACEBOOK_URL } from '../constants';
 import { formatWhatsAppLink } from '../lib/utils';
+import { dataService } from '../services/firebaseService';
+import { AppSettings } from '../types';
+import { DEFAULT_APP_SETTINGS, getMergedSettings } from '../services/settingsService';
+
 const WhatsappIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
@@ -25,6 +29,28 @@ const WhatsappIcon = ({ size = 24, className = "" }: { size?: number, className?
 );
 
 export default function Footer() {
+  const [settings, setSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
+
+  useEffect(() => {
+    const unsub = dataService.subscribe('settings', (data) => {
+      if (data && data.length > 0) {
+        setSettings(getMergedSettings(data[0]));
+      }
+    });
+    return () => unsub();
+  }, []);
+
+  const whatsappNum = settings.whatsappNumber || WHATSAPP_NUMBER;
+  const phoneNum = settings.phone || PHONE_NUMBER;
+  const emailAddr = settings.email || 'atomichvacsolution@gmail.com';
+  const companyName = settings.companyName || 'Atomic Solutions';
+  const founderName = settings.founderName || 'Mustak Ansari';
+  const founderAddress = settings.founderAddress || settings.address || 'Binjha, Sonraithari, Deoghar, Jharkhand 814149';
+  const websiteUrl = settings.websiteUrl || 'https://atomicsolutions.in';
+
+  const vCardData = `BEGIN:VCARD\nVERSION:3.0\nN:${founderName};;;;\nFN:${founderName}\nORG:${companyName}\nTEL;TYPE=WORK,VOICE:${phoneNum}\nTEL;TYPE=CELL,VOICE:${phoneNum}\nEMAIL;TYPE=PREF,INTERNET:${emailAddr}\nURL:${websiteUrl}\nADR;TYPE=WORK:;;${founderAddress};India\nEND:VCARD`;
+  const qrCodeSrc = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(vCardData)}`;
+
   return (
     <footer id="contact" className="bg-navy pt-24 pb-12 text-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -38,14 +64,14 @@ export default function Footer() {
           >
             <Logo size="lg" variant="light" />
             <p className="text-slate-300 font-medium leading-relaxed max-w-sm">
-              Atomic Solutions is your premium partner for HVAC, construction, interiors, and essential home services.
+              {settings.companyDescription || 'Atomic Solutions is your premium partner for HVAC, construction, interiors, and essential home services.'}
             </p>
             <div className="flex space-x-4">
-              <SocialLink href={FACEBOOK_URL} icon={<Facebook size={22} />} />
-              <SocialLink href={INSTAGRAM_URL} icon={<Instagram size={22} />} />
-              <SocialLink href={YOUTUBE_URL} icon={<Youtube size={22} />} />
-              <SocialLink href={formatWhatsAppLink(WHATSAPP_NUMBER)} icon={<WhatsappIcon size={22} />} />
-              <SocialLink href={`tel:${PHONE_NUMBER.replace(/\s+/g, '')}`} icon={<PhoneCall size={22} />} />
+              {settings.facebookUrl && <SocialLink href={settings.facebookUrl} icon={<Facebook size={22} />} />}
+              {settings.instagramUrl && <SocialLink href={settings.instagramUrl} icon={<Instagram size={22} />} />}
+              {settings.youtubeUrl && <SocialLink href={settings.youtubeUrl} icon={<Youtube size={22} />} />}
+              {whatsappNum && <SocialLink href={formatWhatsAppLink(whatsappNum)} icon={<WhatsappIcon size={22} />} />}
+              {phoneNum && <SocialLink href={`tel:${phoneNum.replace(/\s+/g, '')}`} icon={<PhoneCall size={22} />} />}
             </div>
           </motion.div>
 
@@ -58,8 +84,11 @@ export default function Footer() {
           >
             <div>
               <h4 className="text-sm font-black mb-8 uppercase tracking-[0.2em] text-teal">Founder</h4>
-              <p className="text-xl font-black text-white uppercase tracking-tighter mb-2">Mustak Ansari</p>
-              <p className="text-silver text-xs font-bold uppercase tracking-widest leading-relaxed">Binjha, Sonraithari, Deoghar, Jharkhand 814149</p>
+              <p className="text-xl font-black text-white uppercase tracking-tighter mb-2">{founderName}</p>
+              <p className="text-silver text-xs font-bold uppercase tracking-widest leading-relaxed">{founderAddress}</p>
+              {settings.founderTitle && (
+                <p className="text-[10px] text-teal font-bold uppercase tracking-wider mt-1">{settings.founderTitle}</p>
+              )}
             </div>
             <div>
               <h4 className="text-sm font-black mb-8 uppercase tracking-[0.2em] text-teal">Explore</h4>
@@ -82,8 +111,8 @@ export default function Footer() {
               <div className="absolute -top-5 bg-teal text-white font-bold text-[10px] uppercase tracking-[0.2em] px-6 py-2 rounded-full">Scan contact</div>
               <div className="w-48 h-48 bg-white rounded-lg mb-6 flex items-center justify-center p-4 overflow-hidden border border-slate-100">
                 <img 
-                  src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`BEGIN:VCARD\nVERSION:3.0\nN:Ansari;Mustak;;;\nFN:Mustak Ansari\nORG:Atomic Solutions\nTEL;TYPE=WORK,VOICE:+919582268658\nTEL;TYPE=CELL,VOICE:+919582268658\nEMAIL;TYPE=PREF,INTERNET:atomichvacsolution@gmail.com\nURL:https://atomicsolutions.in\nADR;TYPE=WORK:;;Binjha, Sonraithari;Deoghar;JH;814149;India\nEND:VCARD`)}`} 
-                  alt="Atomic Solutions Contact QR" 
+                  src={qrCodeSrc} 
+                  alt={`${companyName} Contact QR`} 
                   className="w-full h-full object-contain"
                   referrerPolicy="no-referrer"
                 />
@@ -109,12 +138,12 @@ export default function Footer() {
           </div>
           <div className="text-center">
             <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
-              © {new Date().getFullYear()} Atomic Solutions. All Rights Reserved.
+              © {new Date().getFullYear()} {companyName}. All Rights Reserved.
             </p>
           </div>
           <div className="md:justify-self-end">
             <div className="flex items-center gap-2 text-gray-500 text-[10px] font-black uppercase tracking-widest">
-              Built with <Heart size={12} className="text-teal fill-teal" /> for Atomic Solutions
+              Built with <Heart size={12} className="text-teal fill-teal" /> for {companyName}
             </div>
           </div>
         </motion.div>

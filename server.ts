@@ -609,6 +609,55 @@ CRITICAL MULTILINGUAL & UNLIMITED CONTINUOUS Q&A RULES:
     res.json({ success: true, message: 'Invoice deleted' });
   });
 
+  // --- Persistent Settings Storage ---
+  const settingsFilePath = path.join(process.cwd(), 'data', 'settings.json');
+  const getStoredSettings = (): any => {
+    try {
+      if (!fs.existsSync(path.dirname(settingsFilePath))) {
+        fs.mkdirSync(path.dirname(settingsFilePath), { recursive: true });
+      }
+      if (fs.existsSync(settingsFilePath)) {
+        const raw = fs.readFileSync(settingsFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('Error reading settings.json:', e);
+    }
+    return null;
+  };
+
+  const saveStoredSettings = (data: any) => {
+    try {
+      if (!fs.existsSync(path.dirname(settingsFilePath))) {
+        fs.mkdirSync(path.dirname(settingsFilePath), { recursive: true });
+      }
+      fs.writeFileSync(settingsFilePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error saving settings.json:', e);
+    }
+  };
+
+  app.get('/api/settings', (_req, res) => {
+    const s = getStoredSettings();
+    res.json(s ? [s] : []);
+  });
+
+  app.post('/api/settings', (req, res) => {
+    const newSettings = req.body;
+    if (!newSettings) return res.status(400).json({ error: 'Settings payload required' });
+    const full = { ...newSettings, id: newSettings.id || 'main' };
+    saveStoredSettings(full);
+    res.json({ success: true, settings: full });
+  });
+
+  app.patch('/api/settings/:id', (req, res) => {
+    const updates = req.body;
+    const current = getStoredSettings() || { id: req.params.id || 'main' };
+    const merged = { ...current, ...updates, id: req.params.id || 'main' };
+    saveStoredSettings(merged);
+    res.json({ success: true, settings: merged });
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {
     console.log('Using Vite middleware in development mode...');

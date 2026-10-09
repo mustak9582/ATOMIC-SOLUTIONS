@@ -204,15 +204,64 @@ export interface Visit {
 
 export interface AppSettings {
   id?: string;
+  // Company & Brand
+  companyName?: string;
+  companyTagline?: string;
+  companyDescription?: string;
   logoUrl: string;
-  ownerGSTIN?: string;
+  faviconUrl?: string;
+
+  // Founder & Leadership
+  founderName?: string;
+  founderTitle?: string;
+  founderPhone?: string;
+  founderEmail?: string;
+  founderBio?: string;
+  founderAddress?: string;
+
+  // Contact & Communication
   whatsappNumber: string;
   phone: string;
+  alternatePhone?: string;
   email: string;
   address: string;
+  city?: string;
+  state?: string;
+  stateCode?: string;
+  pincode?: string;
+
+  // Tax & Legal Compliance
+  ownerGSTIN?: string;
+  panNumber?: string;
+  msmeNumber?: string;
+
+  // Banking & Payment
+  bankAccountHolder?: string;
+  bankName?: string;
+  bankAccountNumber?: string;
+  bankIfsc?: string;
+  bankBranch?: string;
+  bankAccountType?: 'Current' | 'Savings';
+  upiId?: string;
+  upiIdSecondary?: string;
+  qrCodeUrl?: string;
+
+  // Invoice Defaults & Signatures
+  authorisedSignatory?: string;
+  signatureUrl?: string;
+  defaultTerms?: string;
+  defaultDeclaration?: string;
+  invoiceThankYouNote?: string;
+
+  // Social & Online Links
+  websiteUrl?: string;
   facebookUrl?: string;
   instagramUrl?: string;
   youtubeUrl?: string;
+  linkedinUrl?: string;
+  mapLocationUrl?: string;
+
+  // Media
   gallery?: string[];
   videos?: { id: string; url: string; title?: string }[];
 }

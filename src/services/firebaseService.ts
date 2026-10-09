@@ -170,7 +170,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -257,7 +257,7 @@ export const dataService = {
     };
 
     // Initial server sync
-    if (['bookings', 'notifications', 'invoices'].includes(path)) {
+    if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
       fetch(`/api/${path}`)
         .then(res => res.ok ? res.json() : null)
         .then(serverDocs => {
@@ -352,7 +352,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -424,7 +424,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
         fetch(`/api/${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

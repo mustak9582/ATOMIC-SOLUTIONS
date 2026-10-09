@@ -9,6 +9,8 @@ import { formatWhatsAppLink, compressImage } from '../lib/utils';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
+import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from '../services/settingsService';
+import { AppSettings } from '../types';
 
 import { useNavigate } from 'react-router-dom';
 
@@ -74,12 +76,18 @@ export default function DirectBookingModal({
   const [paymentProof, setPaymentProof] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
 
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
   const [adminEmail, setAdminEmail] = useState('mustakansari9582@gmail.com');
 
   useEffect(() => {
-    dataService.getDoc('settings', 'main').then((settings: any) => {
-      if (settings && settings.email) setAdminEmail(settings.email);
-    }).catch(() => {});
+    const unsub = dataService.subscribe('settings', (data) => {
+      if (data && data.length > 0) {
+        const merged = getMergedSettings(data[0]);
+        setAppSettings(merged);
+        if (merged.email) setAdminEmail(merged.email);
+      }
+    });
+    return () => unsub();
   }, []);
 
   useEffect(() => {
@@ -166,10 +174,19 @@ export default function DirectBookingModal({
           roundOff: 0
         },
         totalAmount: calculateTotals().subtotal,
-        bankDetails: 'NAME: MUSTAK ANSARI \n BANK: BANK OF BARODA \n A/C: 26450200001659 \n IFSC: BARB0DEOGHA',
-        companyPhone: '9582268658',
-        companyAddress: '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149',
-        logoUrl: window.location.origin + '/logo.png'
+        bankDetails: formatBankDetailsString(appSettings),
+        companyName: appSettings.companyName,
+        companyPhone: appSettings.phone,
+        companyAddress: appSettings.address,
+        companyEmail: appSettings.email,
+        companyGSTIN: appSettings.ownerGSTIN,
+        ownerGSTIN: appSettings.ownerGSTIN,
+        msmeNumber: appSettings.msmeNumber,
+        terms: appSettings.defaultTerms,
+        declaration: appSettings.defaultDeclaration,
+        logoUrl: appSettings.logoUrl,
+        signatureUrl: appSettings.signatureUrl,
+        upiId: appSettings.upiId
       };
       
       const doc = await generateInvoicePDF(pdfData);

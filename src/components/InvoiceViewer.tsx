@@ -22,19 +22,21 @@ import {
 } from 'lucide-react';
 import { Button } from './ui/button';
 import Logo from './Logo';
+import { AppSettings } from '../types';
+import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from '../services/settingsService';
 
 export default function InvoiceViewer() {
   const { id } = useParams<{ id: string }>();
   const [invoice, setInvoice] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<any>(null);
+  const [settings, setSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (invoice && invoice.totalAmount) {
-      const upiId = settings?.upiId || 'mustakansari9582-3@okhdfcbank';
-      const upiString = `upi://pay?pa=${upiId}&pn=Atomic%20Solutions&am=${invoice.totalAmount}&cu=INR`;
+      const upiId = settings?.upiId || DEFAULT_APP_SETTINGS.upiId || 'mustakansari9582-3@okhdfcbank';
+      const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(settings?.companyName || 'Atomic Solutions')}&am=${invoice.totalAmount}&cu=INR`;
       QRCode.toDataURL(upiString, { width: 150, margin: 1 })
         .then(url => setQrDataUrl(url))
         .catch(err => console.error(err));
@@ -42,8 +44,8 @@ export default function InvoiceViewer() {
   }, [invoice, settings]);
 
   useEffect(() => {
-    dataService.getCollection('settings').then(data => {
-      if (data && data.length > 0) setSettings(data[0]);
+    const unsubSettings = dataService.subscribe('settings', (data) => {
+      if (data && data.length > 0) setSettings(getMergedSettings(data[0]));
     });
 
     if (id) {
@@ -61,11 +63,16 @@ export default function InvoiceViewer() {
         })
         .finally(() => setLoading(false));
     }
+
+    return () => unsubSettings();
   }, [id]);
 
   const generatePDF = async () => {
     if (!invoice) return;
     try {
+      const merged = getMergedSettings(settings);
+      const dynamicBankDetails = invoice.bankDetails || formatBankDetailsString(merged);
+
       const pdfData: PDFInvoiceData = {
         type: invoice.type || 'Invoice',
         number: invoice.estimateNumber || invoice.invoiceNumber || 'No',
@@ -75,11 +82,11 @@ export default function InvoiceViewer() {
         customerAddress: invoice.customerAddress || '',
         customerGSTIN: invoice.customerGSTIN || '',
         items: (invoice.items || []).map((i: any) => {
-          const q = i.quantity || 1;
-          const r = i.rate || i.price || 0;
+          const q = Number(i.quantity) || 1;
+          const r = Number(i.rate || i.price) || 0;
           return {
-            name: i.name,
-            description: i.description,
+            name: i.name || 'Service Item',
+            description: i.description || '',
             quantity: q,
             rate: r,
             uom: i.unit || i.uom || 'Nos',
@@ -88,21 +95,28 @@ export default function InvoiceViewer() {
           };
         }),
         summary: {
-          taxableAmount: invoice.subTotal - (invoice.discount || 0),
+          taxableAmount: (invoice.subTotal || invoice.totalAmount) - (invoice.discount || 0),
           cgstAmount: (invoice.gstAmount || 0) / 2,
           sgstAmount: (invoice.gstAmount || 0) / 2,
           igstAmount: 0,
-          freightCharges: 0,
+          freightCharges: invoice.freightCharges || 0,
           discountAmount: invoice.discount || 0,
           roundOff: invoice.roundOff || 0
         },
         totalAmount: invoice.totalAmount,
-        bankDetails: invoice.bankDetails || 'NAME: MUSTAK ANSARI \n BANK: BANK OF BARODA \n A/C: 26450200001659 \n IFSC: BARB0DEOGHA',
-        terms: invoice.terms,
-        declaration: invoice.declaration,
-        companyPhone: settings?.phone || '9582268658',
-        companyAddress: settings?.address || '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149',
-        logoUrl: window.location.origin + '/logo.png',
+        bankDetails: dynamicBankDetails,
+        terms: invoice.terms || merged.defaultTerms,
+        declaration: invoice.declaration || merged.defaultDeclaration,
+        companyName: merged.companyName,
+        companyPhone: merged.phone,
+        companyAddress: merged.address,
+        companyEmail: merged.email,
+        companyGSTIN: merged.ownerGSTIN,
+        ownerGSTIN: merged.ownerGSTIN,
+        msmeNumber: merged.msmeNumber,
+        logoUrl: merged.logoUrl,
+        signatureUrl: merged.signatureUrl,
+        upiId: merged.upiId,
         qrCodeUrl: qrDataUrl || undefined
       };
       
@@ -196,22 +210,27 @@ export default function InvoiceViewer() {
           <div className="p-8 md:p-12 border-b border-gray-50 flex flex-col md:flex-row justify-between gap-12">
             <div className="space-y-4">
               <div>
-                <h3 className="text-2xl font-black text-navy uppercase tracking-tighter">Atomic Solutions</h3>
-                <p className="text-xs font-bold text-teal italic">"We Bring Comfort Life"</p>
+                <h3 className="text-2xl font-black text-navy uppercase tracking-tighter">{settings.companyName || 'Atomic Solutions'}</h3>
+                <p className="text-xs font-bold text-teal italic">"{settings.companyTagline || 'We Bring Comfort Life'}"</p>
               </div>
               <div className="space-y-2">
                 <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
                   <MapPin size={14} className="text-teal" />
-                  <span>Deoghar, Jharkhand - 814149</span>
+                  <span>{settings.address || 'Deoghar, Jharkhand - 814149'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
                   <Phone size={14} className="text-teal" />
-                  <span>+91 95822 68658</span>
+                  <span>{settings.phone || '+91 95822 68658'}</span>
                 </div>
                 <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
                    <Mail size={14} className="text-teal" />
-                   <span>atomichvacsolution@gmail.com</span>
+                   <span>{settings.email || 'atomichvacsolution@gmail.com'}</span>
                 </div>
+                {settings.ownerGSTIN && (
+                  <div className="text-[10px] font-bold text-navy uppercase">
+                    GSTIN: <span className="font-mono text-teal">{settings.ownerGSTIN}</span>
+                  </div>
+                )}
               </div>
             </div>
             
@@ -319,7 +338,7 @@ export default function InvoiceViewer() {
           <div className="p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-12 text-gray-500">
              <div className="space-y-4">
                 <h5 className="text-[10px] font-black text-navy uppercase tracking-widest border-l-2 border-teal pl-3">Bank Details</h5>
-                <p className="text-[10px] font-medium whitespace-pre-wrap leading-relaxed">{invoice.bankDetails}</p>
+                <p className="text-[10px] font-medium whitespace-pre-wrap leading-relaxed">{invoice.bankDetails || formatBankDetailsString(settings)}</p>
              </div>
              <div className="space-y-4">
                 <h5 className="text-[10px] font-black text-navy uppercase tracking-widest border-l-2 border-teal pl-3">

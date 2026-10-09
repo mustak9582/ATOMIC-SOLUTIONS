@@ -1,14 +1,29 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { MessageCircle } from 'lucide-react';
 import { motion } from 'motion/react';
-
 import { WHATSAPP_NUMBER } from '../constants';
 import { formatWhatsAppLink } from '../lib/utils';
+import { dataService } from '../services/firebaseService';
+import { AppSettings } from '../types';
 
 export default function WhatsAppButton() {
+  const [whatsappNumber, setWhatsappNumber] = useState<string>(WHATSAPP_NUMBER);
+  const [companyName, setCompanyName] = useState<string>('Atomic Solutions');
+
+  useEffect(() => {
+    const unsub = dataService.subscribe('settings', (data) => {
+      if (data && data.length > 0) {
+        const settings = data[0] as AppSettings;
+        if (settings.whatsappNumber) setWhatsappNumber(settings.whatsappNumber);
+        if (settings.companyName) setCompanyName(settings.companyName);
+      }
+    });
+    return () => unsub();
+  }, []);
+
   const handleClick = () => {
-    const message = "Hello Atomic Solutions, I'm interested in your services. Could you please provide more information?";
-    window.open(formatWhatsAppLink(WHATSAPP_NUMBER, message), '_blank');
+    const message = `Hello ${companyName}, I'm interested in your services. Could you please provide more information?`;
+    window.open(formatWhatsAppLink(whatsappNumber, message), '_blank');
   };
 
   return (

@@ -5,6 +5,7 @@ import { dataService, safeStringify } from '../services/firebaseService';
 import { CORE_SERVICES, WHATSAPP_NUMBER, DEFAULT_CATEGORIES } from '../constants';
 import { getLocalCustomServices, saveLocalCustomService, fetchServerServices, saveServerService, mergeServicesWithOverrides } from '../services/serviceStorage';
 import { Booking, UserProfile, Service, BookingStatus, Category, AppSettings, Notification } from '../types';
+import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from '../services/settingsService';
 import { calculateDistance } from '../services/locationService';
 import { cn, formatWhatsAppLink, maskEmail, maskPhone, compressImage, safeDateFormatter, safeTimeFormatter } from '../lib/utils';
 import { 
@@ -127,13 +128,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const [allInvoices, setAllInvoices] = useState<any[]>([]);
   const [services, setServices] = useState<Service[]>(() => mergeServicesWithOverrides(CORE_SERVICES));
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
-  const [appSettings, setAppSettings] = useState<AppSettings>({
-    logoUrl: '',
-    whatsappNumber: WHATSAPP_NUMBER,
-    phone: '',
-    email: '',
-    address: ''
-  });
+  const [appSettings, setAppSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<BookingStatus | 'All'>('All');
   const [loading, setLoading] = useState(true);
@@ -967,8 +962,10 @@ By: *Atomic Solutions*`;
 
   const updateSettings = async (updates: Partial<AppSettings>) => {
     try {
-      await dataService.setDoc('settings', 'main', { ...appSettings, ...updates });
-      toast.success('Settings updated');
+      const merged = getMergedSettings({ ...appSettings, ...updates });
+      await dataService.setDoc('settings', 'main', merged);
+      setAppSettings(merged);
+      toast.success('Settings saved and synchronized');
     } catch (e) {
       toast.error('Failed to update settings');
     }
@@ -976,6 +973,9 @@ By: *Atomic Solutions*`;
 
   const downloadInvoicePDF = async (invoice: any) => {
     try {
+      const mergedSettings = getMergedSettings(appSettings);
+      const dynamicBankDetails = invoice.bankDetails || formatBankDetailsString(mergedSettings);
+
       const pdfData: PDFInvoiceData = {
         type: invoice.type || 'Invoice',
         number: invoice.estimateNumber || invoice.invoiceNumber || 'No',
@@ -984,29 +984,43 @@ By: *Atomic Solutions*`;
         customerPhone: invoice.customerPhone || invoice.userPhone || '',
         customerAddress: invoice.customerAddress || '',
         customerGSTIN: invoice.customerGSTIN || '',
-        items: invoice.items.map((i: any) => ({
-          name: i.name,
-          description: i.description,
-          quantity: i.quantity,
-          rate: i.rate,
-          uom: i.unit || i.uom || 'Nos',
-          taxable: i.quantity * i.rate,
-          amount: i.rate * i.quantity
-        })),
+        items: (invoice.items || []).map((i: any) => {
+          const qty = Number(i.quantity) || 1;
+          const rt = Number(i.rate || i.price) || 0;
+          return {
+            name: i.name || 'Service Item',
+            description: i.description || '',
+            hsn: i.hsn || '',
+            quantity: qty,
+            rate: rt,
+            uom: i.unit || i.uom || 'Nos',
+            taxable: qty * rt,
+            amount: qty * rt
+          };
+        }),
         summary: {
-          taxableAmount: invoice.subTotal - (invoice.discount || 0),
+          taxableAmount: (invoice.subTotal || invoice.totalAmount) - (invoice.discount || 0),
           cgstAmount: (invoice.gstAmount || 0) / 2,
           sgstAmount: (invoice.gstAmount || 0) / 2,
           igstAmount: 0,
-          freightCharges: 0,
+          freightCharges: invoice.freightCharges || 0,
           discountAmount: invoice.discount || 0,
           roundOff: invoice.roundOff || 0
         },
-        totalAmount: invoice.totalAmount,
-        bankDetails: invoice.bankDetails || '',
-        companyPhone: appSettings?.phone || '9582268658',
-        companyAddress: appSettings?.address || '96 BINJHA KURUWA, DUMARIA, DEOGHAR, JHARKHAND 814149',
-        logoUrl: window.location.origin + '/logo.png'
+        totalAmount: invoice.totalAmount || 0,
+        bankDetails: dynamicBankDetails,
+        companyName: mergedSettings.companyName,
+        companyPhone: mergedSettings.phone,
+        companyAddress: mergedSettings.address,
+        companyEmail: mergedSettings.email,
+        companyGSTIN: mergedSettings.ownerGSTIN,
+        ownerGSTIN: mergedSettings.ownerGSTIN,
+        msmeNumber: mergedSettings.msmeNumber,
+        terms: invoice.terms || mergedSettings.defaultTerms,
+        declaration: invoice.declaration || mergedSettings.defaultDeclaration,
+        logoUrl: mergedSettings.logoUrl,
+        signatureUrl: mergedSettings.signatureUrl,
+        upiId: mergedSettings.upiId
       };
       
       const doc = await generateInvoicePDF(pdfData);

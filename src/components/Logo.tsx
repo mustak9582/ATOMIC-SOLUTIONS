@@ -12,6 +12,8 @@ interface LogoProps {
 
 export default function Logo({ className = '', size = 'md', variant = 'dark' }: LogoProps) {
   const [logoUrl, setLogoUrl] = useState<string | null>("https://i.postimg.cc/c1kyVJkv/ATOMIC-LOGO.png");
+  const [companyName, setCompanyName] = useState<string>("Atomic Solutions");
+  const [companyTagline, setCompanyTagline] = useState<string>("WE BRING COMFORT LIFE");
 
   useEffect(() => {
     const unsub = dataService.subscribe('settings', (data) => {
@@ -19,6 +21,12 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
         const settings = data[0] as AppSettings;
         if (settings.logoUrl) {
           setLogoUrl(settings.logoUrl);
+        }
+        if (settings.companyName) {
+          setCompanyName(settings.companyName);
+        }
+        if (settings.companyTagline) {
+          setCompanyTagline(settings.companyTagline);
         }
       }
     });
@@ -45,7 +53,7 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
           className={`${sizes[size].box} relative flex items-center justify-center`}
         >
           {logoUrl ? (
-            <img src={logoUrl} alt="Atomic Solutions" className="w-full h-full object-contain" />
+            <img src={logoUrl} alt={companyName} className="w-full h-full object-contain" />
           ) : (
             <svg viewBox="0 0 100 100" className="w-full h-full">
               <path d="M50 10 L15 85 L35 85 L50 50 L65 85 L85 85 Z" fill="#0f172a" />
@@ -66,7 +74,7 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
             animate={{ scale: 1, opacity: 1 }}
             transition={{ duration: 0.45, delay: 0.15 }}
           >
-            Atomic Solutions
+            {companyName}
           </motion.span>
           <motion.span 
             className={`${sizes[size].sub} font-semibold leading-none mt-1 uppercase tracking-[0.08em]`} 
@@ -75,7 +83,7 @@ export default function Logo({ className = '', size = 'md', variant = 'dark' }: 
             animate={{ x: 0, opacity: 1 }}
             transition={{ duration: 0.45, delay: 0.22 }}
           >
-            WE BRING COMFORT LIFE
+            {companyTagline}
           </motion.span>
         </div>
       </motion.div>

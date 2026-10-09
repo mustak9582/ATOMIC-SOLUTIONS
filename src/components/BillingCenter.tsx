@@ -25,6 +25,7 @@ import { cn, formatWhatsAppLink } from '../lib/utils';
 import Logo from './Logo';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Service, SubCategory, UserProfile, BillingItem, Invoice, AppSettings, Booking } from '../types';
+import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from '../services/settingsService';
 import { toast } from 'sonner';
 import { dataService } from '../services/firebaseService';
 import { autoDetectStateCode } from '../utils/stateCodeHelper';
@@ -156,12 +157,22 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       setAllUsers(users as UserProfile[]);
     });
 
-    dataService.getCollection('settings').then(data => {
+    const unsubSettings = dataService.subscribe('settings', (data) => {
       if (data && data.length > 0) {
-        const s = data[0] as AppSettings;
+        const s = getMergedSettings(data[0] as AppSettings);
         setSettings(s);
+        if (s.companyName) setCompanyName(s.companyName);
+        if (s.companyTagline) setCompanyTagline(s.companyTagline);
+        if (s.founderName) setFounderName(s.founderName);
+        if (s.phone) setCompanyPhone(s.phone);
+        if (s.email) setCompanyEmail(s.email);
+        if (s.address) setCompanyAddress(s.address);
         if (s.ownerGSTIN) setOwnerGSTIN(s.ownerGSTIN);
-        if ((s as any).upiId) setUpiId((s as any).upiId);
+        if (s.msmeNumber) setMsmeNumber(s.msmeNumber);
+        if (s.upiId) setUpiId(s.upiId);
+        if (s.defaultTerms) setTerms(s.defaultTerms);
+        if (s.defaultDeclaration) setDeclaration(s.defaultDeclaration);
+        setBankDetails(formatBankDetailsString(s));
       }
     });
 
@@ -179,6 +190,10 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         setEstimateNumber(nextSerial);
       }
     }).catch(() => {});
+
+    return () => {
+      unsubSettings();
+    };
   }, [propServices, documentType]);
 
   const updateOwnerGSTIN = async (val: string) => {
@@ -445,6 +460,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       terms: terms,
       declaration: declaration,
       logoUrl: logoUrl,
+      signatureUrl: settings?.signatureUrl,
       upiId: upiId
     };
     return await generateInvoicePDF(pdfData, { includeQR });
