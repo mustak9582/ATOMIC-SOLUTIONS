@@ -233,213 +233,322 @@ export function TabBookings({
       </div>
 
       <Card className="rounded-[32px] border-none shadow-xl shadow-gray-100 overflow-hidden">
-        <Table>
-          <TableHeader className="bg-gray-50 border-b border-gray-100">
-            <TableRow>
-              {/* Select All Checkbox Column */}
-              <TableHead className="w-12 px-4 h-12 text-center">
-                <input 
-                  type="checkbox"
-                  checked={allFilteredSelected}
-                  onChange={toggleSelectAll}
-                  aria-label="Select all bookings"
-                  className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer transition-all"
-                />
-              </TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Customer</TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Service</TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Price</TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Appointment</TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12 text-center">Status</TableHead>
-              <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredBookings.map((booking) => {
-              const userProfile = users.find(u => u.uid === booking.userId);
-              const displayName = booking.userName || userProfile?.name || 'Customer';
-              const displayPhone = booking.userPhone || userProfile?.phone || '';
-              const displayWhatsapp = booking.whatsappNumber || userProfile?.whatsappNumber || displayPhone;
-              const displayAddress = booking.userAddress || userProfile?.address || 'No Address Provided';
-              const isSelected = selectedBookingIds.includes(booking.id);
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-gray-50 border-b border-gray-100">
+              <TableRow>
+                {/* Select All Checkbox Column */}
+                <TableHead className="w-12 px-4 h-12 text-center">
+                  <input 
+                    type="checkbox"
+                    checked={allFilteredSelected}
+                    onChange={toggleSelectAll}
+                    aria-label="Select all bookings"
+                    className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer transition-all"
+                  />
+                </TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Customer</TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Service</TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Price</TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12">Appointment</TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12 text-center">Status</TableHead>
+                <TableHead className="font-bold text-gray-900 uppercase text-[10px] tracking-widest px-6 h-12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredBookings.map((booking) => {
+                const userProfile = users.find(u => u.uid === booking.userId);
+                const displayName = booking.userName || userProfile?.name || 'Customer';
+                const displayPhone = booking.userPhone || userProfile?.phone || '';
+                const displayWhatsapp = booking.whatsappNumber || userProfile?.whatsappNumber || displayPhone;
+                const displayAddress = booking.userAddress || userProfile?.address || 'No Address Provided';
+                const isSelected = selectedBookingIds.includes(booking.id);
 
-              return (
-                <TableRow 
-                  key={booking.id} 
-                  className={cn(
-                    "hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-none cursor-pointer",
-                    isSelected && "bg-teal/5 hover:bg-teal/10"
-                  )}
-                  onClick={() => setSelectedBookingForDetails(booking)}
-                >
-                  {/* Row Checkbox */}
-                  <TableCell className="w-12 px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                return (
+                  <TableRow 
+                    key={booking.id} 
+                    className={cn(
+                      "hover:bg-gray-50/50 transition-colors border-b border-gray-50 last:border-none cursor-pointer",
+                      isSelected && "bg-teal/5 hover:bg-teal/10"
+                    )}
+                    onClick={() => setSelectedBookingForDetails(booking)}
+                  >
+                    {/* Row Checkbox */}
+                    <TableCell className="w-12 px-4 py-4 text-center" onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={(e) => toggleBookingSelection(booking.id, e as any)}
+                        aria-label={`Select booking ${booking.id}`}
+                        className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer transition-all"
+                      />
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-normal min-w-[200px]">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-900 leading-tight mb-1">{displayName}</span>
+                        <div className="flex items-center gap-2 mb-1">
+                           <a 
+                             href={`tel:${displayPhone}`} 
+                             onClick={(e) => e.stopPropagation()}
+                             className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"
+                           >
+                             <Phone size={10} /> {displayPhone}
+                           </a>
+                           {(displayWhatsapp) && (
+                             <a 
+                               href={formatWhatsAppLink(displayWhatsapp)} 
+                               onClick={(e) => e.stopPropagation()}
+                               target="_blank" 
+                               rel="noopener noreferrer" 
+                               className="text-[10px] text-green-600 font-bold hover:underline flex items-center gap-1"
+                             >
+                               <MessageCircle size={10} /> WhatsApp
+                             </a>
+                           )}
+                        </div>
+                        <span className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[180px] font-medium">{displayAddress}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 whitespace-normal min-w-[150px]">
+                      <div className="flex flex-col">
+                        <span className="font-bold text-gray-900 leading-tight">{booking.serviceName}</span>
+                        <span className="text-[10px] text-blue-600 font-black uppercase tracking-wider mt-1">{booking.tier}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 font-black text-navy">₹{booking.price}</TableCell>
+                    <TableCell className="px-6 py-4">
+                      <div className="flex flex-col">
+                        {booking.appointmentDate ? (
+                          <>
+                            <span className="text-xs font-black text-navy">{safeDateFormatter(booking.appointmentDate || booking.timestamp)}</span>
+                            <span className="text-[10px] font-bold text-teal uppercase tracking-tight">{booking.appointmentSlot}</span>
+                          </>
+                        ) : (
+                          <div className="flex flex-col items-start">
+                            <Badge variant="outline" className="text-[8px] font-black uppercase text-amber-600 border-amber-200 bg-amber-50 animate-pulse mb-1">
+                              ⚠️ Schedule Pending
+                            </Badge>
+                            <span className="text-[9px] text-gray-400 uppercase">Booked: {safeDateFormatter(booking.timestamp)}</span>
+                          </div>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-center">
+                      <Badge className={`rounded-lg uppercase text-[9px] font-black px-2 py-1 shadow-sm ${getStatusColor(booking.status)}`}>
+                        {booking.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-6 py-4 text-right whitespace-normal" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex flex-wrap justify-end gap-2 min-w-[140px]">
+                         <motion.button 
+                           whileTap={{ scale: 0.9 }}
+                           className="h-8 w-8 text-navy rounded-lg flex items-center justify-center bg-teal/20"
+                           onClick={(e) => {
+                             e.stopPropagation();
+                             navigate('/admin/invoice-generator', { state: { booking: booking } });
+                           }}
+                           title="Generate Invoice"
+                         >
+                           <FileText size={14} />
+                         </motion.button>
+
+                          <motion.button 
+                            whileTap={{ scale: 0.9 }}
+                            className="h-8 w-8 text-blue-600 rounded-lg flex items-center justify-center bg-blue-50"
+                            onClick={() => setSelectedBookingForDetails(booking)}
+                            title="View Details"
+                          >
+                            <FileText size={14} />
+                          </motion.button>
+                          <motion.button 
+                            whileTap={{ scale: 0.9 }}
+                            className="h-8 px-2.5 text-[10px] font-black uppercase tracking-widest text-white rounded-lg flex items-center justify-center bg-teal hover:bg-teal/90 shadow-sm"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setBookingToAssign(booking);
+                              setPayoutAmount(Math.round(booking.price * 0.75));
+                              setIsStaffModalOpen(true);
+                            }}
+                            title="Assign Staff"
+                          >
+                            <Briefcase size={12} className="mr-1.5" /> Assign
+                          </motion.button>
+                         <motion.button 
+                           whileTap={{ scale: 0.9 }}
+                           className="h-8 w-8 text-green-600 rounded-lg flex items-center justify-center bg-green-50"
+                           onClick={() => {
+                             const text = `Hi ${booking.userName}, regarding your booking for ${booking.serviceName} on ${booking.appointmentDate || 'ASAP'}...`;
+                             window.open(formatWhatsAppLink(booking.whatsappNumber || booking.userPhone, text), '_blank');
+                           }}
+                         >
+                           <MessageCircle size={14} />
+                         </motion.button>
+                         {booking.status === 'Pending' && (
+                           <>
+                             <button 
+                               className="h-8 w-8 text-green-600 hover:bg-green-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" 
+                               onClick={(e) => {
+                                 e.stopPropagation();
+                                 if (!booking.appointmentDate) {
+                                   setSelectedBookingForDetails(booking);
+                                   toast.info('Please set a visit date first');
+                                 } else {
+                                   updateBooking(booking.id, { status: 'Accepted' });
+                                 }
+                               }} 
+                               title="Accept"
+                             >
+                               <CheckCircle size={16} />
+                             </button>
+                             <button className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'In Progress' }); }} title="Start Work"><Clock size={16} /></button>
+                             <button className="h-8 w-8 text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'Rejected' }); }} title="Reject"><XCircle size={16} /></button>
+                           </>
+                         )}
+                         {['Accepted', 'In Progress'].includes(booking.status) && (
+                           <div className="flex gap-1">
+                             {booking.status === 'Accepted' && (
+                               <button className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'In Progress' }); }} title="In Progress"><Clock size={16} /></button>
+                             )}
+                             <button className="h-8 px-3 border border-navy/20 text-navy font-black text-[10px] uppercase rounded-lg hover:bg-navy hover:text-white transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'Completed' }); }}>Done</button>
+                           </div>
+                         )}
+                         <button 
+                           className="h-8 w-8 text-gray-400 hover:text-red-600 rounded-lg flex items-center justify-center bg-gray-50 hover:bg-red-50 transition-colors cursor-pointer" 
+                           onClick={(e) => { 
+                             e.stopPropagation(); 
+                             setBookingToDeleteId(booking.id);
+                           }} 
+                           title="Delete"
+                         >
+                           <Trash2 size={14} />
+                         </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+              {filteredBookings.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={7} className="py-20 text-center">
+                    <div className="flex flex-col items-center gap-4">
+                      <div className="w-16 h-16 bg-navy/5 rounded-full flex items-center justify-center text-navy/20">
+                        <Calendar size={32} />
+                      </div>
+                      <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No bookings found</p>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Mobile Card View (No horizontal slide needed) */}
+        <div className="md:hidden divide-y divide-gray-100 bg-white">
+          {filteredBookings.map((booking) => {
+            const userProfile = users.find(u => u.uid === booking.userId);
+            const displayName = booking.userName || userProfile?.name || 'Customer';
+            const displayPhone = booking.userPhone || userProfile?.phone || '';
+            const displayWhatsapp = booking.whatsappNumber || userProfile?.whatsappNumber || displayPhone;
+            const isSelected = selectedBookingIds.includes(booking.id);
+
+            return (
+              <div
+                key={booking.id}
+                className={cn(
+                  "p-4 space-y-3 transition-colors",
+                  isSelected && "bg-teal/5"
+                )}
+                onClick={() => setSelectedBookingForDetails(booking)}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
                     <input 
                       type="checkbox"
                       checked={isSelected}
                       onChange={(e) => toggleBookingSelection(booking.id, e as any)}
+                      onClick={(e) => e.stopPropagation()}
                       aria-label={`Select booking ${booking.id}`}
-                      className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer transition-all"
+                      className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer"
                     />
-                  </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-normal min-w-[200px]">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-gray-900 leading-tight mb-1">{displayName}</span>
-                      <div className="flex items-center gap-2 mb-1">
-                         <a 
-                           href={`tel:${displayPhone}`} 
-                           onClick={(e) => e.stopPropagation()}
-                           className="text-[10px] text-blue-600 font-bold hover:underline flex items-center gap-1"
-                         >
-                           <Phone size={10} /> {displayPhone}
-                         </a>
-                         {(displayWhatsapp) && (
-                           <a 
-                             href={formatWhatsAppLink(displayWhatsapp)} 
-                             onClick={(e) => e.stopPropagation()}
-                             target="_blank" 
-                             rel="noopener noreferrer" 
-                             className="text-[10px] text-green-600 font-bold hover:underline flex items-center gap-1"
-                           >
-                             <MessageCircle size={10} /> WhatsApp
-                           </a>
-                         )}
-                      </div>
-                      <span className="text-[10px] text-gray-400 mt-0.5 truncate max-w-[180px] font-medium">{displayAddress}</span>
+                    <div>
+                      <span className="font-black text-navy text-sm block leading-tight">{displayName}</span>
+                      <span className="text-[10px] font-bold text-teal">{booking.serviceName}</span>
                     </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 whitespace-normal min-w-[150px]">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-gray-900 leading-tight">{booking.serviceName}</span>
-                      <span className="text-[10px] text-blue-600 font-black uppercase tracking-wider mt-1">{booking.tier}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 font-black text-navy">₹{booking.price}</TableCell>
-                  <TableCell className="px-6 py-4">
-                    <div className="flex flex-col">
-                      {booking.appointmentDate ? (
-                        <>
-                          <span className="text-xs font-black text-navy">{safeDateFormatter(booking.appointmentDate || booking.timestamp)}</span>
-                          <span className="text-[10px] font-bold text-teal uppercase tracking-tight">{booking.appointmentSlot}</span>
-                        </>
-                      ) : (
-                        <div className="flex flex-col items-start">
-                          <Badge variant="outline" className="text-[8px] font-black uppercase text-amber-600 border-amber-200 bg-amber-50 animate-pulse mb-1">
-                            ⚠️ Schedule Pending
-                          </Badge>
-                          <span className="text-[9px] text-gray-400 uppercase">Booked: {safeDateFormatter(booking.timestamp)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 text-center">
-                    <Badge className={`rounded-lg uppercase text-[9px] font-black px-2 py-1 shadow-sm ${getStatusColor(booking.status)}`}>
-                      {booking.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="px-6 py-4 text-right whitespace-normal" onClick={(e) => e.stopPropagation()}>
-                    <div className="flex flex-wrap justify-end gap-2 min-w-[140px]">
-                       <motion.button 
-                         whileTap={{ scale: 0.9 }}
-                         className="h-8 w-8 text-navy rounded-lg flex items-center justify-center bg-teal/20"
-                         onClick={(e) => {
-                           e.stopPropagation();
-                           navigate('/admin/invoice-generator', { state: { booking: booking } });
-                         }}
-                         title="Generate Invoice"
-                       >
-                         <FileText size={14} />
-                       </motion.button>
-
-                        <motion.button 
-                          whileTap={{ scale: 0.9 }}
-                          className="h-8 w-8 text-blue-600 rounded-lg flex items-center justify-center bg-blue-50"
-                          onClick={() => setSelectedBookingForDetails(booking)}
-                          title="View Details"
-                        >
-                          <FileText size={14} />
-                        </motion.button>
-                        <motion.button 
-                          whileTap={{ scale: 0.9 }}
-                          className="h-8 px-2.5 text-[10px] font-black uppercase tracking-widest text-white rounded-lg flex items-center justify-center bg-teal hover:bg-teal/90 shadow-sm"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setBookingToAssign(booking);
-                            setPayoutAmount(Math.round(booking.price * 0.75));
-                            setIsStaffModalOpen(true);
-                          }}
-                          title="Assign Staff"
-                        >
-                          <Briefcase size={12} className="mr-1.5" /> Assign
-                        </motion.button>
-                       <motion.button 
-                         whileTap={{ scale: 0.9 }}
-                         className="h-8 w-8 text-green-600 rounded-lg flex items-center justify-center bg-green-50"
-                         onClick={() => {
-                           const text = `Hi ${booking.userName}, regarding your booking for ${booking.serviceName} on ${booking.appointmentDate || 'ASAP'}...`;
-                           window.open(formatWhatsAppLink(booking.whatsappNumber || booking.userPhone, text), '_blank');
-                         }}
-                       >
-                         <MessageCircle size={14} />
-                       </motion.button>
-                       {booking.status === 'Pending' && (
-                         <>
-                           <button 
-                             className="h-8 w-8 text-green-600 hover:bg-green-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" 
-                             onClick={(e) => {
-                               e.stopPropagation();
-                               if (!booking.appointmentDate) {
-                                 setSelectedBookingForDetails(booking);
-                                 toast.info('Please set a visit date first');
-                               } else {
-                                 updateBooking(booking.id, { status: 'Accepted' });
-                               }
-                             }} 
-                             title="Accept"
-                           >
-                             <CheckCircle size={16} />
-                           </button>
-                           <button className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'In Progress' }); }} title="Start Work"><Clock size={16} /></button>
-                           <button className="h-8 w-8 text-red-600 hover:bg-red-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'Rejected' }); }} title="Reject"><XCircle size={16} /></button>
-                         </>
-                       )}
-                       {['Accepted', 'In Progress'].includes(booking.status) && (
-                         <div className="flex gap-1">
-                           {booking.status === 'Accepted' && (
-                             <button className="h-8 w-8 text-blue-600 hover:bg-blue-50 rounded-lg flex items-center justify-center transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'In Progress' }); }} title="In Progress"><Clock size={16} /></button>
-                           )}
-                           <button className="h-8 px-3 border border-navy/20 text-navy font-black text-[10px] uppercase rounded-lg hover:bg-navy hover:text-white transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); updateBooking(booking.id, { status: 'Completed' }); }}>Done</button>
-                         </div>
-                       )}
-                       <button 
-                         className="h-8 w-8 text-gray-400 hover:text-red-600 rounded-lg flex items-center justify-center bg-gray-50 hover:bg-red-50 transition-colors cursor-pointer" 
-                         onClick={(e) => { 
-                           e.stopPropagation(); 
-                           setBookingToDeleteId(booking.id);
-                         }} 
-                         title="Delete"
-                       >
-                         <Trash2 size={14} />
-                       </button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-            {filteredBookings.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={7} className="py-20 text-center">
-                  <div className="flex flex-col items-center gap-4">
-                    <div className="w-16 h-16 bg-navy/5 rounded-full flex items-center justify-center text-navy/20">
-                      <Calendar size={32} />
-                    </div>
-                    <p className="text-gray-400 font-bold uppercase text-[10px] tracking-widest">No bookings found</p>
                   </div>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                  <Badge className={`rounded-lg uppercase text-[8px] font-black px-2 py-0.5 ${getStatusColor(booking.status)}`}>
+                    {booking.status}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl text-xs">
+                  <div>
+                    <span className="text-[10px] text-gray-500 font-bold block">
+                      {booking.appointmentDate ? `${safeDateFormatter(booking.appointmentDate)} (${booking.appointmentSlot})` : 'Schedule Pending'}
+                    </span>
+                    {displayPhone && (
+                      <span className="text-[10px] text-blue-600 font-bold">{displayPhone}</span>
+                    )}
+                  </div>
+                  <span className="font-black text-navy text-sm">₹{booking.price}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-1.5 pt-1 flex-wrap" onClick={(e) => e.stopPropagation()}>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 px-2.5 text-[9px] font-black uppercase rounded-lg border-gray-200"
+                    onClick={() => setSelectedBookingForDetails(booking)}
+                  >
+                    Details
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 px-2.5 text-[9px] font-black uppercase rounded-lg bg-teal text-navy"
+                    onClick={() => {
+                      setBookingToAssign(booking);
+                      setPayoutAmount(Math.round(booking.price * 0.75));
+                      setIsStaffModalOpen(true);
+                    }}
+                  >
+                    Assign
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="h-8 px-2.5 text-[9px] font-black uppercase rounded-lg bg-navy text-white"
+                    onClick={() => navigate('/admin/invoice-generator', { state: { booking: booking } })}
+                  >
+                    Bill
+                  </Button>
+                  {displayWhatsapp && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2 text-green-600 border-green-200 hover:bg-green-50 rounded-lg"
+                      onClick={() => window.open(formatWhatsAppLink(displayWhatsapp, `Hi ${displayName}, regarding your booking...`), '_blank')}
+                    >
+                      <MessageCircle size={13} />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 w-8 p-0 text-red-500 border-red-200 hover:bg-red-50 rounded-lg"
+                    onClick={() => setBookingToDeleteId(booking.id)}
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {filteredBookings.length === 0 && (
+            <div className="p-12 text-center text-gray-400 font-bold text-xs uppercase">
+              No bookings found
+            </div>
+          )}
+        </div>
       </Card>
 
       {/* Bulk Delete Confirmation Dialog */}

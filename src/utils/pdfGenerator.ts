@@ -94,10 +94,10 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   const includeQR = options?.includeQR !== false; // default true
 
   let dynamicQrCodeUrl = data.qrCodeUrl;
-  if (includeQR && !isEstimate && !dynamicQrCodeUrl) {
+  const targetUpi = (data.upiId || '').trim();
+  if (includeQR && !isEstimate && !dynamicQrCodeUrl && targetUpi) {
     try {
       const QRCode = (await import('qrcode')).default;
-      const targetUpi = data.upiId || 'mustakansari9582-3@okhdfcbank';
       const upiString = targetUpi.startsWith('upi://')
         ? targetUpi
         : `upi://pay?pa=${targetUpi}&pn=${encodeURIComponent(data.companyName || 'Atomic Solutions')}&am=${data.totalAmount}&cu=INR`;
@@ -457,27 +457,29 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   const summaryHeight = isSimpleInvoice ? 45 : 60;
   
   // Left side: Bank Details or Notes
-  doc.setFontSize(8);
-  doc.setFont('helvetica', 'bold');
-  doc.text('Our Bank Details', margin + 2, footerBoxStartY + 5);
-  
-  const bankLines = data.bankDetails.split('\n').filter(l => l.trim().length > 0);
-  bankLines.forEach((line, i) => {
-    if (line.includes(':')) {
-      const parts = line.split(':');
-      const label = parts[0].trim();
-      const value = parts.slice(1).join(':').trim();
-      doc.setFont('helvetica', 'bold');
-      doc.text(label, margin + 2, footerBoxStartY + 10 + (i * 4));
-      // Draw aligned colon
-      doc.text(':', margin + 22, footerBoxStartY + 10 + (i * 4));
-      doc.setFont('helvetica', 'normal');
-      doc.text(value, margin + 25, footerBoxStartY + 10 + (i * 4));
-    } else {
-      doc.setFont('helvetica', 'normal');
-      doc.text(line, margin + 2, footerBoxStartY + 10 + (i * 4));
-    }
-  });
+  if (data.bankDetails && data.bankDetails.trim()) {
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Our Bank Details', margin + 2, footerBoxStartY + 5);
+    
+    const bankLines = data.bankDetails.split('\n').filter(l => l.trim().length > 0);
+    bankLines.forEach((line, i) => {
+      if (line.includes(':')) {
+        const parts = line.split(':');
+        const label = parts[0].trim();
+        const value = parts.slice(1).join(':').trim();
+        doc.setFont('helvetica', 'bold');
+        doc.text(label, margin + 2, footerBoxStartY + 10 + (i * 4));
+        // Draw aligned colon
+        doc.text(':', margin + 22, footerBoxStartY + 10 + (i * 4));
+        doc.setFont('helvetica', 'normal');
+        doc.text(value, margin + 25, footerBoxStartY + 10 + (i * 4));
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.text(line, margin + 2, footerBoxStartY + 10 + (i * 4));
+      }
+    });
+  }
 
   // Right side: Summary
   doc.line(sumBoxX, footerBoxStartY, sumBoxX, footerBoxStartY + summaryHeight);
@@ -577,15 +579,17 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   doc.text('Customer Signature', custSigCenterX, decY + 16, { align: 'center' });
 
   // 3. QR Code (placed nicely between customer signature and authorised signature)
-  if (includeQR) {
-    const qrImg = (dynamicQrCodeUrl && dynamicQrCodeUrl.startsWith('data:')) ? dynamicQrCodeUrl : qrCodeBase64;
-    const qrX = margin + 122;
-    const qrY = decY;
-    try {
-      if (qrImg) doc.addImage(qrImg, 'JPEG', qrX, qrY, 14, 14);
-    } catch (e) {}
-    doc.setFontSize(5.5);
-    doc.text('SCAN TO PAY', qrX + 7, qrY + 16.5, { align: 'center' });
+  if (includeQR && (dynamicQrCodeUrl || data.qrCodeUrl)) {
+    const qrImg = (dynamicQrCodeUrl && dynamicQrCodeUrl.startsWith('data:')) ? dynamicQrCodeUrl : data.qrCodeUrl;
+    if (qrImg) {
+      const qrX = margin + 122;
+      const qrY = decY;
+      try {
+        doc.addImage(qrImg, 'JPEG', qrX, qrY, 14, 14);
+        doc.setFontSize(5.5);
+        doc.text('SCAN TO PAY', qrX + 7, qrY + 16.5, { align: 'center' });
+      } catch (e) {}
+    }
   }
 
   // 4. Right Side: For ATOMIC SOLUTIONS & Authorised Signatory
@@ -593,10 +597,12 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   doc.setFont('helvetica', 'bold');
   doc.text('For, ATOMIC SOLUTIONS', margin + contentWidth - 2, decY, { align: 'right' });
   
-  const sigImg = (data.signatureUrl && data.signatureUrl.startsWith('data:')) ? data.signatureUrl : signatureBase64;
-  try {
-    if (sigImg) doc.addImage(sigImg, 'PNG', margin + contentWidth - 30, decY + 2, 25, 10);
-  } catch (e) {}
+  const sigImg = data.signatureUrl;
+  if (sigImg) {
+    try {
+      doc.addImage(sigImg, 'PNG', margin + contentWidth - 30, decY + 2, 25, 10);
+    } catch (e) {}
+  }
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.5);

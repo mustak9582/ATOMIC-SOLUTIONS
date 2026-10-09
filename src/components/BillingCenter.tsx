@@ -68,7 +68,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [roundOff, setRoundOff] = useState(0);
   const [gstPercentage, setGstPercentage] = useState(0);
   const [estimateNumber, setEstimateNumber] = useState(() => getDefaultSerialNumber('Estimate'));
-  const [upiId, setUpiId] = useState('mustakansari9582-3@okhdfcbank');
+  const [upiId, setUpiId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice'>('Estimate');
   const [copyType, setCopyType] = useState<'Original Copy' | 'Duplicate Copy' | 'Triplicate Copy'>('Original Copy');
@@ -104,7 +104,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [shippingState, setShippingState] = useState('');
   
   // Footer Options
-  const [bankDetails, setBankDetails] = useState('NAME: MUSTAK ANSARI\nBANK NAME: BANK OF BARODA\nIFSC CODE: BARB0DEOGHA\nA/C: 26450200001659\nPAN: CVVPA9010L');
+  const [bankDetails, setBankDetails] = useState('');
   const [terms, setTerms] = useState('1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.');
   const [declaration, setDeclaration] = useState('1. Subject to Deoghar (Jharkhand) jurisdiction\n2. Terms & conditions are subject to our trade policy\n3. Our risk & responsibility ceases after the delivery of goods.\nE. & O.E.');
 
@@ -161,17 +161,17 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       if (data && data.length > 0) {
         const s = getMergedSettings(data[0] as AppSettings);
         setSettings(s);
-        if (s.companyName) setCompanyName(s.companyName);
-        if (s.companyTagline) setCompanyTagline(s.companyTagline);
-        if (s.founderName) setFounderName(s.founderName);
-        if (s.phone) setCompanyPhone(s.phone);
-        if (s.email) setCompanyEmail(s.email);
-        if (s.address) setCompanyAddress(s.address);
-        if (s.ownerGSTIN) setOwnerGSTIN(s.ownerGSTIN);
-        if (s.msmeNumber) setMsmeNumber(s.msmeNumber);
-        if (s.upiId) setUpiId(s.upiId);
-        if (s.defaultTerms) setTerms(s.defaultTerms);
-        if (s.defaultDeclaration) setDeclaration(s.defaultDeclaration);
+        if (s.companyName !== undefined) setCompanyName(s.companyName);
+        if (s.companyTagline !== undefined) setCompanyTagline(s.companyTagline);
+        if (s.founderName !== undefined) setFounderName(s.founderName);
+        if (s.phone !== undefined) setCompanyPhone(s.phone);
+        if (s.email !== undefined) setCompanyEmail(s.email);
+        if (s.address !== undefined) setCompanyAddress(s.address);
+        if (s.ownerGSTIN !== undefined) setOwnerGSTIN(s.ownerGSTIN);
+        if (s.msmeNumber !== undefined) setMsmeNumber(s.msmeNumber);
+        if (s.upiId !== undefined) setUpiId(s.upiId);
+        if (s.defaultTerms !== undefined) setTerms(s.defaultTerms);
+        if (s.defaultDeclaration !== undefined) setDeclaration(s.defaultDeclaration);
         setBankDetails(formatBankDetailsString(s));
       }
     });
@@ -1284,20 +1284,17 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     value={bankDetails}
                     onChange={(e) => setBankDetails(e.target.value)}
                   />
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-2">
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className="text-[9px] font-black text-navy uppercase tracking-widest">UPI ID / Link for QR:</span>
-                      <span className="text-[8px] font-bold text-teal bg-teal/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Slideable ↔</span>
-                    </div>
-                    <div className="flex items-center gap-2 w-full sm:flex-1 min-w-0 bg-white border border-gray-200 rounded-xl px-3 py-1.5 focus-within:border-teal focus-within:ring-1 focus-within:ring-teal/20 transition-all shadow-sm">
-                      <div className="w-full overflow-x-auto whitespace-nowrap scrollbar-thin scroll-smooth flex items-center pr-1 touch-pan-x">
-                        <input 
-                          className="bg-transparent text-xs font-bold text-teal outline-none w-full min-w-[280px] tracking-wide"
-                          placeholder="e.g. 9582268658@ybl or mustakansari9582-3@okhdfcbank"
-                          value={upiId}
-                          onChange={(e) => setUpiId(e.target.value)}
-                        />
-                      </div>
+                  <div className="space-y-1.5 pt-2">
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block">
+                      Primary UPI ID (for dynamic QR code on Invoices):
+                    </label>
+                    <div className="flex items-center gap-2 w-full bg-white border border-gray-200 rounded-xl px-3 py-2 focus-within:border-teal focus-within:ring-1 focus-within:ring-teal/20 transition-all shadow-sm">
+                      <input 
+                        className="bg-transparent text-xs font-bold text-teal outline-none w-full tracking-wide"
+                        placeholder="e.g. 9582268658@ybl or your-upi-id@bank (Leave blank if not using)"
+                        value={upiId}
+                        onChange={(e) => setUpiId(e.target.value)}
+                      />
                       {upiId && (
                         <button
                           type="button"

@@ -221,7 +221,8 @@ export function TabInvoices({
           )}
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <Table>
             <TableHeader className="bg-gray-50/50">
               <TableRow className="border-none">
@@ -327,6 +328,80 @@ export function TabInvoices({
             </TableBody>
           </Table>
         </div>
+
+        {/* Mobile Card View (No horizontal slide needed) */}
+        <div className="md:hidden divide-y divide-gray-100 bg-white">
+          {estimateInvoices.map((inv) => {
+            const isSelected = selectedInvoiceIds.includes(inv.id);
+            return (
+              <div 
+                key={inv.id} 
+                className={cn(
+                  "p-4 space-y-3 transition-colors",
+                  isSelected && "bg-teal/5"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleInvoiceSelection(inv.id, e as any)}
+                      aria-label={`Select invoice ${inv.id}`}
+                      className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-black text-navy text-sm block">#{inv.estimateNumber || inv.invoiceNumber}</span>
+                      <span className="text-[10px] text-gray-400 font-bold">{new Date(inv.timestamp || inv.date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[8px] font-black uppercase px-2 py-1 border-gray-200">
+                    {inv.status || 'Saved'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl text-xs">
+                  <div>
+                    <span className="font-black text-navy block">{inv.customerName}</span>
+                    {inv.customerPhone && <span className="text-[10px] text-gray-400">{inv.customerPhone}</span>}
+                  </div>
+                  <span className="font-black text-navy text-sm">₹{inv.totalAmount?.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 px-4 rounded-xl border-gray-200 font-black text-[9px] uppercase tracking-widest"
+                    onClick={() => navigate(`/invoice/${inv.id}`)}
+                  >
+                    View
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="h-9 px-4 rounded-xl bg-navy text-white font-black text-[9px] uppercase tracking-widest flex items-center gap-1"
+                    onClick={() => downloadInvoicePDF(inv)}
+                  >
+                    <Download size={13} /> PDF
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-9 w-9 p-0 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteInvoice(inv.id)}
+                  >
+                    <Trash2 size={15} />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {estimateInvoices.length === 0 && (
+            <div className="p-12 text-center text-gray-400 font-bold text-xs uppercase">
+              No proforma invoices generated yet
+            </div>
+          )}
+        </div>
       </div>
 
       {/* 2. Tax Invoices Table */}
@@ -354,7 +429,8 @@ export function TabInvoices({
           )}
         </div>
         
-        <div className="overflow-x-auto">
+        {/* Desktop Table View */}
+        <div className="hidden md:block overflow-x-auto">
           <Table>
             <TableHeader className="bg-gray-50/50">
               <TableRow className="border-none">
@@ -480,6 +556,99 @@ export function TabInvoices({
               )}
             </TableBody>
           </Table>
+        </div>
+
+        {/* Mobile Card View (No horizontal slide needed) */}
+        <div className="md:hidden divide-y divide-gray-100 bg-white">
+          {taxInvoices.map((inv) => {
+            const isSelected = selectedInvoiceIds.includes(inv.id);
+            return (
+              <div 
+                key={inv.id} 
+                className={cn(
+                  "p-4 space-y-3 transition-colors",
+                  isSelected && "bg-teal/5"
+                )}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <input 
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleInvoiceSelection(inv.id, e as any)}
+                      aria-label={`Select invoice ${inv.id}`}
+                      className="w-5 h-5 rounded-lg border-2 border-gray-300 text-teal accent-teal focus:ring-teal cursor-pointer"
+                    />
+                    <div>
+                      <span className="font-black text-navy text-sm block">#{inv.estimateNumber || inv.invoiceNumber}</span>
+                      <span className="text-[10px] text-gray-400 font-bold">{new Date(inv.timestamp || inv.date).toLocaleDateString()}</span>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[8px] font-black uppercase px-2 py-1 border-gray-200">
+                    {inv.status || 'Saved'}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center justify-between bg-gray-50 p-2.5 rounded-xl text-xs">
+                  <div>
+                    <span className="font-black text-navy block">{inv.customerName}</span>
+                    {inv.customerPhone && <span className="text-[10px] text-gray-400">{inv.customerPhone}</span>}
+                  </div>
+                  <span className="font-black text-navy text-sm">₹{inv.totalAmount?.toLocaleString('en-IN')}</span>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 pt-1 flex-wrap">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 px-3 rounded-xl border-gray-200 font-black text-[9px] uppercase tracking-widest"
+                    onClick={() => navigate(`/invoice/${inv.id}`)}
+                  >
+                    View
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="h-9 px-3 rounded-xl bg-navy text-white font-black text-[9px] uppercase tracking-widest flex items-center gap-1"
+                    onClick={() => downloadInvoicePDF(inv)}
+                  >
+                    <Download size={13} /> PDF
+                  </Button>
+                  {inv.paymentProofUrl && (
+                    <Button 
+                      size="sm" 
+                      variant="outline"
+                      className="h-9 px-2.5 rounded-xl border-blue-200 text-blue-600 font-black text-[9px] uppercase tracking-widest"
+                      onClick={() => window.open(inv.paymentProofUrl, '_blank')}
+                    >
+                      Proof
+                    </Button>
+                  )}
+                  {inv.status === 'Verification Pending' && (
+                    <Button 
+                      size="sm"
+                      className="h-9 px-2.5 rounded-xl bg-green-500 text-white font-black text-[9px] uppercase tracking-widest"
+                      onClick={() => handleUpdateStatus(inv.id, 'Paid')}
+                    >
+                      Approve
+                    </Button>
+                  )}
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="h-9 w-9 p-0 rounded-xl border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={() => handleDeleteInvoice(inv.id)}
+                  >
+                    <Trash2 size={15} />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+          {taxInvoices.length === 0 && (
+            <div className="p-12 text-center text-gray-400 font-bold text-xs uppercase">
+              No tax invoices generated yet
+            </div>
+          )}
         </div>
       </div>
 

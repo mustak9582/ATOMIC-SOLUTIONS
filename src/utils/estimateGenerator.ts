@@ -361,10 +361,12 @@ export const generateEstimatePDF = (data: PDFInvoiceData): jsPDF => {
 
   // Signature - positioned right below Final Amount on the right side
   const sigY = pageHeight - margin - 8;
-  const sigImg = (data.signatureUrl && data.signatureUrl.startsWith('data:')) ? data.signatureUrl : signatureBase64;
-  try {
-    if (sigImg) doc.addImage(sigImg, 'PNG', pageWidth - margin - 40, sigY - 12, 35, 12);
-  } catch (e) {}
+  const sigImg = data.signatureUrl;
+  if (sigImg) {
+    try {
+      doc.addImage(sigImg, 'PNG', pageWidth - margin - 40, sigY - 12, 35, 12);
+    } catch (e) {}
+  }
 
   doc.setLineWidth(0.2);
   doc.line(pageWidth - margin - 45, sigY, pageWidth - margin, sigY);

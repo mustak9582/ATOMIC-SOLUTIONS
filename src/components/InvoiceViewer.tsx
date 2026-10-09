@@ -34,12 +34,14 @@ export default function InvoiceViewer() {
   const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    if (invoice && invoice.totalAmount) {
-      const upiId = settings?.upiId || DEFAULT_APP_SETTINGS.upiId || 'mustakansari9582-3@okhdfcbank';
-      const upiString = `upi://pay?pa=${upiId}&pn=${encodeURIComponent(settings?.companyName || 'Atomic Solutions')}&am=${invoice.totalAmount}&cu=INR`;
+    const activeUpi = (invoice?.upiId !== undefined ? invoice.upiId : settings?.upiId) || '';
+    if (invoice && invoice.totalAmount && activeUpi.trim()) {
+      const upiString = `upi://pay?pa=${activeUpi.trim()}&pn=${encodeURIComponent(settings?.companyName || 'Atomic Solutions')}&am=${invoice.totalAmount}&cu=INR`;
       QRCode.toDataURL(upiString, { width: 150, margin: 1 })
         .then(url => setQrDataUrl(url))
         .catch(err => console.error(err));
+    } else {
+      setQrDataUrl(null);
     }
   }, [invoice, settings]);
 
@@ -71,7 +73,7 @@ export default function InvoiceViewer() {
     if (!invoice) return;
     try {
       const merged = getMergedSettings(settings);
-      const dynamicBankDetails = invoice.bankDetails || formatBankDetailsString(merged);
+      const dynamicBankDetails = invoice.bankDetails !== undefined ? invoice.bankDetails : formatBankDetailsString(merged);
 
       const pdfData: PDFInvoiceData = {
         type: invoice.type || 'Invoice',
@@ -105,8 +107,8 @@ export default function InvoiceViewer() {
         },
         totalAmount: invoice.totalAmount,
         bankDetails: dynamicBankDetails,
-        terms: invoice.terms || merged.defaultTerms,
-        declaration: invoice.declaration || merged.defaultDeclaration,
+        terms: invoice.terms !== undefined ? invoice.terms : merged.defaultTerms,
+        declaration: invoice.declaration !== undefined ? invoice.declaration : merged.defaultDeclaration,
         companyName: merged.companyName,
         companyPhone: merged.phone,
         companyAddress: merged.address,
@@ -116,7 +118,7 @@ export default function InvoiceViewer() {
         msmeNumber: merged.msmeNumber,
         logoUrl: merged.logoUrl,
         signatureUrl: merged.signatureUrl,
-        upiId: merged.upiId,
+        upiId: invoice.upiId !== undefined ? invoice.upiId : merged.upiId,
         qrCodeUrl: qrDataUrl || undefined
       };
       
@@ -152,11 +154,15 @@ export default function InvoiceViewer() {
     </div>
   );
 
+  const displayBankDetails = invoice.bankDetails !== undefined 
+    ? invoice.bankDetails 
+    : formatBankDetailsString(settings);
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans pb-20">
       {/* Viewer Header */}
-      <div className="bg-navy p-4 flex justify-between items-center text-white border-b border-white/10 sticky top-0 z-50">
-        <div className="flex items-center gap-4">
+      <div className="bg-navy p-3 sm:p-4 flex justify-between items-center text-white border-b border-white/10 sticky top-0 z-50">
+        <div className="flex items-center gap-2 sm:gap-4">
           <button 
             onClick={() => window.history.back()}
             className="flex items-center justify-center p-2 hover:text-teal transition-colors"
@@ -171,7 +177,7 @@ export default function InvoiceViewer() {
             <p className="text-[8px] text-white/40 uppercase tracking-widest font-black">Atomic Solutions</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <Button 
             onClick={() => window.location.href = '/'}
             variant="ghost"
@@ -181,51 +187,59 @@ export default function InvoiceViewer() {
           </Button>
           <Button 
             onClick={generatePDF}
-            className="bg-teal text-navy hover:scale-105 transition-all font-black text-[10px] uppercase tracking-widest rounded-xl h-10 px-6 gap-2"
+            className="bg-teal text-navy hover:scale-105 transition-all font-black text-[10px] uppercase tracking-widest rounded-xl h-10 px-4 sm:px-6 gap-2"
           >
             <Download size={14} /> <span className="hidden xs:inline">Download PDF</span>
           </Button>
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto mt-8 px-4">
-        <div className="bg-white rounded-[40px] shadow-2xl shadow-navy/5 overflow-hidden border border-gray-100">
+      <div className="max-w-4xl mx-auto mt-4 sm:mt-8 px-2 sm:px-4">
+        <div className="bg-white rounded-3xl sm:rounded-[40px] shadow-2xl shadow-navy/5 overflow-hidden border border-gray-100">
           {/* Status Banner */}
-          <div className="bg-teal p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-navy rounded-2xl flex items-center justify-center text-teal shadow-xl">
-                <ShieldCheck size={24} />
+          <div className="bg-teal p-4 sm:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-navy rounded-2xl flex items-center justify-center text-teal shadow-xl shrink-0">
+                <ShieldCheck size={22} />
               </div>
               <div>
-                <h2 className="text-navy font-black text-lg leading-none mb-1 uppercase tracking-tighter">Verified {invoice.type}</h2>
-                <p className="text-navy/60 text-[10px] font-black uppercase tracking-widest italic">Atomic Solutions Official Record</p>
+                <h2 className="text-navy font-black text-base sm:text-lg leading-none mb-1 uppercase tracking-tighter">Verified {invoice.type}</h2>
+                <p className="text-navy/60 text-[9px] sm:text-[10px] font-black uppercase tracking-widest italic">Atomic Solutions Official Record</p>
               </div>
             </div>
-            <div className="flex bg-navy/10 px-6 py-2 rounded-xl">
-               <span className="text-navy font-black text-xs">REF: {invoice.estimateNumber}</span>
+            <div className="flex bg-navy/10 px-4 sm:px-6 py-2 rounded-xl">
+               <span className="text-navy font-black text-xs">REF: {invoice.estimateNumber || invoice.invoiceNumber}</span>
             </div>
           </div>
 
           {/* Business Info Section */}
-          <div className="p-8 md:p-12 border-b border-gray-50 flex flex-col md:flex-row justify-between gap-12">
-            <div className="space-y-4">
+          <div className="p-5 sm:p-8 md:p-12 border-b border-gray-50 flex flex-col md:flex-row justify-between gap-6 md:gap-12">
+            <div className="space-y-3 sm:space-y-4">
               <div>
-                <h3 className="text-2xl font-black text-navy uppercase tracking-tighter">{settings.companyName || 'Atomic Solutions'}</h3>
-                <p className="text-xs font-bold text-teal italic">"{settings.companyTagline || 'We Bring Comfort Life'}"</p>
+                <h3 className="text-xl sm:text-2xl font-black text-navy uppercase tracking-tighter">{settings.companyName || 'Atomic Solutions'}</h3>
+                {settings.companyTagline && (
+                  <p className="text-xs font-bold text-teal italic">"{settings.companyTagline}"</p>
+                )}
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
-                  <MapPin size={14} className="text-teal" />
-                  <span>{settings.address || 'Deoghar, Jharkhand - 814149'}</span>
-                </div>
-                <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
-                  <Phone size={14} className="text-teal" />
-                  <span>{settings.phone || '+91 95822 68658'}</span>
-                </div>
-                <div className="flex items-center gap-3 text-gray-500 font-medium text-xs">
-                   <Mail size={14} className="text-teal" />
-                   <span>{settings.email || 'atomichvacsolution@gmail.com'}</span>
-                </div>
+                {settings.address && (
+                  <div className="flex items-start gap-2.5 text-gray-500 font-medium text-xs">
+                    <MapPin size={14} className="text-teal shrink-0 mt-0.5" />
+                    <span>{settings.address}</span>
+                  </div>
+                )}
+                {settings.phone && (
+                  <div className="flex items-center gap-2.5 text-gray-500 font-medium text-xs">
+                    <Phone size={14} className="text-teal shrink-0" />
+                    <span>{settings.phone}</span>
+                  </div>
+                )}
+                {settings.email && (
+                  <div className="flex items-center gap-2.5 text-gray-500 font-medium text-xs">
+                     <Mail size={14} className="text-teal shrink-0" />
+                     <span>{settings.email}</span>
+                  </div>
+                )}
                 {settings.ownerGSTIN && (
                   <div className="text-[10px] font-bold text-navy uppercase">
                     GSTIN: <span className="font-mono text-teal">{settings.ownerGSTIN}</span>
@@ -234,23 +248,23 @@ export default function InvoiceViewer() {
               </div>
             </div>
             
-            <div className="bg-gray-50 p-6 rounded-[32px] md:text-right min-w-[200px]">
+            <div className="bg-gray-50 p-4 sm:p-6 rounded-2xl sm:rounded-[32px] md:text-right min-w-[200px]">
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Billing Date</p>
-              <p className="text-lg font-black text-navy mb-4">
+              <p className="text-base sm:text-lg font-black text-navy mb-3 sm:mb-4">
                 {invoice.date || invoice.timestamp 
                   ? new Date(invoice.date || invoice.timestamp).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }) 
                   : 'N/A'}
               </p>
               <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">Billed To</p>
-              <p className="text-sm font-black text-navy">{invoice.customerName}</p>
+              <p className="text-sm font-black text-navy">{invoice.customerName || invoice.userName || 'Customer'}</p>
               {invoice.customerGSTIN && (
                 <p className="text-[10px] font-bold text-teal uppercase mt-1">GSTIN: {invoice.customerGSTIN}</p>
               )}
             </div>
           </div>
 
-          {/* Table Area */}
-          <div className="overflow-x-auto">
+          {/* Desktop Table View (Hidden on mobile) */}
+          <div className="hidden sm:block overflow-x-auto">
             <table className="w-full">
               <thead className="bg-navy text-white text-[10px] font-black uppercase tracking-widest">
                 <tr>
@@ -262,35 +276,60 @@ export default function InvoiceViewer() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {invoice.items.map((item: any) => (
-                  <tr key={item.id} className="hover:bg-gray-50/50 transition-colors">
+                {(invoice.items || []).map((item: any, idx: number) => (
+                  <tr key={item.id || idx} className="hover:bg-gray-50/50 transition-colors">
                     <td className="px-8 py-6">
                       <p className="text-sm font-black text-navy">{item.name}</p>
-                      <p className="text-[10px] font-medium text-gray-400">{item.description}</p>
+                      {item.description && <p className="text-[10px] font-medium text-gray-400">{item.description}</p>}
                     </td>
                     <td className="px-8 py-6 text-center text-sm font-bold text-gray-600">{item.quantity}</td>
                     <td className="px-8 py-6 text-center text-sm font-bold text-gray-600 uppercase">{item.unit || item.uom || 'Nos'}</td>
-                    <td className="px-8 py-6 text-right text-sm font-bold text-gray-600">₹{item.rate.toLocaleString()}</td>
-                    <td className="px-8 py-6 text-right text-sm font-black text-navy">₹{(item.rate * item.quantity).toLocaleString()}</td>
+                    <td className="px-8 py-6 text-right text-sm font-bold text-gray-600">₹{(Number(item.rate) || Number(item.price) || 0).toLocaleString()}</td>
+                    <td className="px-8 py-6 text-right text-sm font-black text-navy">₹{((Number(item.rate) || Number(item.price) || 0) * (Number(item.quantity) || 1)).toLocaleString()}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
 
+          {/* Mobile Card List View (No horizontal scrolling on phones) */}
+          <div className="sm:hidden divide-y divide-gray-100 bg-white p-3 space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-navy px-1 pt-1">Particulars ({invoice.items?.length || 0})</p>
+            {(invoice.items || []).map((item: any, idx: number) => {
+              const qty = Number(item.quantity) || 1;
+              const rate = Number(item.rate) || Number(item.price) || 0;
+              return (
+                <div key={item.id || idx} className="pt-3 pb-2 space-y-1.5">
+                  <div className="flex justify-between items-start gap-2">
+                    <div>
+                      <p className="text-xs font-black text-navy">{item.name}</p>
+                      {item.description && <p className="text-[10px] font-medium text-gray-400">{item.description}</p>}
+                    </div>
+                    <span className="text-xs font-black text-navy shrink-0">₹{(qty * rate).toLocaleString('en-IN')}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] font-bold text-gray-500 bg-gray-50 px-2.5 py-1 rounded-lg">
+                    <span>Qty: {qty} {item.unit || item.uom || 'Nos'}</span>
+                    <span>Rate: ₹{rate.toLocaleString('en-IN')}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
           {/* Summary Section */}
-          <div className="p-8 md:p-12 border-t border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-end items-end gap-12">
-            {qrDataUrl && invoice.type !== 'Estimate' && (
-              <div className="flex flex-col items-center bg-white p-3 rounded-2xl shadow-sm border border-gray-100 mb-6 sm:mb-0 mr-auto sm:mr-0 max-w-[200px]">
+          <div className="p-5 sm:p-8 md:p-12 border-t border-gray-50 bg-gray-50/50 flex flex-col sm:flex-row justify-between items-center sm:items-end gap-6 sm:gap-12">
+            {qrDataUrl && invoice.type !== 'Estimate' ? (
+              <div className="flex flex-col items-center bg-white p-3 rounded-2xl shadow-sm border border-gray-100 w-full sm:w-auto max-w-[220px]">
                 <img src={qrDataUrl} alt="Scan to Pay" className="w-24 h-24" />
                 <p className="text-[8px] font-black text-navy uppercase tracking-widest mt-2">Scan to Pay</p>
                 {(() => {
-                  const currentUpi = invoice.upiId || settings?.upiId || 'mustakansari9582-3@okhdfcbank';
+                  const currentUpi = (invoice.upiId !== undefined ? invoice.upiId : settings?.upiId) || '';
+                  if (!currentUpi) return null;
                   return (
                     <div className="mt-2 w-full flex items-center justify-between gap-1 bg-gray-50 border border-gray-200/60 rounded-lg px-2 py-1">
-                      <div className="overflow-x-auto whitespace-nowrap scrollbar-thin text-[9px] font-bold text-teal tracking-tight touch-pan-x pr-1">
+                      <span className="text-[9px] font-bold text-teal tracking-tight break-all">
                         {currentUpi}
-                      </div>
+                      </span>
                       <button
                         type="button"
                         title="Copy UPI ID"
@@ -306,8 +345,10 @@ export default function InvoiceViewer() {
                   );
                 })()}
               </div>
+            ) : (
+              <div />
             )}
-             <div className="w-full md:w-80 space-y-3">
+             <div className="w-full sm:w-80 space-y-2.5 sm:space-y-3">
                 {invoice.discount > 0 && (
                   <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-400">
                     <span>Discount</span>
@@ -329,31 +370,33 @@ export default function InvoiceViewer() {
                 <div className="h-px bg-gray-200 my-2" />
                 <div className="flex justify-between items-center">
                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-navy">Payable {invoice.type !== 'Estimate' ? 'Total' : 'Estimate'}</span>
-                   <span className="text-3xl font-black text-navy">₹{invoice.totalAmount.toLocaleString('en-IN')}</span>
+                   <span className="text-2xl sm:text-3xl font-black text-navy">₹{invoice.totalAmount?.toLocaleString('en-IN')}</span>
                 </div>
              </div>
           </div>
 
-          {/* Bank & Terms */}
-          <div className="p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-12 text-gray-500">
-             <div className="space-y-4">
-                <h5 className="text-[10px] font-black text-navy uppercase tracking-widest border-l-2 border-teal pl-3">Bank Details</h5>
-                <p className="text-[10px] font-medium whitespace-pre-wrap leading-relaxed">{invoice.bankDetails || formatBankDetailsString(settings)}</p>
-             </div>
-             <div className="space-y-4">
+          {/* Bank & Terms (Only rendered if present) */}
+          <div className="p-5 sm:p-8 md:p-12 grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-12 text-gray-500">
+             {displayBankDetails && displayBankDetails.trim() && (
+               <div className="space-y-3 sm:space-y-4">
+                  <h5 className="text-[10px] font-black text-navy uppercase tracking-widest border-l-2 border-teal pl-3">Bank Details</h5>
+                  <p className="text-[10px] font-medium whitespace-pre-wrap leading-relaxed">{displayBankDetails}</p>
+               </div>
+             )}
+             <div className="space-y-3 sm:space-y-4">
                 <h5 className="text-[10px] font-black text-navy uppercase tracking-widest border-l-2 border-teal pl-3">
                   {invoice.type !== 'Estimate' ? 'Declaration' : 'Standard Terms'}
                 </h5>
                 <p className="text-[10px] font-medium whitespace-pre-wrap leading-relaxed">
                   {invoice.type !== 'Estimate'
-                    ? (invoice.declaration || '1. Subject to Deoghar (Jharkhand) jurisdiction\n2. Terms & conditions are subject to our trade policy\n3. Our risk & responsibility ceases after the delivery of goods.\nE. & O.E.')
-                    : (invoice.terms || '1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.')}
+                    ? (invoice.declaration !== undefined ? invoice.declaration : settings.defaultDeclaration || '')
+                    : (invoice.terms !== undefined ? invoice.terms : settings.defaultTerms || '')}
                 </p>
              </div>
           </div>
         </div>
 
-        <div className="mt-12 text-center">
+        <div className="mt-8 sm:mt-12 text-center">
            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.3em] mb-4">Official Billing Document of Atomic Solutions</p>
            <div className="flex justify-center gap-8 text-gray-300">
               <ShieldCheck size={20} />

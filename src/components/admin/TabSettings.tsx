@@ -183,21 +183,21 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
         </div>
 
         {/* Section Navigation Tabs */}
-        <div className="mt-8 pt-6 border-t border-white/10 flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-white/10 grid grid-cols-2 sm:flex sm:flex-wrap items-center gap-2">
           {sections.map(sec => {
             const isActive = activeSection === sec.id;
             return (
               <button
                 key={sec.id}
                 onClick={() => setActiveSection(sec.id)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs whitespace-nowrap transition-all uppercase tracking-wider ${
+                className={`flex items-center justify-center sm:justify-start gap-2 px-3 sm:px-4 py-2.5 rounded-xl font-bold text-[11px] sm:text-xs transition-all uppercase tracking-wider ${
                   isActive
                     ? 'bg-teal text-navy shadow-md font-black'
                     : 'bg-white/5 text-slate-300 hover:bg-white/10 hover:text-white'
                 }`}
               >
                 {sec.icon}
-                {sec.label}
+                <span className="truncate">{sec.label}</span>
               </button>
             );
           })}
@@ -1023,15 +1023,31 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
               <div className="text-[10px] text-teal font-bold uppercase tracking-widest border-b border-white/10 pb-1">
                 Printed on Every Invoice
               </div>
-              <p className="font-bold truncate text-white">{formData.bankName || 'BANK OF BARODA'}</p>
-              <p className="text-slate-300 truncate">A/C: <span className="text-white font-bold">{formData.bankAccountNumber || '26450200001659'}</span></p>
-              <p className="text-slate-300 truncate">IFSC: <span className="text-white font-bold">{formData.bankIfsc || 'BARB0DEOGHA'}</span></p>
-              <p className="text-slate-300 truncate">NAME: <span className="text-white font-bold">{formData.bankAccountHolder || 'MUSTAK ANSARI'}</span></p>
-              {formData.panNumber && (
+              {formData.bankName ? (
+                <p className="font-bold truncate text-white">{formData.bankName}</p>
+              ) : null}
+              {formData.bankAccountNumber ? (
+                <p className="text-slate-300 truncate">A/C: <span className="text-white font-bold">{formData.bankAccountNumber}</span></p>
+              ) : null}
+              {formData.bankIfsc ? (
+                <p className="text-slate-300 truncate">IFSC: <span className="text-white font-bold">{formData.bankIfsc}</span></p>
+              ) : null}
+              {formData.bankAccountHolder ? (
+                <p className="text-slate-300 truncate">NAME: <span className="text-white font-bold">{formData.bankAccountHolder}</span></p>
+              ) : null}
+              {formData.bankBranch ? (
+                <p className="text-slate-300 truncate">BRANCH: <span className="text-white font-bold">{formData.bankBranch}</span></p>
+              ) : null}
+              {formData.panNumber ? (
                 <p className="text-slate-300 truncate">PAN: <span className="text-teal font-bold">{formData.panNumber}</span></p>
-              )}
-              {formData.upiId && (
+              ) : null}
+              {formData.upiId ? (
                 <p className="text-slate-300 truncate">UPI: <span className="text-teal font-bold">{formData.upiId}</span></p>
+              ) : null}
+              {!formData.bankName && !formData.bankAccountNumber && !formData.bankIfsc && !formData.bankAccountHolder && !formData.upiId && (
+                <p className="text-slate-400 italic text-[10px]">
+                  (Bank details currently blank — nothing will be printed on invoices)
+                </p>
               )}
             </div>
 

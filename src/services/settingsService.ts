@@ -65,22 +65,29 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
 };
 
 export function formatBankDetailsString(settings: Partial<AppSettings>): string {
-  const holder = settings.bankAccountHolder || DEFAULT_APP_SETTINGS.bankAccountHolder;
-  const bank = settings.bankName || DEFAULT_APP_SETTINGS.bankName;
-  const acc = settings.bankAccountNumber || DEFAULT_APP_SETTINGS.bankAccountNumber;
-  const ifsc = settings.bankIfsc || DEFAULT_APP_SETTINGS.bankIfsc;
-  const pan = settings.panNumber || DEFAULT_APP_SETTINGS.panNumber;
-  const branch = settings.bankBranch || DEFAULT_APP_SETTINGS.bankBranch;
-  const upi = settings.upiId || DEFAULT_APP_SETTINGS.upiId;
-
+  if (!settings) return '';
   const lines: string[] = [];
-  if (holder) lines.push(`NAME: ${holder}`);
-  if (bank) lines.push(`BANK NAME: ${bank}`);
-  if (ifsc) lines.push(`IFSC CODE: ${ifsc}`);
-  if (acc) lines.push(`A/C: ${acc}`);
-  if (branch) lines.push(`BRANCH: ${branch}`);
-  if (pan) lines.push(`PAN: ${pan}`);
-  if (upi) lines.push(`UPI ID: ${upi}`);
+  if (settings.bankAccountHolder && settings.bankAccountHolder.trim()) {
+    lines.push(`NAME: ${settings.bankAccountHolder.trim()}`);
+  }
+  if (settings.bankName && settings.bankName.trim()) {
+    lines.push(`BANK NAME: ${settings.bankName.trim()}`);
+  }
+  if (settings.bankIfsc && settings.bankIfsc.trim()) {
+    lines.push(`IFSC CODE: ${settings.bankIfsc.trim()}`);
+  }
+  if (settings.bankAccountNumber && settings.bankAccountNumber.trim()) {
+    lines.push(`A/C: ${settings.bankAccountNumber.trim()}`);
+  }
+  if (settings.bankBranch && settings.bankBranch.trim()) {
+    lines.push(`BRANCH: ${settings.bankBranch.trim()}`);
+  }
+  if (settings.panNumber && settings.panNumber.trim()) {
+    lines.push(`PAN: ${settings.panNumber.trim()}`);
+  }
+  if (settings.upiId && settings.upiId.trim()) {
+    lines.push(`UPI ID: ${settings.upiId.trim()}`);
+  }
   return lines.join('\n');
 }
 
