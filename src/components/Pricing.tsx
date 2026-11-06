@@ -6,6 +6,7 @@ import { getLocalCustomServices, fetchServerServices, mergeServicesWithOverrides
 import { Service } from '../types';
 import { dataService } from '../services/firebaseService';
 import { ArrowRight, ChevronRight, Sparkles, ShieldCheck } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string }> = {
   Comfort: { bg: 'bg-blue-50', text: 'text-blue-600', border: 'border-blue-200' },
@@ -17,6 +18,7 @@ const CATEGORY_COLORS: Record<string, { bg: string; text: string; border: string
 };
 
 export default function ServicesSection() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [services, setServices] = useState<Service[]>(() => mergeServicesWithOverrides(CORE_SERVICES));
   const [whatsapp, setWhatsapp] = useState(WHATSAPP_NUMBER);
@@ -79,7 +81,7 @@ export default function ServicesSection() {
             className="inline-flex items-center gap-2 px-4 py-2 bg-teal/10 rounded-full border border-teal/20 text-teal text-xs font-bold uppercase tracking-[0.2em] mb-4"
           >
             <Sparkles className="w-3.5 h-3.5 text-teal" />
-            Our Core Services
+            {t('Our Core Services', 'हमारी प्रमुख सेवाएं')}
           </motion.div>
 
           <motion.h2
@@ -89,8 +91,8 @@ export default function ServicesSection() {
             transition={{ delay: 0.05 }}
             className="text-3xl sm:text-5xl md:text-6xl font-extrabold text-navy tracking-tight leading-tight"
           >
-            Select A Service To <br className="hidden sm:block" />
-            <span className="text-teal">View Details &amp; Book</span>
+            {t('Select A Service To', 'सर्विस चुनें')} <br className="hidden sm:block" />
+            <span className="text-teal">{t('View Details & Book', 'रेट देखें व बुक करें')}</span>
           </motion.h2>
 
           <motion.p
@@ -100,7 +102,10 @@ export default function ServicesSection() {
             transition={{ delay: 0.1 }}
             className="text-slate-500 max-w-2xl mx-auto text-base sm:text-lg font-medium mt-4 leading-relaxed"
           >
-            Click any category below to view all sub-options, transparent labour &amp; material rates, photo galleries, and book your service.
+            {t(
+              'Click any category below to view all sub-options, transparent labour & material rates, photo galleries, and book your service.',
+              'सभी सब-ऑप्शन्स, पारदर्शी लेबर व मटेरियल रेट, फोटो गैलरी और ऑनलाइन बुकिंग के लिए नीचे किसी भी सर्विस पर क्लिक करें।'
+            )}
           </motion.p>
         </div>
 
@@ -155,9 +160,9 @@ export default function ServicesSection() {
                 <div className="p-5 sm:p-6 flex flex-col justify-between flex-1 space-y-4">
                   <div className="flex items-center justify-between text-xs text-slate-500 font-semibold">
                     <span className="flex items-center gap-1.5 text-teal">
-                      <ShieldCheck className="w-4 h-4" /> Verified Experts
+                      <ShieldCheck className="w-4 h-4" /> {t('Verified Experts', 'प्रमाणित कारीगर')}
                     </span>
-                    <span className="text-slate-400">Fixed &amp; Transparent Rates</span>
+                    <span className="text-slate-400">{t('Fixed & Transparent Rates', 'पारदर्शी रेट लिस्ट')}</span>
                   </div>
 
                   {/* Action Button */}
@@ -165,7 +170,7 @@ export default function ServicesSection() {
                     <button
                       className="w-full h-12 rounded-2xl bg-slate-50 group-hover:bg-teal text-navy group-hover:text-white flex items-center justify-center gap-2 font-bold text-xs sm:text-sm uppercase tracking-wider transition-all duration-300 shadow-sm group-hover:shadow-[0_12px_24px_-10px_rgba(15,118,110,0.6)]"
                     >
-                      <span>View Rates &amp; Book</span>
+                      <span>{t('View Rates & Book', 'रेट देखें व बुक करें')}</span>
                       <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                     </button>
                   </div>
@@ -183,9 +188,14 @@ export default function ServicesSection() {
           className="mt-16 sm:mt-20 p-8 sm:p-12 rounded-[32px] bg-gradient-to-br from-navy to-navy/90 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl"
         >
           <div className="text-center md:text-left space-y-2">
-            <h3 className="text-2xl sm:text-3xl font-extrabold">Need a Custom Requirement or Site Visit?</h3>
+            <h3 className="text-2xl sm:text-3xl font-extrabold">
+              {t('Need a Custom Requirement or Site Visit?', 'कस्टम काम या साइट विजिट की आवश्यकता है?')}
+            </h3>
             <p className="text-white/65 text-sm sm:text-base font-medium max-w-xl">
-              Talk directly with our founder &amp; engineering team on WhatsApp for free estimates and consultation.
+              {t(
+                'Talk directly with our founder & engineering team on WhatsApp for free estimates and consultation.',
+                'मुफ़्त एस्टीमेट व परामर्श के लिए हमारे फाउंडर व टेक्निकल टीम से सीधे व्हाट्सएप पर बात करें।'
+              )}
             </p>
           </div>
           <a
@@ -195,7 +205,7 @@ export default function ServicesSection() {
             className="flex-shrink-0 inline-flex items-center gap-2.5 bg-[#25D366] hover:bg-[#1da851] text-white font-bold px-8 py-4 rounded-2xl text-sm uppercase tracking-wider transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98]"
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-            Chat With Atomic Team
+            {t('Chat With Atomic Team', 'व्हाट्सएप पर बात करें')}
           </a>
         </motion.div>
 

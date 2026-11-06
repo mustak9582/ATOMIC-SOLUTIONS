@@ -19,12 +19,15 @@ import {
   ArrowLeft,
   MessageCircle,
   ShoppingCart,
-  Eye
+  Eye,
+  Receipt
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { Button } from './ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageToggle from './LanguageToggle';
 
 interface SidebarProps {
   activeTab: string;
@@ -35,11 +38,12 @@ interface SidebarProps {
 
 const navItems = [
   { id: 'stats', label: 'Overview', icon: LayoutDashboard },
+  { id: 'accounting', label: 'Accounting & GST', icon: Receipt },
+  { id: 'billing', label: 'Billing Center', icon: IndianRupee },
+  { id: 'invoices', label: 'Invoice Archive', icon: FileText },
   { id: 'bookings', label: 'Bookings', icon: Calendar },
   { id: 'schedule', label: 'Visit Schedule', icon: Clock },
-  { id: 'invoices', label: 'Invoice Archive', icon: FileText },
   { id: 'users', label: 'Users', icon: Users },
-  { id: 'billing', label: 'Billing Center', icon: IndianRupee },
   { id: 'pricing', label: 'Pricing', icon: Layers },
   { id: 'staff', label: 'Staff Portal', icon: Briefcase },
   { id: 'gallery', label: 'Media Hub', icon: ImageIcon },
@@ -52,6 +56,27 @@ const navItems = [
 export const AdminSidebar = ({ activeTab, onTabChange, className, onClose }: SidebarProps) => {
   const navigate = useNavigate();
   const { toggleAdminView, viewAsCustomer } = useAuth();
+  const { t } = useLanguage();
+
+  const getNavLabel = (id: string, defaultLabel: string) => {
+    switch (id) {
+      case 'stats': return t('Overview', 'डैशबोर्ड');
+      case 'accounting': return t('Accounting & GST', 'अकाउंटिंग व जीएसटी');
+      case 'billing': return t('Billing Center', 'बिलिंग सेंटर');
+      case 'invoices': return t('Invoice Archive', 'बिल पुरालेख');
+      case 'bookings': return t('Bookings', 'बुकिंग्स');
+      case 'schedule': return t('Visit Schedule', 'विजिट शेड्यूल');
+      case 'users': return t('Users', 'उपयोगकर्ता');
+      case 'pricing': return t('Pricing', 'रेट लिस्ट');
+      case 'staff': return t('Staff Portal', 'स्टाफ पोर्टल');
+      case 'gallery': return t('Media Hub', 'गैलरी');
+      case 'messages': return t('Messages', 'मैसेज');
+      case 'reports': return t('Reports', 'समस्याएं');
+      case 'store': return t('Store Manager', 'स्टोर मैनेजर');
+      case 'settings': return t('Settings', 'सेटिंग्स');
+      default: return defaultLabel;
+    }
+  };
 
   return (
     <div className={cn("flex flex-col h-full bg-[#001f3f] text-white", className)}>
@@ -114,7 +139,7 @@ export const AdminSidebar = ({ activeTab, onTabChange, className, onClose }: Sid
               "transition-transform duration-300",
               activeTab === item.id ? "text-navy scale-110" : "group-hover:text-teal group-hover:scale-110"
             )} />
-            <span className="text-[11px] uppercase tracking-widest">{item.label}</span>
+            <span className="text-[11px] uppercase tracking-widest">{getNavLabel(item.id, item.label)}</span>
             {activeTab === item.id && (
               <div className="absolute right-4 w-1.5 h-1.5 rounded-full bg-navy shadow-sm" />
             )}
@@ -122,7 +147,10 @@ export const AdminSidebar = ({ activeTab, onTabChange, className, onClose }: Sid
         ))}
       </div>
 
-
+      <div className="p-4 border-t border-white/10 flex items-center justify-between">
+        <span className="text-[9px] font-black uppercase tracking-wider text-teal">{t('Language', 'भाषा')}</span>
+        <LanguageToggle theme="dark" />
+      </div>
     </div>
   );
 };

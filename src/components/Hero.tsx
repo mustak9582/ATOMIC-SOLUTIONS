@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { WHATSAPP_NUMBER } from '../constants';
 import { formatWhatsAppLink } from '../lib/utils';
+import { useLanguage } from '../contexts/LanguageContext';
 import { useNavigate } from 'react-router-dom';
 
 const HERO_IMAGES = [
@@ -29,6 +30,7 @@ const STATS = [
 ];
 
 export default function Hero() {
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const [currentImg, setCurrentImg] = useState(0);
 
@@ -90,7 +92,7 @@ export default function Hero() {
               <span className="relative inline-flex rounded-full h-2 w-2 bg-teal" />
             </span>
             <span className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-teal-100">
-              #1 Engineering &amp; Home Maintenance Partner · Deoghar
+              {t('#1 Engineering & Home Maintenance Partner · Deoghar', 'देवघर का नं. 1 इंजीनियरिंग व होम मेंटेनेंस पार्टनर')}
             </span>
           </motion.div>
 
@@ -102,9 +104,9 @@ export default function Hero() {
             className="space-y-2"
           >
             <h1 className="text-4xl sm:text-6xl md:text-7xl font-extrabold tracking-tight leading-[1.05]">
-              We Bring Comfort <br />
+              {t('We Bring Comfort', 'हम लाते हैं')} <br />
               <span style={{ background: 'linear-gradient(135deg, #5eead4 0%, #2dd4bf 50%, #14b8a6 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                To Your Home Life
+                {t('To Your Home Life', 'आपके घर में संपूर्ण आराम')}
               </span>
             </h1>
           </motion.div>
@@ -116,7 +118,10 @@ export default function Hero() {
             transition={{ duration: 0.6, delay: 0.2 }}
             className="text-white/75 text-base sm:text-xl font-medium leading-relaxed max-w-2xl"
           >
-            All home services in one place — HVAC, Electrical, Civil Construction, Plumbing, False Ceiling, Tiles, Carpentry, Painting &amp; Architecture Planning. Verified rates, fast booking, guaranteed quality.
+            {t(
+              'All home services in one place — HVAC, Electrical, Civil Construction, Plumbing, False Ceiling, Tiles, Carpentry, Painting & Architecture Planning. Verified rates, fast booking, guaranteed quality.',
+              'सभी होम सर्विसेज एक ही जगह — एसी व कूलिंग (HVAC), बिजली वायरिंग, सिविल निर्माण, प्लंबिंग, फॉल्स सीलिंग, टाइल्स, बढ़ई, पेंटिंग व आर्किटेक्चर प्लानिंग। पक्का काम, सही रेट, तेज बुकिंग व गारंटीड क्वालिटी।'
+            )}
           </motion.p>
 
           {/* Action CTAs */}
@@ -130,7 +135,7 @@ export default function Hero() {
               onClick={scrollToServices}
               className="bg-teal hover:bg-[#0d9488] text-white font-bold h-14 px-8 rounded-2xl text-sm sm:text-base shadow-[0_20px_40px_-16px_rgba(15,118,110,0.8)] transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] group flex items-center justify-center gap-2"
             >
-              Browse All Services
+              {t('Browse All Services', 'सभी सेवाएं देखें')}
               <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
             </Button>
             
@@ -140,7 +145,7 @@ export default function Hero() {
               className="border-white/20 bg-white/10 text-white hover:bg-white hover:text-navy font-bold h-14 px-8 rounded-2xl text-sm sm:text-base backdrop-blur-md transition-all duration-300 hover:-translate-y-1 active:scale-[0.98] flex items-center justify-center gap-2"
             >
               <Phone className="w-4 h-4 text-teal" />
-              Book on WhatsApp
+              {t('Book on WhatsApp', 'व्हाट्सएप पर बुक करें')}
             </Button>
           </motion.div>
 
@@ -153,15 +158,15 @@ export default function Hero() {
           >
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-teal" />
-              <span>Transparent Rates</span>
+              <span>{t('Transparent Rates', 'पारदर्शी रेट लिस्ट')}</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-teal" />
-              <span>Verified Technicians</span>
+              <span>{t('Verified Technicians', 'प्रमाणित कारीगर')}</span>
             </div>
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-teal" />
-              <span>Digital Invoices &amp; Warranty</span>
+              <span>{t('Digital Invoices & Warranty', 'पक्का बिल व वारंटी')}</span>
             </div>
           </motion.div>
 

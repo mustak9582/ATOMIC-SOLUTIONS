@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Home, Wrench, ShoppingBag, User, Download, Calendar } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { usePWA } from '../contexts/PWAContext';
 
 export const MobileAppDock: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, isAdmin, isStaff } = useAuth();
+  const { t } = useLanguage();
   const { isInstalled, isStandalone, promptInstall } = usePWA();
 
   const currentPath = location.pathname;
@@ -77,7 +79,7 @@ export const MobileAppDock: React.FC = () => {
               />
             )}
           </div>
-          <span className="text-[10px] mt-1 tracking-tight">Home</span>
+          <span className="text-[10px] mt-1 tracking-tight">{t('Home', 'होम')}</span>
         </button>
 
         {/* 2. Services */}
@@ -96,7 +98,7 @@ export const MobileAppDock: React.FC = () => {
               />
             )}
           </div>
-          <span className="text-[10px] mt-1 tracking-tight">Services</span>
+          <span className="text-[10px] mt-1 tracking-tight">{t('Services', 'सेवाएं')}</span>
         </button>
 
         {/* 3. Center CTA: Install App (if web) or Bookings (if installed/user) */}
@@ -109,7 +111,7 @@ export const MobileAppDock: React.FC = () => {
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal to-[#14b8a6] text-white flex items-center justify-center shadow-lg shadow-teal/30 group-active:scale-95 transition-transform border-2 border-navy">
               <Download size={22} className="animate-bounce" />
             </div>
-            <span className="text-[9px] font-black uppercase text-teal mt-0.5 tracking-wider">Install</span>
+            <span className="text-[9px] font-black uppercase text-teal mt-0.5 tracking-wider">{t('Install', 'ऐप')}</span>
           </button>
         ) : (
           <button
@@ -130,7 +132,7 @@ export const MobileAppDock: React.FC = () => {
                 />
               )}
             </div>
-            <span className="text-[10px] mt-1 tracking-tight">Bookings</span>
+            <span className="text-[10px] mt-1 tracking-tight">{t('Bookings', 'बुकिंग्स')}</span>
           </button>
         )}
 
@@ -150,7 +152,7 @@ export const MobileAppDock: React.FC = () => {
               />
             )}
           </div>
-          <span className="text-[10px] mt-1 tracking-tight">Store</span>
+          <span className="text-[10px] mt-1 tracking-tight">{t('Store', 'स्टोर')}</span>
         </button>
 
         {/* 5. Account */}
@@ -169,7 +171,7 @@ export const MobileAppDock: React.FC = () => {
               />
             )}
           </div>
-          <span className="text-[10px] mt-1 tracking-tight">{user ? 'Account' : 'Login'}</span>
+          <span className="text-[10px] mt-1 tracking-tight">{user ? t('Account', 'खाता') : t('Login', 'लॉग इन')}</span>
         </button>
       </div>
     </nav>

@@ -84,71 +84,6 @@ const StaffDashboard: React.FC = () => {
       navigate('/', { replace: true });
     }
   }, [isStaff, isAdmin, isPendingStaff, profile?.staffStatus, loading, navigate]);
-  
-  if (isPendingStaff) {
-    return (
-      <div className="min-h-screen bg-slate-app flex flex-col items-center justify-center p-6 text-center font-sans">
-        <div className="max-w-md w-full animate-in fade-in zoom-in duration-500">
-          <div className="w-24 h-24 bg-orange-100 rounded-[32px] flex items-center justify-center mx-auto mb-8 text-orange-600 shadow-xl shadow-orange-500/10">
-            <Clock size={40} />
-          </div>
-          <h1 className="text-3xl font-black text-navy uppercase tracking-tighter mb-4">Under Review</h1>
-          <p className="text-gray-500 font-medium leading-relaxed mb-8 text-sm">
-            Your application to join as a Service Professional is currently pending approval from our administration team. We will notify you once your account is activated.
-          </p>
-          <Button 
-            variant="ghost" 
-            onClick={logout}
-            className="w-full h-14 rounded-2xl text-red-600 font-black uppercase tracking-widest hover:bg-red-50"
-          >
-            Sign Out
-          </Button>
-        </div>
-      </div>
-    );
-  }
-  
-  const filteredBookings = bookings.filter(booking => {
-    const statusMatch = statusFilter === 'All' || booking.status === statusFilter;
-    
-    // Date filter logic
-    let dateMatch = true;
-    if (dateRange.start || dateRange.end) {
-      const bookingDate = new Date(booking.timestamp);
-      bookingDate.setHours(0, 0, 0, 0);
-      
-      if (dateRange.start) {
-        const startDate = new Date(dateRange.start);
-        startDate.setHours(0, 0, 0, 0);
-        if (bookingDate < startDate) dateMatch = false;
-      }
-      
-      if (dateRange.end) {
-        const endDate = new Date(dateRange.end);
-        endDate.setHours(23, 59, 59, 999);
-        if (bookingDate > endDate) dateMatch = false;
-      }
-    }
-    
-    return statusMatch && dateMatch;
-  });
-
-  const handleTabChange = (tab: string) => {
-    setActiveTab(tab);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleUpdateLocation = async () => {
-    setIsLocating(true);
-    try {
-      await requestUserLocation();
-      toast.success('Live location updated!');
-    } catch (e) {
-      toast.error('Failed to sync location. Please check GPS settings.');
-    } finally {
-      setIsLocating(false);
-    }
-  };
 
   useEffect(() => {
     if (!user) return;
@@ -226,6 +161,71 @@ const StaffDashboard: React.FC = () => {
       unsubscribeNotifications();
     };
   }, [user?.uid, profile?.staffCategory]);
+
+  if (isPendingStaff) {
+    return (
+      <div className="min-h-screen bg-slate-app flex flex-col items-center justify-center p-6 text-center font-sans">
+        <div className="max-w-md w-full animate-in fade-in zoom-in duration-500">
+          <div className="w-24 h-24 bg-orange-100 rounded-[32px] flex items-center justify-center mx-auto mb-8 text-orange-600 shadow-xl shadow-orange-500/10">
+            <Clock size={40} />
+          </div>
+          <h1 className="text-3xl font-black text-navy uppercase tracking-tighter mb-4">Under Review</h1>
+          <p className="text-gray-500 font-medium leading-relaxed mb-8 text-sm">
+            Your application to join as a Service Professional is currently pending approval from our administration team. We will notify you once your account is activated.
+          </p>
+          <Button 
+            variant="ghost" 
+            onClick={logout}
+            className="w-full h-14 rounded-2xl text-red-600 font-black uppercase tracking-widest hover:bg-red-50"
+          >
+            Sign Out
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+  const filteredBookings = bookings.filter(booking => {
+    const statusMatch = statusFilter === 'All' || booking.status === statusFilter;
+    
+    // Date filter logic
+    let dateMatch = true;
+    if (dateRange.start || dateRange.end) {
+      const bookingDate = new Date(booking.timestamp);
+      bookingDate.setHours(0, 0, 0, 0);
+      
+      if (dateRange.start) {
+        const startDate = new Date(dateRange.start);
+        startDate.setHours(0, 0, 0, 0);
+        if (bookingDate < startDate) dateMatch = false;
+      }
+      
+      if (dateRange.end) {
+        const endDate = new Date(dateRange.end);
+        endDate.setHours(23, 59, 59, 999);
+        if (bookingDate > endDate) dateMatch = false;
+      }
+    }
+    
+    return statusMatch && dateMatch;
+  });
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleUpdateLocation = async () => {
+    setIsLocating(true);
+    try {
+      await requestUserLocation();
+      toast.success('Live location updated!');
+    } catch (e) {
+      toast.error('Failed to sync location. Please check GPS settings.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
 
   const stats = {
     active: bookings.filter(b => b.status === 'Assigned' || b.status === 'Accepted' || b.status === 'In Progress').length,

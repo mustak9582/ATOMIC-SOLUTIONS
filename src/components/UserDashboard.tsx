@@ -28,11 +28,14 @@ import {
   Zap,
   Mail,
   Navigation,
-  MessageCircle
+  MessageCircle,
+  Globe
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageToggle from './LanguageToggle';
 import { dataService } from '../services/firebaseService';
 import { detectFullLocation } from '../services/locationService';
 import { Button } from './ui/button';
@@ -41,6 +44,7 @@ import { toast } from 'sonner';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
+import { generateQuotationPDF } from '../utils/quotationGenerator';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Badge } from './ui/badge';
 import Logo from './Logo';
@@ -54,6 +58,7 @@ import BookingChatModal from './BookingChatModal';
 
 export default function UserDashboard({ initialSection }: { initialSection?: 'bookings' | 'invoices' | 'services' | 'reports' }) {
   const { user, profile, updateProfile, logout, isPendingStaff, changePassword } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
   const location = useLocation();
   const [activePortalTab, setActivePortalTab] = useState<'overview' | 'services' | 'settings' | 'reports' | 'staff' | 'history'>(
@@ -437,7 +442,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
         logoUrl: window.location.origin + '/logo.png'
       };
       
-      const doc = await generateInvoicePDF(pdfData);
+      const doc = (invoice.type === 'Quotation') ? generateQuotationPDF(pdfData) : await generateInvoicePDF(pdfData);
       const cleanFileName = `${invoice.type || 'Invoice'}_${invoice.estimateNumber || invoice.invoiceNumber || 'No'}`.replace(/[^a-z0-9_-]/gi, '_');
       doc.save(`${cleanFileName}.pdf`);
       toast.success('Invoice Downloaded Successfully');
@@ -1726,6 +1731,26 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                 <h2 className="text-3xl font-black text-navy uppercase tracking-tighter">Profile Settings</h2>
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Manage your personal and billing information</p>
               </header>
+
+              {/* LANGUAGE PREFERENCE FOR CUSTOMERS / USERS */}
+              <div className="bg-gradient-to-r from-teal/15 via-slate-50 to-teal/10 p-6 rounded-[32px] border border-teal/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-teal/20 text-teal flex items-center justify-center">
+                      <Globe size={18} />
+                    </div>
+                    <h4 className="text-sm font-black text-navy uppercase tracking-tight">
+                      {t('Preferred Language', 'भाषा प्राथमिकता (Preferred Language)')}
+                    </h4>
+                  </div>
+                  <p className="text-xs text-gray-600 font-medium pl-10">
+                    {t('Select English or Hindi for your entire portal, service bookings, and invoices.', 'अपनी पूरी वेबसाइट, बुकिंग और बिलों के लिए अंग्रेजी या हिन्दी भाषा चुनें।')}
+                  </p>
+                </div>
+                <div className="shrink-0 pl-10 sm:pl-0">
+                  <LanguageToggle />
+                </div>
+              </div>
 
               {(!profile?.phone || !profile?.address) && (
                 <div className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[32px] flex items-center gap-4 animate-pulse">

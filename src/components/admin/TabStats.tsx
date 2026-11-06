@@ -83,7 +83,7 @@ export function TabStats({
                 <StatCard title="Active Users" value={users.length} icon={<Users />} color="bg-blue-600" onClick={() => { setUserRoleFilter('All'); handleTabChange('users'); }} />
                 <StatCard title="Total Orders" value={bookings.length} icon={<Calendar />} color="bg-navy" onClick={() => { setStatusFilter('All'); handleTabChange('bookings'); }} />
                 <StatCard title="Pending Review" value={bookings.filter(b => b.status === 'Pending').length} icon={<Clock />} color="bg-teal" onClick={() => { setStatusFilter('Pending'); handleTabChange('bookings'); }} />
-                <StatCard title="Live Revenue" value={`₹${allInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString('en-IN')}`} icon={<IndianRupee />} color="bg-green-600" onClick={() => handleTabChange('billing')} />
+                <StatCard title="Live Revenue & GST" value={`₹${allInvoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString('en-IN')}`} icon={<IndianRupee />} color="bg-emerald-600" onClick={() => handleTabChange('accounting')} />
               </div>
 
 

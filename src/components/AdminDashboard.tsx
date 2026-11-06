@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { dataService, safeStringify } from '../services/firebaseService';
 import { CORE_SERVICES, WHATSAPP_NUMBER, DEFAULT_CATEGORIES } from '../constants';
 import { getLocalCustomServices, saveLocalCustomService, fetchServerServices, saveServerService, mergeServicesWithOverrides } from '../services/serviceStorage';
-import { Booking, UserProfile, Service, BookingStatus, Category, AppSettings, Notification } from '../types';
+import { Booking, UserProfile, Service, BookingStatus, Category, AppSettings, Notification, Expense, Invoice } from '../types';
 import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from '../services/settingsService';
 import { calculateDistance } from '../services/locationService';
 import { cn, formatWhatsAppLink, maskEmail, maskPhone, compressImage, safeDateFormatter, safeTimeFormatter } from '../lib/utils';
@@ -60,11 +61,13 @@ import { motion, AnimatePresence } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
+import { generateQuotationPDF } from '../utils/quotationGenerator';
 import BillingCenter from './BillingCenter';
 import { Button } from './ui/button';
 import { TabGallery } from './admin/TabGallery';
 import { TabBilling } from './admin/TabBilling';
 import { TabInvoices } from './admin/TabInvoices';
+import { TabAccounting } from './admin/TabAccounting';
 import { TabSchedule } from './admin/TabSchedule';
 import { TabStats } from './admin/TabStats';
 import { TabReports } from './admin/TabReports';
@@ -100,6 +103,7 @@ import {
 
 export default function AdminDashboard({ initialTab: propInitialTab }: { initialTab?: string }) {
   const { user, profile, isAdmin, hasAdminPrivilege, switchToAdmin, toggleAdminView, viewAsCustomer, loading: authLoading } = useAuth();
+  const { t } = useLanguage();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -126,6 +130,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const [reports, setReports] = useState<any[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [allInvoices, setAllInvoices] = useState<any[]>([]);
+  const [allExpenses, setAllExpenses] = useState<Expense[]>([]);
   const [services, setServices] = useState<Service[]>(() => mergeServicesWithOverrides(CORE_SERVICES));
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [appSettings, setAppSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
@@ -195,6 +200,19 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
   const [selectedStaffId, setSelectedStaffId] = useState('');
   const [payoutAmount, setPayoutAmount] = useState<number>(0);
 
+  // Category Modal States
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+
+  // Gallery Upload States
+  const [uploadProgress, setUploadProgress] = useState<{ active: boolean, percent: number, fileName: string }>({ active: false, percent: 0, fileName: '' });
+  const cancelUploadRef = React.useRef(false);
+
+  // Service Modal States
+  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
+  const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
+
   // Get today's date string in local time (YYYY-MM-DD)
   const getTodayStr = () => {
     const today = new Date();
@@ -249,6 +267,16 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
         });
         setAllInvoices(sorted);
       }, [], (err) => console.error("[AdminDashboard] Invoices sub error:", err));
+
+      const unsubExpenses = dataService.subscribe('expenses', (data) => {
+        console.log("[AdminDashboard] Expenses received:", data.length);
+        const sorted = (data as any[]).sort((a,b) => {
+          const tA = new Date(a.date || a.createdAt || 0).getTime();
+          const tB = new Date(b.date || b.createdAt || 0).getTime();
+          return tB - tA;
+        });
+        setAllExpenses(sorted as Expense[]);
+      }, [], (err) => console.error("[AdminDashboard] Expenses sub error:", err));
       
       const unsubBookings = dataService.subscribe('bookings', (data) => {
         console.log("[AdminDashboard] Bookings received:", data.length);
@@ -360,6 +388,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
         unsubUsers();
         unsubBookings();
         unsubInvoices();
+        unsubExpenses();
         unsubServices();
         unsubCategories();
         unsubReports();
@@ -376,7 +405,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
       setActiveTab(propInitialTab);
     } else {
       const hash = window.location.hash.replace('#', '');
-      if (hash && ['bookings', 'users', 'pricing', 'categories', 'reviews', 'billing', 'settings', 'reports', 'staff', 'reviews-share', 'invoices'].includes(hash)) {
+      if (hash && ['bookings', 'users', 'pricing', 'categories', 'reviews', 'billing', 'settings', 'reports', 'staff', 'reviews-share', 'invoices', 'accounting'].includes(hash)) {
         setActiveTab(hash);
       }
     }
@@ -403,6 +432,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
     const routeMap: Record<string, string> = {
       'stats': '/admin/dashboard',
       'bookings': '/admin/bookings',
+      'accounting': '/admin/accounting',
       'invoices': '/admin/invoices',
       'billing': '/admin/invoice-generator',
       'pricing': '/admin/services',
@@ -908,9 +938,7 @@ By: *Atomic Solutions*`;
     }
   };
 
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
-  const [categoryForm, setCategoryForm] = useState({ name: '', description: '' });
+
 
   const handleSaveCategory = async () => {
     if (!categoryForm.name) return;
@@ -957,9 +985,6 @@ By: *Atomic Solutions*`;
     setIsCategoryModalOpen(true);
   };
 
-  const [uploadProgress, setUploadProgress] = useState<{ active: boolean, percent: number, fileName: string }>({ active: false, percent: 0, fileName: '' });
-  const cancelUploadRef = React.useRef(false);
-
   const updateSettings = async (updates: Partial<AppSettings>) => {
     try {
       const merged = getMergedSettings({ ...appSettings, ...updates });
@@ -976,6 +1001,11 @@ By: *Atomic Solutions*`;
       const mergedSettings = getMergedSettings(appSettings);
       const dynamicBankDetails = invoice.bankDetails || formatBankDetailsString(mergedSettings);
 
+      const isIgst = invoice.gstType === 'igst' || Boolean(invoice.igstAmount && invoice.igstAmount > 0);
+      const cgst = isIgst ? 0 : (invoice.cgstAmount ?? (invoice.gstAmount || 0) / 2);
+      const sgst = isIgst ? 0 : (invoice.sgstAmount ?? (invoice.gstAmount || 0) / 2);
+      const igst = isIgst ? (invoice.igstAmount ?? (invoice.gstAmount || 0)) : 0;
+
       const pdfData: PDFInvoiceData = {
         type: invoice.type || 'Invoice',
         number: invoice.estimateNumber || invoice.invoiceNumber || 'No',
@@ -984,6 +1014,9 @@ By: *Atomic Solutions*`;
         customerPhone: invoice.customerPhone || invoice.userPhone || '',
         customerAddress: invoice.customerAddress || '',
         customerGSTIN: invoice.customerGSTIN || '',
+        subject: invoice.subject,
+        validUntil: invoice.validUntil,
+        kindAttn: invoice.kindAttn,
         items: (invoice.items || []).map((i: any) => {
           const qty = Number(i.quantity) || 1;
           const rt = Number(i.rate || i.price) || 0;
@@ -1000,9 +1033,9 @@ By: *Atomic Solutions*`;
         }),
         summary: {
           taxableAmount: (invoice.subTotal || invoice.totalAmount) - (invoice.discount || 0),
-          cgstAmount: (invoice.gstAmount || 0) / 2,
-          sgstAmount: (invoice.gstAmount || 0) / 2,
-          igstAmount: 0,
+          cgstAmount: cgst,
+          sgstAmount: sgst,
+          igstAmount: igst,
           freightCharges: invoice.freightCharges || 0,
           discountAmount: invoice.discount || 0,
           roundOff: invoice.roundOff || 0
@@ -1023,7 +1056,7 @@ By: *Atomic Solutions*`;
         upiId: mergedSettings.upiId
       };
       
-      const doc = await generateInvoicePDF(pdfData);
+      const doc = (invoice.type === 'Quotation') ? generateQuotationPDF(pdfData) : await generateInvoicePDF(pdfData);
       const cleanFileName = `${invoice.type || 'Invoice'}_${invoice.estimateNumber || invoice.invoiceNumber || 'No'}`.replace(/[^a-z0-9_-]/gi, '_');
       doc.save(`${cleanFileName}.pdf`);
       toast.success('Invoice Downloaded Successfully');
@@ -1176,9 +1209,6 @@ By: *Atomic Solutions*`;
       updateService(other.id, { sequence: currentSeq })
     ]);
   };
-
-  const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
-  const [editingService, setEditingService] = useState<Partial<Service> | null>(null);
 
   const handleSaveService = async () => {
     if (!editingService?.name) {
@@ -1428,6 +1458,17 @@ By: *Atomic Solutions*`;
             setCategoryToDeleteId={setCategoryToDeleteId}
           />
 
+          <TabsContent value="accounting">
+            <TabAccounting
+              allInvoices={allInvoices}
+              allExpenses={allExpenses}
+              appSettings={appSettings}
+              navigate={navigate}
+              downloadInvoicePDF={downloadInvoicePDF}
+              handleDeleteInvoice={handleDeleteInvoice}
+            />
+          </TabsContent>
+
           <TabBilling
             services={services}
             appSettings={appSettings}
@@ -1663,7 +1704,7 @@ By: *Atomic Solutions*`;
                 <div className="space-y-1.5 sm:col-span-2 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100">
                   <div className="flex items-center justify-between">
                     <label className="text-[8px] font-black text-navy uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock size={12} className="text-teal" /> Expected Reach Time / ETA (पहुंचने का समय)
+                      <Clock size={12} className="text-teal" /> {t('Expected Reach Time / ETA', 'पहुंचने का समय (ETA)')}
                     </label>
                     {editEta && (
                       <span className="text-[8px] font-black text-teal bg-teal/10 px-2 py-0.5 rounded-full">

@@ -94,6 +94,11 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    // --- EXPENSES ---
+    match /expenses/{expenseId} {
+      allow read, write: if true;
+    }
+
     // --- SETTINGS ---
     match /settings/{settingId} {
       allow read: if true;

@@ -8,6 +8,8 @@ import { formatWhatsAppLink } from '../lib/utils';
 import { dataService } from '../services/firebaseService';
 import { AppSettings } from '../types';
 import { DEFAULT_APP_SETTINGS, getMergedSettings } from '../services/settingsService';
+import { useLanguage } from '../contexts/LanguageContext';
+import LanguageToggle from './LanguageToggle';
 
 const WhatsappIcon = ({ size = 24, className = "" }: { size?: number, className?: string }) => (
   <svg
@@ -29,6 +31,7 @@ const WhatsappIcon = ({ size = 24, className = "" }: { size?: number, className?
 );
 
 export default function Footer() {
+  const { t } = useLanguage();
   const [settings, setSettings] = useState<AppSettings>(() => DEFAULT_APP_SETTINGS);
 
   useEffect(() => {
@@ -91,11 +94,11 @@ export default function Footer() {
               )}
             </div>
             <div>
-              <h4 className="text-sm font-black mb-8 uppercase tracking-[0.2em] text-teal">Explore</h4>
+              <h4 className="text-sm font-black mb-8 uppercase tracking-[0.2em] text-teal">{t('Explore', 'नेविगेशन')}</h4>
               <ul className="space-y-4">
-                <FooterLink href="#" label="Home" />
-                <FooterLink href="#services" label="Services" />
-                <FooterLink href="/dashboard/reports" label="Report a Problem" />
+                <FooterLink href="#" label={t('Home', 'होम')} />
+                <FooterLink href="#services" label={t('Services', 'सेवाएं')} />
+                <FooterLink href="/dashboard/reports" label={t('Report a Problem', 'समस्या बताएं')} />
               </ul>
             </div>
           </motion.div>
@@ -108,7 +111,9 @@ export default function Footer() {
             className="md:col-span-4"
           >
             <div className="bg-white p-8 rounded-lg flex flex-col items-center text-center shadow-[0_24px_55px_-24px_rgba(0,0,0,0.42)] relative">
-              <div className="absolute -top-5 bg-teal text-white font-bold text-[10px] uppercase tracking-[0.2em] px-6 py-2 rounded-full">Scan contact</div>
+              <div className="absolute -top-5 bg-teal text-white font-bold text-[10px] uppercase tracking-[0.2em] px-6 py-2 rounded-full">
+                {t('Scan contact', 'संपर्क स्कैन')}
+              </div>
               <div className="w-48 h-48 bg-white rounded-lg mb-6 flex items-center justify-center p-4 overflow-hidden border border-slate-100">
                 <img 
                   src={qrCodeSrc} 
@@ -118,7 +123,7 @@ export default function Footer() {
                 />
               </div>
               <p className="text-navy font-extrabold text-xs uppercase tracking-widest leading-tight">
-                Scan to Save<br />Contact Details
+                {t('Scan to Save Contact Details', 'कॉन्टैक्ट सेव करने हेतु स्कैन करें')}
               </p>
             </div>
           </motion.div>
@@ -134,10 +139,13 @@ export default function Footer() {
         >
           <div className="flex items-center gap-3 text-silver">
              <ShieldCheck className="text-teal" size={24} />
-             <span className="text-[10px] font-bold uppercase tracking-widest">100% Quality Guaranteed</span>
+             <span className="text-[10px] font-bold uppercase tracking-widest">
+               {t('100% Quality Guaranteed', '100% गुणवत्ता व संतुष्टि गारंटी')}
+             </span>
           </div>
-          <div className="text-center">
-            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest">
+          <div className="text-center flex flex-col items-center gap-2">
+            <LanguageToggle theme="dark" />
+            <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mt-1">
               © {new Date().getFullYear()} {companyName}. All Rights Reserved.
             </p>
           </div>

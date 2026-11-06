@@ -28,6 +28,8 @@ import {
   Clock
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import LanguageToggle from './LanguageToggle';
+import { useLanguage } from '../contexts/LanguageContext';
 import { dataService } from '../services/firebaseService';
 import { Service, AppSettings } from '../types';
 import { CORE_SERVICES, WHATSAPP_NUMBER, PHONE_NUMBER, INSTAGRAM_URL, YOUTUBE_URL, FACEBOOK_URL } from '../constants';
@@ -37,6 +39,7 @@ import ReviewModal from './ReviewModal';
 import InstallAppButton from './InstallAppButton';
 
 export default function Navbar() {
+  const { t } = useLanguage();
   const { user, profile, login, logout, hasAdminPrivilege, isAdmin, isStaff, viewAsCustomer, toggleAdminView, switchToAdmin, loading, activeRole, setActiveRole } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [services, setServices] = useState<Service[]>(CORE_SERVICES);
@@ -150,7 +153,7 @@ export default function Navbar() {
 
             {/* Desktop Nav */}
             <div className="hidden md:flex items-center space-x-8">
-              <Link to="/" className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider">Home</Link>
+              <Link to="/" className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider">{t('Home', 'होम')}</Link>
               
               {/* Services Dropdown Trigger */}
               <div 
@@ -206,7 +209,7 @@ export default function Navbar() {
               </div>
 
               <Link to="/store" className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider">
-                Store
+                {t('Store', 'स्टोर')}
               </Link>
 
               <a 
@@ -222,7 +225,7 @@ export default function Navbar() {
                 }}
                 className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider"
               >
-                Portfolio
+                {t('Portfolio', 'पोर्टफोलियो')}
               </a>
 
               <a 
@@ -238,7 +241,7 @@ export default function Navbar() {
                 }}
                 className="text-sm font-bold text-navy hover:text-teal transition-colors uppercase tracking-wider"
               >
-                Contact
+                {t('Contact', 'संपर्क')}
               </a>
               
               {hasAdminPrivilege && (
@@ -252,13 +255,14 @@ export default function Navbar() {
                     title="Switch to Admin Panel"
                   >
                     <ShieldCheck size={14} className="text-teal group-hover:text-navy transition-colors" />
-                    <span>Switch to Admin Panel</span>
+                    <span>{t('Admin Panel', 'एडमिन पैनल')}</span>
                   </button>
                 </div>
               )}
             </div>
 
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-3">
+              <LanguageToggle />
               <InstallAppButton variant="navbar" />
               {loading ? (
                 <div className="h-10 w-32 bg-gray-100 animate-pulse rounded-2xl hidden md:block"></div>
@@ -426,7 +430,7 @@ export default function Navbar() {
                     className="hidden md:flex items-center gap-2 bg-teal hover:bg-[#0d9488] text-white font-black rounded-lg px-6 h-12 transition-all uppercase tracking-widest text-[10px] shadow-[0_18px_34px_-20px_rgba(15,118,110,0.9)] active:scale-[0.98]"
                   >
                     <LogIn size={16} />
-                    Login / Sign Up
+                    {t('Login / Sign Up', 'लॉग इन / साइन अप')}
                   </button>
                 </div>
               )}
@@ -434,6 +438,7 @@ export default function Navbar() {
 
             {/* Mobile Menu Controls */}
             <div className="md:hidden flex items-center gap-1.5 sm:gap-2">
+              <LanguageToggle variant="compact" />
               <InstallAppButton variant="navbar" className="px-2.5 py-1 text-[9px] sm:text-[10px]" />
               {appSettings.whatsappNumber && (
                 <motion.a 
@@ -561,9 +566,14 @@ export default function Navbar() {
                     </div>
                   )}
 
+                  <div className="pb-3 border-b border-gray-100 flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t('Select Language', 'भाषा चुनें')}</span>
+                    <LanguageToggle />
+                  </div>
+
                   <div className="space-y-1">
                     <Link to="/" onClick={() => setIsMenuOpen(false)} className="block py-4 text-3xl font-black text-navy uppercase tracking-tighter hover:text-teal transition-all">
-                      Home
+                      {t('Home', 'होम')}
                     </Link>
 
                     {!user ? (
@@ -574,7 +584,7 @@ export default function Navbar() {
                       >
                         <span className="flex items-center gap-3">
                           <LogIn size={26} className="text-teal" />
-                          Login / Sign Up
+                          {t('Login / Sign Up', 'लॉग इन / साइन अप')}
                         </span>
                         <ChevronRight size={22} className="text-gray-300" />
                       </Link>
@@ -589,7 +599,7 @@ export default function Navbar() {
                       >
                         <span className="flex items-center gap-3">
                           <LayoutDashboard size={26} className="text-teal" />
-                          Dashboard
+                          {t('Dashboard', 'डैशबोर्ड')}
                         </span>
                         <ChevronRight size={22} className="text-gray-300" />
                       </Link>
@@ -600,7 +610,7 @@ export default function Navbar() {
                         onClick={() => setIsServicesOpen(!isServicesOpen)}
                         className="flex items-center justify-between w-full py-4 text-3xl font-black text-navy uppercase tracking-tighter hover:text-teal transition-all"
                       >
-                        Services
+                        {t('Services', 'सेवाएं')}
                         <ChevronDown size={24} className={`transition-transform ${isServicesOpen ? 'rotate-180' : ''}`} />
                       </button>
                       

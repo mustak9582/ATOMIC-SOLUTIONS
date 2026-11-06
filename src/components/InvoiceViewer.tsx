@@ -4,6 +4,7 @@ import { dataService } from '../services/firebaseService';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
+import { generateQuotationPDF } from '../utils/quotationGenerator';
 import QRCode from 'qrcode';
 import { toast } from 'sonner';
 import { 
@@ -83,6 +84,9 @@ export default function InvoiceViewer() {
         customerPhone: invoice.customerPhone || '',
         customerAddress: invoice.customerAddress || '',
         customerGSTIN: invoice.customerGSTIN || '',
+        subject: invoice.subject,
+        validUntil: invoice.validUntil,
+        kindAttn: invoice.kindAttn,
         items: (invoice.items || []).map((i: any) => {
           const q = Number(i.quantity) || 1;
           const r = Number(i.rate || i.price) || 0;
@@ -98,9 +102,9 @@ export default function InvoiceViewer() {
         }),
         summary: {
           taxableAmount: (invoice.subTotal || invoice.totalAmount) - (invoice.discount || 0),
-          cgstAmount: (invoice.gstAmount || 0) / 2,
-          sgstAmount: (invoice.gstAmount || 0) / 2,
-          igstAmount: 0,
+          cgstAmount: invoice.cgstAmount ?? (invoice.gstType === 'igst' ? 0 : (invoice.gstAmount || 0) / 2),
+          sgstAmount: invoice.sgstAmount ?? (invoice.gstType === 'igst' ? 0 : (invoice.gstAmount || 0) / 2),
+          igstAmount: invoice.igstAmount ?? (invoice.gstType === 'igst' ? (invoice.gstAmount || 0) : 0),
           freightCharges: invoice.freightCharges || 0,
           discountAmount: invoice.discount || 0,
           roundOff: invoice.roundOff || 0
@@ -122,7 +126,7 @@ export default function InvoiceViewer() {
         qrCodeUrl: qrDataUrl || undefined
       };
       
-      const doc = await generateInvoicePDF(pdfData);
+      const doc = (invoice.type === 'Quotation') ? generateQuotationPDF(pdfData) : await generateInvoicePDF(pdfData);
       const cleanFileName = `${invoice.type || 'Invoice'}_${invoice.estimateNumber || invoice.invoiceNumber || 'No'}`.replace(/[^a-z0-9_-]/gi, '_');
       doc.save(`${cleanFileName}.pdf`);
       toast.success('Invoice Downloaded Successfully');
@@ -262,6 +266,20 @@ export default function InvoiceViewer() {
               )}
             </div>
           </div>
+
+          {/* Subject / Scope banner if present */}
+          {invoice.subject && (
+            <div className="bg-teal/10 border-b border-teal/20 px-6 sm:px-12 py-3.5 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-xs font-bold text-navy">
+                <strong className="uppercase text-teal mr-2 font-black">Subject:</strong> {invoice.subject}
+              </span>
+              {invoice.validUntil && (
+                <span className="text-[11px] font-bold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  Validity: {invoice.validUntil}
+                </span>
+              )}
+            </div>
+          )}
 
           {/* Desktop Table View (Hidden on mobile) */}
           <div className="hidden sm:block overflow-x-auto">

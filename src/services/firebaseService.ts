@@ -170,7 +170,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings', 'expenses'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -352,7 +352,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings', 'expenses'].includes(path)) {
         fetch(`/api/${path}/${encodeURIComponent(id)}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
@@ -424,7 +424,7 @@ export const dataService = {
     } catch (e) {}
 
     try {
-      if (['bookings', 'notifications', 'invoices', 'settings'].includes(path)) {
+      if (['bookings', 'notifications', 'invoices', 'settings', 'expenses'].includes(path)) {
         fetch(`/api/${path}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

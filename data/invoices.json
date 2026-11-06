@@ -1,0 +1,50 @@
+[
+  {
+    "userId": null,
+    "customerName": "Mustak Ansari",
+    "customerPhone": "+919582268658",
+    "customerAddress": "Vill Binjha Kuruwa Post Dumaria P.S Sonaraithari Dist Deoghar\nHome",
+    "customerGSTIN": "",
+    "customerState": "Jharkhand",
+    "customerStateCode": "20",
+    "estimateNumber": "QT-26-27-07",
+    "type": "Quotation",
+    "subject": "",
+    "validUntil": "30 Days",
+    "kindAttn": "",
+    "date": "2026-11-06",
+    "items": [
+      {
+        "id": "1",
+        "name": "hgtygt",
+        "description": "",
+        "hsn": "",
+        "rate": 1611616,
+        "quantity": 1,
+        "unit": "Unit",
+        "type": "Labor"
+      }
+    ],
+    "subTotal": 1611616,
+    "discount": 0,
+    "freightCharges": 0,
+    "roundOff": 0,
+    "gstPercentage": 0,
+    "gstAmount": 0,
+    "gstType": "cgst_sgst",
+    "cgstAmount": 0,
+    "sgstAmount": 0,
+    "igstAmount": 0,
+    "totalAmount": 1611616,
+    "paidAmount": 0,
+    "balanceDue": 1611616,
+    "paymentMode": "UPI",
+    "paymentStatus": "Unpaid",
+    "bankDetails": "NAME: ATOMIC SOLUTIONS\nBANK NAME: State Bank of India\nIFSC CODE: SBIN0012551\nA/C: 45644909906\nBRANCH: SONARAITHARI\nPAN: CVVPA9010L",
+    "terms": "E & O.E\n1. Payment: Full payment is due within 15 day\n2. Interest @ 18% p.a. will be charged if the payment for Atomic Solutions is not made within 15 days.\n3. Jurisdiction: Subject to Deoghar Jurisdiction only.",
+    "declaration": "E & O.E\n1. Payment: Full payment is due within 15 day\n2. Interest @ 18% p.a. will be charged if the payment for Atomic Solutions is not made within 15 days.\n3. Jurisdiction: Subject to Deoghar Jurisdiction only.\n",
+    "status": "Draft",
+    "timestamp": "2026-11-06T08:50:21.396Z",
+    "id": "invoices_1793955021396_zkw7e3"
+  }
+]

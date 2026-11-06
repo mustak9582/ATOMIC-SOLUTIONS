@@ -607,6 +607,79 @@ CRITICAL MULTILINGUAL & UNLIMITED CONTINUOUS Q&A RULES:
     list = list.filter(i => i.id !== id);
     saveStoredInvoices(list);
     res.json({ success: true, message: 'Invoice deleted' });
+
+  // --- Persistent Expenses Storage ---
+  const expensesFilePath = path.join(process.cwd(), 'data', 'expenses.json');
+  const getStoredExpenses = (): any[] => {
+    try {
+      if (!fs.existsSync(path.dirname(expensesFilePath))) {
+        fs.mkdirSync(path.dirname(expensesFilePath), { recursive: true });
+      }
+      if (fs.existsSync(expensesFilePath)) {
+        const raw = fs.readFileSync(expensesFilePath, 'utf-8');
+        return JSON.parse(raw);
+      }
+    } catch (e) {
+      console.error('Error reading expenses.json:', e);
+    }
+    return [];
+  };
+
+  const saveStoredExpenses = (data: any[]) => {
+    try {
+      if (!fs.existsSync(path.dirname(expensesFilePath))) {
+        fs.mkdirSync(path.dirname(expensesFilePath), { recursive: true });
+      }
+      fs.writeFileSync(expensesFilePath, JSON.stringify(data, null, 2), 'utf-8');
+    } catch (e) {
+      console.error('Error saving expenses.json:', e);
+    }
+  };
+
+  app.get('/api/expenses', (_req, res) => {
+    res.json(getStoredExpenses());
+  });
+
+  app.post('/api/expenses', (req, res) => {
+    const newExpense = req.body;
+    if (!newExpense) return res.status(400).json({ error: 'Expense payload required' });
+    const id = newExpense.id || `exp_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const full = { ...newExpense, id };
+    const list = getStoredExpenses();
+    const existingIdx = list.findIndex(i => i.id === id);
+    if (existingIdx !== -1) {
+      list[existingIdx] = { ...list[existingIdx], ...full };
+    } else {
+      list.unshift(full);
+    }
+    saveStoredExpenses(list);
+    res.json({ success: true, expense: full });
+  });
+
+  app.patch('/api/expenses/:id', (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    const list = getStoredExpenses();
+    const idx = list.findIndex(i => i.id === id);
+    if (idx !== -1) {
+      list[idx] = { ...list[idx], ...updates };
+      saveStoredExpenses(list);
+      res.json({ success: true, expense: list[idx] });
+    } else {
+      const created = { ...updates, id };
+      list.unshift(created);
+      saveStoredExpenses(list);
+      res.json({ success: true, expense: created });
+    }
+  });
+
+  app.delete('/api/expenses/:id', (req, res) => {
+    const { id } = req.params;
+    let list = getStoredExpenses();
+    list = list.filter(i => i.id !== id);
+    saveStoredExpenses(list);
+    res.json({ success: true, message: 'Expense deleted' });
+  });
   });
 
   // --- Persistent Settings Storage ---

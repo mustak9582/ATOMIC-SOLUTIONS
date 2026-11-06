@@ -4,7 +4,7 @@ import { logoBase64, signatureBase64, qrCodeBase64 } from './pdfAssets';
 const autoTable = (autoTablePkg as any).default || autoTablePkg;
 
 export interface PDFInvoiceData {
-  type: 'Invoice' | 'Estimate' | 'Simple Invoice' | 'Tax Invoice';
+  type: 'Invoice' | 'Estimate' | 'Simple Invoice' | 'Tax Invoice' | 'Quotation';
   number: string;
   date: string;
   customerName: string;
@@ -12,6 +12,9 @@ export interface PDFInvoiceData {
   customerAddress?: string;
   customerState?: string;
   customerGSTIN?: string;
+  subject?: string;
+  validUntil?: string;
+  kindAttn?: string;
   shippingName?: string;
   shippingPhone?: string;
   shippingAddress?: string;
@@ -109,6 +112,10 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
 
   if (isEstimate) {
     return (await import('./estimateGenerator')).generateEstimatePDF(data);
+  }
+
+  if (data.type === 'Quotation' || (data.number && (data.number.trim().toUpperCase().startsWith('QT-') || data.number.trim().toUpperCase().startsWith('QT/')))) {
+    return (await import('./quotationGenerator')).generateQuotationPDF(data);
   }
 
   const doc = new jsPDF('p', 'mm', 'a4') as any;

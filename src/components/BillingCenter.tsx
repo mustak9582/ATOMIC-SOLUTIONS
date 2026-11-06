@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { generateInvoicePDF, PDFInvoiceData } from '../utils/pdfGenerator';
+import { generateQuotationPDF } from '../utils/quotationGenerator';
 import QRCode from 'qrcode';
 import { 
   Plus, 
@@ -29,6 +30,7 @@ import { DEFAULT_APP_SETTINGS, getMergedSettings, formatBankDetailsString } from
 import { toast } from 'sonner';
 import { dataService } from '../services/firebaseService';
 import { autoDetectStateCode } from '../utils/stateCodeHelper';
+import { validateGSTIN } from '../utils/gstHelper';
 import { getFinancialYearString, getDefaultSerialNumber, getNextSerialNumberForInvoices } from '../utils/serialNumberHelper';
 
 const commonUnits = ['Nos', 'Meter', 'Unit', 'HP', 'Job', 'Sq.Ft.', 'Sq. Ft.', 'Square Feet', 'Per Sq. Ft.', 'Kg'];
@@ -70,8 +72,12 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [estimateNumber, setEstimateNumber] = useState(() => getDefaultSerialNumber('Estimate'));
   const [upiId, setUpiId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice'>('Estimate');
+  const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice' | 'Quotation'>('Estimate');
+  const [invoiceSubtype, setInvoiceSubtype] = useState<'B2B' | 'B2C'>('B2B');
   const [copyType, setCopyType] = useState<'Original Copy' | 'Duplicate Copy' | 'Triplicate Copy'>('Original Copy');
+  const [quotationSubject, setQuotationSubject] = useState('');
+  const [quotationValidUntil, setQuotationValidUntil] = useState('30 Days');
+  const [quotationKindAttn, setQuotationKindAttn] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showEditor, setShowEditor] = useState(false);
 
@@ -79,6 +85,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const isTaxInvoice = documentType === 'Tax Invoice';
   const isSimpleInvoice = documentType === 'Simple Invoice';
   const isEstimate = documentType === 'Estimate';
+  const isQuotation = documentType === 'Quotation';
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [ownerGSTIN, setOwnerGSTIN] = useState('');
   const [includeQR, setIncludeQR] = useState(true);
@@ -114,6 +121,21 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [pricingType, setPricingType] = useState<'labour' | 'material'>('labour');
 
   
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const typeParam = searchParams.get('type');
+    if (typeParam === 'Quotation') {
+      setDocumentType('Quotation');
+      setShowEditor(true);
+    } else if (typeParam === 'Tax Invoice' || typeParam === 'Invoice') {
+      setDocumentType('Tax Invoice');
+      setShowEditor(true);
+    } else if (typeParam === 'Estimate') {
+      setDocumentType('Estimate');
+      setShowEditor(true);
+    }
+  }, [location.search]);
+
   useEffect(() => {
     if (prefillBooking) {
       setCustomerName(prefillBooking.userName || '');
@@ -365,16 +387,35 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
 
   const saveToDatabase = async () => {
     if (items.length === 0) return;
+    if (isTaxInvoice && invoiceSubtype === 'B2B') {
+      if (!customerGSTIN || !validateGSTIN(customerGSTIN)) {
+        toast.error('Valid 15-character Customer GSTIN is strictly required for B2B Tax Invoices!');
+        return;
+      }
+    }
     setIsSaving(true);
     try {
+      const posState = customerState || '20 - Jharkhand';
+      const posCode = posState.match(/\b(\d{2})\b/)?.[1] || (customerGSTIN ? customerGSTIN.substring(0, 2) : '20');
+      const isIgst = posCode !== '20';
+      const cgstAmt = isIgst ? 0 : gstAmount / 2;
+      const sgstAmt = isIgst ? 0 : gstAmount / 2;
+      const igstAmt = isIgst ? gstAmount : 0;
+
       const docData: Omit<Invoice, 'id'> = {
         userId: selectedUserId || null,
-        customerName: customerName || 'Valued Customer',
+        customerName: customerName || (isQuotation ? 'Valued Corporate Client' : 'Valued Customer'),
         customerPhone,
         customerAddress,
-        customerGSTIN,
+        customerGSTIN: isTaxInvoice && invoiceSubtype === 'B2C' ? '' : customerGSTIN,
+        customerState: posState,
+        customerStateCode: posCode,
         estimateNumber: estimateNumber || getDefaultSerialNumber(documentType),
         type: documentType,
+        invoiceSubtype: isTaxInvoice ? invoiceSubtype : undefined,
+        subject: isQuotation ? quotationSubject : undefined,
+        validUntil: isQuotation ? quotationValidUntil : undefined,
+        kindAttn: isQuotation ? quotationKindAttn : undefined,
         date: invoiceDate,
         items: items.filter(item => item.name.trim() !== ''),
         subTotal,
@@ -383,7 +424,15 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         roundOff,
         gstPercentage,
         gstAmount,
+        gstType: isIgst ? 'igst' : 'cgst_sgst',
+        cgstAmount: cgstAmt,
+        sgstAmount: sgstAmt,
+        igstAmount: igstAmt,
         totalAmount: total,
+        paidAmount: isInvoice ? total : 0,
+        balanceDue: isInvoice ? 0 : total,
+        paymentMode: payMode,
+        paymentStatus: isInvoice ? 'Paid' : 'Unpaid',
         bankDetails,
         terms,
         declaration,
@@ -409,11 +458,14 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       number: estimateNumber || getDefaultSerialNumber(documentType),
       date: invoiceDate,
       originalDup: copyType,
-      customerName: customerName || 'Valued Customer',
+      customerName: customerName || (isQuotation ? 'Valued Corporate Client' : 'Valued Customer'),
       customerPhone: customerPhone,
       customerAddress: customerAddress,
       customerGSTIN: customerGSTIN,
       customerState: customerState,
+      subject: quotationSubject || undefined,
+      validUntil: quotationValidUntil || undefined,
+      kindAttn: quotationKindAttn || undefined,
       shippingName: !shippingSameAsBilling ? shippingName : undefined,
       shippingPhone: !shippingSameAsBilling ? shippingPhone : undefined,
       shippingAddress: !shippingSameAsBilling ? shippingAddress : undefined,
@@ -463,14 +515,23 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       signatureUrl: settings?.signatureUrl,
       upiId: upiId
     };
+    if (documentType === 'Quotation') {
+      return generateQuotationPDF(pdfData);
+    }
     return await generateInvoicePDF(pdfData, { includeQR });
   };
 
   const handleDownload = async () => {
+    if (isTaxInvoice && invoiceSubtype === 'B2B') {
+      if (!customerGSTIN || !validateGSTIN(customerGSTIN)) {
+        toast.error('Valid 15-character Customer GSTIN is strictly required for B2B Tax Invoices!');
+        return;
+      }
+    }
     try {
       toast.info('Generating PDF...');
       const doc = await generatePDF();
-      const cleanFileName = `${isInvoice ? 'Invoice' : 'Proforma Invoice'}_${estimateNumber}`.replace(/[^a-z0-9_-]/gi, '_');
+      const cleanFileName = `${isQuotation ? 'Quotation' : isInvoice ? 'Invoice' : 'Proforma Invoice'}_${estimateNumber}`.replace(/[^a-z0-9_-]/gi, '_');
       doc.save(`${cleanFileName}.pdf`);
       toast.success('PDF Downloaded Successfully');
       
@@ -487,7 +548,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   };
 
   const handleWhatsAppShare = async () => {
-    const docType = documentType;
+    const docType = isQuotation ? 'Quotation (कोटेशन)' : documentType;
     
     try {
       let savedId = estimateNumber;
@@ -537,18 +598,30 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
           </div>
 
           <div className="flex items-center justify-between md:justify-end gap-2 sm:gap-4">
-             <div className="flex items-center gap-1 sm:gap-2 bg-white/5 p-1 rounded-xl w-full md:w-auto">
+             <div className="flex items-center gap-1 sm:gap-2 bg-white/5 p-1 rounded-xl w-full md:w-auto overflow-x-auto">
                <button 
                  type="button"
                  onClick={() => {
                    setDocumentType('Estimate');
                    setEstimateNumber(getNextSerialNumberForInvoices('Estimate', savedInvoicesList));
                  }}
-                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
+                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer whitespace-nowrap ${
                    documentType === 'Estimate' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
                  }`}
                >
-                 Proforma Invoice
+                 Proforma
+               </button>
+               <button 
+                 type="button"
+                 onClick={() => {
+                   setDocumentType('Quotation');
+                   setEstimateNumber(getNextSerialNumberForInvoices('Quotation', savedInvoicesList));
+                 }}
+                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer whitespace-nowrap ${
+                   documentType === 'Quotation' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
+                 }`}
+               >
+                 Quotation (कोटेशन)
                </button>
                <button 
                  type="button"
@@ -556,7 +629,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                    setDocumentType('Tax Invoice');
                    setEstimateNumber(getNextSerialNumberForInvoices('Tax Invoice', savedInvoicesList));
                  }}
-                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer ${
+                 className={`flex-1 md:flex-initial px-3 sm:px-4 py-2 rounded-lg text-[10px] sm:text-xs font-black uppercase transition-all text-center cursor-pointer whitespace-nowrap ${
                    documentType === 'Tax Invoice' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
                  }`}
                >
@@ -670,7 +743,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
               </div>
               <div className="text-right space-y-4">
                 <div className="inline-block bg-navy px-6 py-2 rounded-xl">
-                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isInvoice ? 'Tax Invoice' : 'Proforma Invoice'}</h3>
+                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isQuotation ? 'Quotation (कोटेशन)' : isInvoice ? 'Tax Invoice' : 'Proforma Invoice'}</h3>
                 </div>
 
                 {/* Copy Type Selection (Original / Duplicate / Triplicate) */}
@@ -909,6 +982,44 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                  </div>
                </div>
             </div>
+
+            {/* Quotation Specific Details */}
+            {isQuotation && (
+              <div className="p-4 sm:p-6 md:p-8 border-b border-teal/20 bg-teal/5">
+                <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
+                  <span className="w-2 h-2 bg-teal rounded-full" /> Quotation & Work Proposal Scope (कंपनी कोटेशन विवरण)
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="md:col-span-2">
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Subject / Project Reference (विषय / प्रोजेक्ट संदर्भ) *</label>
+                    <input 
+                      placeholder="उदा. Commercial Rate Proposal for VRF AC Installation and Copper Piping Work"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
+                      value={quotationSubject}
+                      onChange={(e) => setQuotationSubject(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Proposal Validity (मान्यता अवधि)</label>
+                    <input 
+                      placeholder="e.g. 30 Days from issue"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
+                      value={quotationValidUntil}
+                      onChange={(e) => setQuotationValidUntil(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Kind Attn / Attention To (संपर्क अधिकारी)</label>
+                    <input 
+                      placeholder="उदा. Mr. Rajesh Sharma, Project Manager"
+                      className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
+                      value={quotationKindAttn}
+                      onChange={(e) => setQuotationKindAttn(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Dynamic Items Table */}
             <div className="flex-1 p-0">
@@ -1408,16 +1519,28 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       <h2 className="text-3xl font-black text-navy uppercase tracking-tight mb-4">Professional Billing System</h2>
       <p className="text-gray-400 font-medium mb-12 text-center max-w-md"> Create secure, company-branded estimates and invoices in seconds with our professional builder.</p>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full max-w-xl">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 w-full max-w-3xl">
         <Button 
           onClick={() => {
             setDocumentType('Estimate');
             setEstimateNumber(getNextSerialNumberForInvoices('Estimate', savedInvoicesList));
             setShowEditor(true);
           }}
-          className="bg-navy text-white h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
+          className="bg-navy text-white h-24 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform flex flex-col items-center justify-center gap-1 shadow-md"
         >
-          Create Proforma Invoice
+          <span>Create Proforma</span>
+          <span className="text-[9px] text-teal/80 font-bold lowercase">PI-26-27-XX</span>
+        </Button>
+        <Button 
+          onClick={() => {
+            setDocumentType('Quotation');
+            setEstimateNumber(getNextSerialNumberForInvoices('Quotation', savedInvoicesList));
+            setShowEditor(true);
+          }}
+          className="bg-gradient-to-br from-[#002b54] to-[#001f3f] text-teal border border-teal/40 h-24 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform flex flex-col items-center justify-center gap-1 shadow-lg shadow-navy/20"
+        >
+          <span>कंपनी कोटेशन (Quotation)</span>
+          <span className="text-[9px] text-white/80 font-bold lowercase">QT-26-27-XX (Corporate)</span>
         </Button>
         <Button 
           onClick={() => {
@@ -1425,9 +1548,10 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             setEstimateNumber(getNextSerialNumberForInvoices('Tax Invoice', savedInvoicesList));
             setShowEditor(true);
           }}
-          className="bg-teal text-navy h-20 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform"
+          className="bg-teal text-navy h-24 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform flex flex-col items-center justify-center gap-1 shadow-lg shadow-teal/20"
         >
-          Create Tax Invoice
+          <span>Create Tax Invoice</span>
+          <span className="text-[9px] text-navy/70 font-bold lowercase">AS-26-27-XX (GST)</span>
         </Button>
       </div>
 

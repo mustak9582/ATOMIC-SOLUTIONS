@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Download, Smartphone, Check, X, Sparkles } from 'lucide-react';
 import { usePWA } from '../contexts/PWAContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface InstallAppButtonProps {
@@ -15,6 +16,7 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
   onInstalledAction,
 }) => {
   const { promptInstall, isInstalled, isStandalone } = usePWA();
+  const { t } = useLanguage();
   const [isDismissed, setIsDismissed] = useState(false);
 
   // If already installed and running as standalone app, don't show the banner or install prompt
@@ -35,7 +37,7 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
       return (
         <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal/10 text-teal text-[10px] font-black uppercase tracking-wider ${className}`}>
           <Check size={12} className="stroke-[3]" />
-          <span>App Installed</span>
+          <span>{t('App Installed', 'ऐप इंस्टॉल है')}</span>
         </span>
       );
     }
@@ -55,7 +57,7 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
           className="absolute inset-0 w-1/2 h-full bg-gradient-to-r from-transparent via-white/20 to-transparent skew-x-12 pointer-events-none"
         />
         <Download size={13} className="text-white group-hover:translate-y-0.5 transition-transform" />
-        <span className="whitespace-nowrap">Install App</span>
+        <span className="whitespace-nowrap">{t('Install App', 'ऐप इंस्टॉल करें')}</span>
       </motion.button>
     );
   }
@@ -73,20 +75,20 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
           </div>
           {isInstalled || isStandalone ? (
             <span className="text-[8px] bg-teal/20 text-teal font-black px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-              <Check size={10} /> Installed
+              <Check size={10} /> {t('Installed', 'इंस्टॉल है')}
             </span>
           ) : (
             <span className="text-[8px] bg-teal/20 text-teal font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
-              Free Download
+              {t('Free Download', 'फ्री डाउनलोड')}
             </span>
           )}
         </div>
 
         <h4 className="text-sm font-black uppercase tracking-tight text-white mb-1 relative z-10">
-          Atomic Solutions App
+          {t('Atomic Solutions App', 'एटॉमिक सॉल्यूशंस ऐप')}
         </h4>
         <p className="text-[11px] text-slate-300 font-medium mb-4 leading-relaxed relative z-10">
-          Instant 1-tap bookings, service tracking &amp; full offline rate list.
+          {t('Instant 1-tap bookings, service tracking & full offline rate list.', 'तुरंत 1-क्लिक बुकिंग, सर्विस ट्रैकिंग व पूरी रेट लिस्ट।')}
         </p>
 
         <button
@@ -94,7 +96,7 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-teal hover:bg-white text-navy font-black text-xs uppercase tracking-wider shadow-lg shadow-teal/30 hover:text-navy transition-all active:scale-95 cursor-pointer relative z-10"
         >
           <Download size={15} />
-          <span>{isInstalled || isStandalone ? 'App Already Installed' : 'Install App / ऐप इंस्टॉल करें'}</span>
+          <span>{isInstalled || isStandalone ? t('App Already Installed', 'ऐप पहले से इंस्टॉल है') : t('Install App', 'ऐप इंस्टॉल करें')}</span>
         </button>
       </div>
     );
@@ -119,10 +121,10 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
 
             <div className="flex-1 min-w-0 pr-1">
               <h5 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                Install Atomic App <Sparkles size={12} className="text-teal" />
+                {t('Install Atomic App', 'एटॉमिक ऐप इंस्टॉल करें')} <Sparkles size={12} className="text-teal" />
               </h5>
               <p className="text-[11px] text-slate-300 font-medium leading-snug mt-0.5">
-                Fast booking, direct offline access &amp; instant notifications.
+                {t('Fast booking, direct offline access & instant notifications.', 'फास्ट बुकिंग, ऑफलाइन एक्सेस व तुरंत नोटिफिकेशन।')}
               </p>
               
               <div className="flex items-center gap-2 mt-3">
@@ -130,13 +132,13 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
                   onClick={handleClick}
                   className="px-4 py-2 rounded-xl bg-teal hover:bg-teal/80 text-navy font-black text-[11px] uppercase tracking-wider transition-all active:scale-95 cursor-pointer shadow-md"
                 >
-                  Install Now
+                  {t('Install Now', 'अभी इंस्टॉल करें')}
                 </button>
                 <button
                   onClick={() => setIsDismissed(true)}
                   className="px-3 py-2 rounded-xl text-slate-400 hover:text-white text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer"
                 >
-                  Later
+                  {t('Later', 'बाद में')}
                 </button>
               </div>
             </div>
@@ -163,10 +165,12 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
         title="Install Atomic Solutions Web App"
       >
         <Download size={14} className="text-teal" />
-        <span>{isInstalled || isStandalone ? 'App Installed' : 'Install App'}</span>
+        <span>{isInstalled || isStandalone ? t('App Installed', 'ऐप इंस्टॉल है') : t('Install App', 'ऐप इंस्टॉल करें')}</span>
       </button>
     );
   }
+
+  return null;
 
   return null;
 };

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import { Toaster } from './components/ui/sonner';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -184,6 +185,7 @@ const AppContent: React.FC = () => {
             
             <Route path="/admin" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard /> : <Navigate to="/login" replace />} />
             <Route path="/admin/dashboard" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="stats" /> : <Navigate to="/login" replace />} />
+            <Route path="/admin/accounting" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="accounting" /> : <Navigate to="/login" replace />} />
             <Route path="/admin/invoice-generator" element={user && (isAdmin || hasAdminPrivilege) ? <BillingCenter /> : <Navigate to="/login" replace />} />
             <Route path="/admin/bookings" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="bookings" /> : <Navigate to="/login" replace />} />
             <Route path="/admin/invoices" element={user && (isAdmin || hasAdminPrivilege) ? <AdminDashboard initialTab="invoices" /> : <Navigate to="/login" replace />} />
@@ -211,14 +213,16 @@ const AppContent: React.FC = () => {
 function App() {
   return (
     <AppErrorBoundary>
-      <PWAProvider>
-        <AuthProvider>
-          <Router>
-            <Toaster position="top-center" expand={true} richColors />
-            <AppContent />
-          </Router>
-        </AuthProvider>
-      </PWAProvider>
+      <LanguageProvider>
+        <PWAProvider>
+          <AuthProvider>
+            <Router>
+              <Toaster position="top-center" expand={true} richColors />
+              <AppContent />
+            </Router>
+          </AuthProvider>
+        </PWAProvider>
+      </LanguageProvider>
     </AppErrorBoundary>
   );
 }

@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { dataService } from '../../services/firebaseService';
 import { toast } from 'sonner';
 import { cn, maskPhone } from '../../lib/utils';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export interface TabInvoicesProps {
   allInvoices: any[];
@@ -34,6 +35,7 @@ export function TabInvoices({
   handleDeleteInvoice,
   handleBulkDeleteInvoices
 }: TabInvoicesProps) {
+  const { t } = useLanguage();
   const [selectedInvoiceIds, setSelectedInvoiceIds] = useState<string[]>([]);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
@@ -143,6 +145,12 @@ export function TabInvoices({
               className="rounded-2xl px-6 h-12 font-black text-[10px] uppercase tracking-widest"
             >
               Back to Dashboard
+            </Button>
+            <Button 
+              onClick={() => navigate('/admin/accounting')}
+              className="bg-teal hover:bg-teal/90 text-navy rounded-2xl px-5 h-12 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-teal/15"
+            >
+              {t('Accounting & GST Hub', 'व्यापार अकाउंटिंग (GST Suite)')}
             </Button>
             <Button 
               onClick={() => navigate('/admin/invoice-generator')}

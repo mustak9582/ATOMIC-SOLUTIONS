@@ -3,6 +3,7 @@ import { Bot, X, Send, User, Sparkles, Mic, MicOff, AlertCircle, Volume2, CheckC
 import { motion, AnimatePresence } from 'motion/react';
 import { WHATSAPP_NUMBER, CORE_SERVICES } from '../constants';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
 import { dataService } from '../services/firebaseService';
 import { generateLocalAIResponse, generateSmartAIResponse, detectBookingIntent, getServiceRateList, calculateCustomEstimation, getInstallationGuidelines, searchWebKnowledge, BookingIntent } from '../utils/aiKnowledgeEngine';
 
@@ -37,6 +38,7 @@ function BookingCardComponent({
   onConfirmBooking: (cardData: BookingCardData, details: { name: string; phone: string; address: string; date: string }) => void 
 }) {
   const { user, profile } = useAuth();
+  const { t } = useLanguage();
   const [name, setName] = useState(profile?.name || user?.displayName || '');
   const [phone, setPhone] = useState(profile?.phone || '');
   const [address, setAddress] = useState(profile?.address || '');
@@ -193,7 +195,7 @@ function BookingCardComponent({
       {/* 1. Horizontal Scrollable / Sliding Category Carousel */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-wider">
-          <span>Choose Service (स्लाइड करके बदलें 👉)</span>
+          <span>{t('Choose Service (Swipe to select 👉)', 'सर्विस चुनें (स्लाइड करके बदलें 👉)')}</span>
           <span className="text-teal font-extrabold">{getServiceShortName(activeService)}</span>
         </div>
         
@@ -247,9 +249,9 @@ function BookingCardComponent({
             onChange={(e) => setDate(e.target.value)}
             className="w-full bg-slate-800 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-teal"
           >
-            <option value="Today">Today (आज)</option>
-            <option value="Tomorrow">Tomorrow (कल)</option>
-            <option value="Day After Tomorrow">Day After (परसों)</option>
+            <option value="Today">{t('Today', 'आज')}</option>
+            <option value="Tomorrow">{t('Tomorrow', 'कल')}</option>
+            <option value="Day After Tomorrow">{t('Day After Tomorrow', 'परसों')}</option>
             <option value="This Weekend">This Weekend</option>
           </select>
         </div>
@@ -309,6 +311,7 @@ function BookingCardComponent({
 }
 
 function AtomicBotInner() {
+  const { t } = useLanguage();
   const { user, profile, isAdmin } = useAuth();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -803,7 +806,7 @@ function AtomicBotInner() {
               setIsOpen(true);
             }}
             className="bg-navy hover:bg-navy/90 text-white h-10 sm:h-11 rounded-full shadow-[0_6px_20px_rgb(0,0,0,0.25)] flex items-center gap-2 pl-1.5 pr-3.5 sm:pl-2 sm:pr-4 group relative overflow-hidden ring-2 ring-white transition-all cursor-grab active:cursor-grabbing border border-teal/40"
-            title="Atomic AI • कहीं भी ड्रैग करें (Drag anywhere)"
+            title={t("Atomic AI • Drag anywhere", "एटॉमिक AI • कहीं भी ड्रैग करें")}
           >
             <motion.div 
               animate={{ x: ['-100%', '200%'] }}
@@ -873,7 +876,9 @@ class BotErrorBoundary extends React.Component<BotErrorBoundaryProps, BotErrorBo
   }
 }
 
+// Atomic Bot
 export default function AtomicBot() {
+  const { t } = useLanguage();
   return (
     <BotErrorBoundary>
       <AtomicBotInner />

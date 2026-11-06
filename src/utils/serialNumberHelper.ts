@@ -7,31 +7,38 @@ export function getFinancialYearString(date = new Date()): string {
 }
 
 export function getDefaultSerialNumber(
-  docType: 'Estimate' | 'Tax Invoice' | 'Simple Invoice' | 'Invoice', 
+  docType: 'Estimate' | 'Tax Invoice' | 'Simple Invoice' | 'Invoice' | 'Quotation', 
   count = 1
 ): string {
   const fy = getFinancialYearString();
   const num = count.toString().padStart(2, '0');
   if (docType === 'Estimate') {
     return `PI-${fy}-${num}`;
+  } else if (docType === 'Quotation') {
+    return `QT-${fy}-${num}`;
   } else {
     return `AS-${fy}-${num}`;
   }
 }
 
 export function getNextSerialNumberForInvoices(
-  docType: 'Estimate' | 'Tax Invoice' | 'Simple Invoice' | 'Invoice',
+  docType: 'Estimate' | 'Tax Invoice' | 'Simple Invoice' | 'Invoice' | 'Quotation',
   allInvoices: any[] = []
 ): string {
   const fy = getFinancialYearString();
   const isEstimate = docType === 'Estimate';
-  const prefix = isEstimate ? 'PI' : 'AS';
+  const isQuotation = docType === 'Quotation';
+  const prefix = isQuotation ? 'QT' : isEstimate ? 'PI' : 'AS';
   
   let maxNum = 0;
   if (Array.isArray(allInvoices)) {
     allInvoices.forEach(inv => {
       const invType = inv.type || '';
-      const matchesType = isEstimate ? invType === 'Estimate' : invType !== 'Estimate';
+      const matchesType = isQuotation 
+        ? invType === 'Quotation' 
+        : isEstimate 
+          ? invType === 'Estimate' 
+          : (invType !== 'Estimate' && invType !== 'Quotation');
       if (matchesType) {
         const numStr = (inv.estimateNumber || inv.invoiceNumber || inv.number || '').toString();
         // Check for current FY and match number at the end

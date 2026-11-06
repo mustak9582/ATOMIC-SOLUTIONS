@@ -44,7 +44,7 @@ export const CORE_SERVICES: Service[] = [
     detailedDescription: '<p>Professional construction, renovation, and waterproofing services.</p>',
     staffCategory: 'Mason / Civil Worker',
     subCategories: [
-      { id: 'cons-grey', name: 'Grey Structure (Dhalaai तक)', minPrice: 1400, maxPrice: 1800, labourMin: 220, labourMax: 280, materialMin: 1400, materialMax: 1800, unit: 'Sq. Ft' },
+      { id: 'cons-grey', name: 'Grey Structure (RCC & Brickwork)', minPrice: 1400, maxPrice: 1800, labourMin: 220, labourMax: 280, materialMin: 1400, materialMax: 1800, unit: 'Sq. Ft' },
       { id: 'cons-brick-9', name: 'Brick Work (9 inch)', minPrice: 45, maxPrice: 65, labourMin: 12, labourMax: 18, materialMin: 45, materialMax: 65, unit: 'Sq. Ft' },
       { id: 'cons-plaster', name: 'Plaster Work', minPrice: 35, maxPrice: 50, labourMin: 15, labourMax: 22, materialMin: 35, materialMax: 50, unit: 'Sq. Ft' },
       { id: 'cons-waterproof', name: 'Waterproofing (Roof & Basement)', minPrice: 5000, maxPrice: 150000 },

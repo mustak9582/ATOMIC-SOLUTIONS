@@ -166,9 +166,18 @@ export interface Invoice {
   customerPhone?: string;
   customerAddress?: string;
   customerGSTIN?: string;
+  customerState?: string;
+  customerStateCode?: string;
   estimateNumber: string;
-  type: 'Invoice' | 'Estimate';
+  invoiceNumber?: string;
+  type: 'Invoice' | 'Estimate' | 'Tax Invoice' | 'Simple Invoice' | 'Quotation';
+  invoiceSubtype?: 'B2B' | 'B2C';
   date: string;
+  dueDate?: string;
+  validUntil?: string;
+  subject?: string;
+  workScope?: string;
+  kindAttn?: string;
   items: BillingItem[];
   subTotal: number;
   discount: number;
@@ -176,13 +185,81 @@ export interface Invoice {
   roundOff?: number;
   gstPercentage: number;
   gstAmount: number;
+  gstType?: 'cgst_sgst' | 'igst';
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
   totalAmount: number;
+  paidAmount?: number;
+  balanceDue?: number;
+  paymentMode?: string;
+  paymentStatus?: 'Paid' | 'Unpaid' | 'Partial';
+  paymentDate?: string;
+  paymentNotes?: string;
+  bankTransactionId?: string;
+  reconciledWithBank?: boolean;
   bankDetails: string;
   terms: string;
   declaration?: string;
-  status: 'Draft' | 'Sent' | 'Paid' | 'Verification Pending';
+  status: 'Draft' | 'Sent' | 'Paid' | 'Verification Pending' | 'Converted';
   paymentProofUrl?: string;
   timestamp: string;
+  convertedFromEstimateId?: string;
+  convertedAt?: string;
+}
+
+export type ExpenseCategory =
+  | 'Material & Parts'
+  | 'Fuel & Travel'
+  | 'Technician & Labor'
+  | 'Rent & Utilities'
+  | 'Tools & Equipment'
+  | 'Office & Admin'
+  | 'Marketing & Ads'
+  | 'Taxes & Govt Fees'
+  | 'Other';
+
+export type ExpensePaymentMode =
+  | 'SBI Current A/c (Online/UPI/NetBanking)'
+  | 'Cash-in-Hand (Site Petty Cash)'
+  | 'Proprietor Personal Capital'
+  | 'Cash'
+  | 'UPI'
+  | 'Bank Transfer'
+  | 'Cheque'
+  | string;
+
+export interface Expense {
+  id?: string;
+  title: string;
+  category: ExpenseCategory;
+  amount: number;
+  date: string;
+  paymentMode: ExpensePaymentMode;
+  payeeName?: string;
+  vendorName?: string;
+  vendorPhone?: string;
+  vendorGSTIN?: string;
+  vendorState?: string;
+  vendorStateCode?: string;
+  isGstApplicable: boolean;
+  isGstRegisteredVendor?: boolean;
+  is_gst_registered_vendor?: boolean;
+  gstRate?: number; // 0, 5, 12, 18, 28
+  taxableAmount?: number;
+  gstAmount?: number;
+  cgstAmount?: number;
+  sgstAmount?: number;
+  igstAmount?: number;
+  isItcEligible?: boolean; // Input Tax Credit eligibility
+  invoiceNumber?: string;
+  notes?: string;
+  bankTransactionId?: string;
+  bankAccountName?: string;
+  reconciledWithBank?: boolean;
+  financialYear?: string; // e.g. "2026-27"
+  quarter?: 'Q1' | 'Q2' | 'Q3' | 'Q4';
+  createdAt: string;
 }
 
 export interface Visit {
