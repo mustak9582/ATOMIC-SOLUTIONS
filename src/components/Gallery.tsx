@@ -66,39 +66,47 @@ export default function Gallery() {
               </motion.div>
             ))}
 
-            {videos.map((video, idx) => (
-              <motion.div
-                key={`vid-${idx}`}
-                initial={{ opacity: 0, scale: 0.9 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ delay: (images.length + idx) * 0.1 }}
-                whileHover={{ y: -4 }}
-                className="group relative rounded-lg overflow-hidden shadow-[0_20px_40px_-15px_rgba(15,23,42,0.12)] hover:shadow-[0_26px_55px_-24px_rgba(15,23,42,0.24)] transition-all cursor-pointer aspect-square bg-navy"
-              >
-                <iframe 
-                  src={`https://www.youtube.com/embed/${video.url}`} 
-                  className="w-full h-full pointer-events-none" 
-                  title={video.title}
-                />
-                <div className="absolute inset-0 bg-navy/60 group-hover:bg-navy/20 transition-all flex items-center justify-center">
-                   <div className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110">
-                      <Play size={24} fill="currentColor" />
-                   </div>
-                </div>
-                
-                <div className="absolute bottom-6 left-6 right-6">
-                  <h4 className="text-xl font-bold text-white line-clamp-2">{video.title}</h4>
-                </div>
-                
-                <a 
-                  href={`https://www.youtube.com/watch?v=${video.url}`} 
-                  target="_blank" 
-                  rel="noopener noreferrer" 
-                  className="absolute inset-0 z-10"
-                />
-              </motion.div>
-            ))}
+            {videos.map((video, idx) => {
+              const rawUrl = video.url || '';
+              const match = rawUrl.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/);
+              const videoId = match && match[1] ? match[1] : rawUrl;
+
+              return (
+                <motion.div
+                  key={`vid-${idx}`}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: (images.length + idx) * 0.1 }}
+                  whileHover={{ y: -4 }}
+                  className="group relative rounded-lg overflow-hidden shadow-[0_20px_40px_-15px_rgba(15,23,42,0.12)] hover:shadow-[0_26px_55px_-24px_rgba(15,23,42,0.24)] transition-all cursor-pointer aspect-square bg-navy"
+                >
+                  <iframe 
+                    src={`https://www.youtube.com/embed/${videoId}`} 
+                    className="w-full h-full pointer-events-none" 
+                    title={video.title}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                  <div className="absolute inset-0 bg-navy/60 group-hover:bg-navy/20 transition-all flex items-center justify-center">
+                     <div className="w-16 h-16 rounded-full bg-red-600 text-white flex items-center justify-center shadow-2xl transition-transform group-hover:scale-110">
+                        <Play size={24} fill="currentColor" />
+                     </div>
+                  </div>
+                  
+                  <div className="absolute bottom-6 left-6 right-6">
+                    <h4 className="text-xl font-bold text-white line-clamp-2">{video.title}</h4>
+                  </div>
+                  
+                  <a 
+                    href={`https://www.youtube.com/watch?v=${videoId}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer" 
+                    className="absolute inset-0 z-10"
+                  />
+                </motion.div>
+              );
+            })}
           </AnimatePresence>
 
           {images.length === 0 && videos.length === 0 && (

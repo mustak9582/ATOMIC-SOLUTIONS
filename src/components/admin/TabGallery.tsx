@@ -70,19 +70,26 @@ export function TabGallery({
                     variant="outline" 
                     className="rounded-2xl border-gray-200 text-navy font-black text-[10px] uppercase tracking-widest h-14 px-8 hover:bg-gray-50"
                     onClick={() => {
-                      const url = prompt('Enter Video ID (YouTube):');
-                      const title = prompt('Video Title:', 'Work Showcase');
-                      if (url) {
-                         const videos = appSettings.videos || [];
-                         toast.promise(
-                           updateSettings({ videos: [...videos, { id: Date.now().toString(), url, title }] }),
-                           {
-                             loading: 'Adding video...',
-                             success: 'Video Posted Successfully!',
-                             error: 'Failed to add video'
-                           }
-                         );
+                      const input = prompt('Enter YouTube Link or Video ID:');
+                      if (!input) return;
+                      
+                      // Auto-extract Video ID from full YouTube URL, shorts, youtu.be, or raw ID
+                      let videoId = input.trim();
+                      const match = videoId.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/);
+                      if (match && match[1]) {
+                        videoId = match[1];
                       }
+                      
+                      const title = prompt('Video Title:', 'Work Showcase') || 'Work Showcase';
+                      const videos = appSettings.videos || [];
+                      toast.promise(
+                        updateSettings({ videos: [...videos, { id: Date.now().toString(), url: videoId, title }] }),
+                        {
+                          loading: 'Adding video...',
+                          success: 'Video Posted Successfully!',
+                          error: 'Failed to add video'
+                        }
+                      );
                     }}
                   >
                     <Plus size={16} className="mr-2 text-rose-500" /> Add YouTube
