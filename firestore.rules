@@ -2,35 +2,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // -------------------------------------------------------------------------
     // 1. IDENTITY & ADMIN HELPERS
-    // -------------------------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
     
-    function isSignedIn() { return request.auth != null; }
-    
-    function isOwner(userId) { 
-      return isSignedIn() && request.auth.uid == userId; 
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
     
     function isHardcodedAdmin() {
-      return isSignedIn() && 
-             (
-               ('email' in request.auth.token && request.auth.token.email != null && (
-                 request.auth.token.email.lower() == 'mustakansari9582@gmail.com' ||
-                 request.auth.token.email.lower() == 'atomichvacsolutions@gmail.com' ||
-                 request.auth.token.email.lower() == 'atomichvacsolution@gmail.com'
-               )) ||
-               ('phone_number' in request.auth.token && request.auth.token.phone_number == '+919582268658')
-             );
+      return isSignedIn() && (
+        (request.auth.token.email != null && request.auth.token.email in [
+          'mustakansari9582@gmail.com',
+          'atomichvacsolutions@gmail.com',
+          'atomichvacsolution@gmail.com'
+        ]) ||
+        (request.auth.token.phone_number != null && request.auth.token.phone_number == '+919582268658')
+      );
     }
 
-    // Full Admin check (can be used in get/write rules)
-    function isAdmin() { 
+    function isAdmin() {
       return isHardcodedAdmin() || (
         isSignedIn() && 
         exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true
-      ); 
+      );
     }
 
     function isStaff() {
@@ -41,19 +38,10 @@ service cloud.firestore {
       );
     }
 
-    function incoming() { return request.resource.data; }
-    function existing() { return resource.data; }
-
-    // -------------------------------------------------------------------------
     // 0. GLOBAL SAFETY NET
-    // -------------------------------------------------------------------------
     match /{document=**} {
       allow read, write: if false;
     }
-
-    // -------------------------------------------------------------------------
-    // 2. ENTITY PILLARS (Collection Rules)
-    // -------------------------------------------------------------------------
 
     // --- USERS ---
     match /users/{userId} {
@@ -66,37 +54,43 @@ service cloud.firestore {
 
     // --- BOOKINGS ---
     match /bookings/{bookingId} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read: if isAdmin() || isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow update: if isAdmin() || isStaff() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      allow delete: if isAdmin();
     }
 
     // --- SERVICES & CATEGORIES ---
     match /services/{serviceId} {
-      allow read: if true; 
-      allow write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
     match /categories/{categoryId} {
-      allow read: if true; 
-      allow write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
     // --- NOTIFICATIONS ---
     match /notifications/{notifId} {
-      allow read, write: if true;
+      allow read: if isAdmin() || isStaff() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.target == 'all'));
+      allow write: if isAdmin() || isStaff();
     }
 
     // --- GALLERY ---
     match /gallery/{itemId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow write: if isAdmin();
     }
 
-    // --- INVOICES ---
+    // --- INVOICES (Financial Security) ---
     match /invoices/{invoiceId} {
-      allow read, write: if true;
+      allow read: if isAdmin() || isStaff() || (isSignedIn() && (resource.data.userId == request.auth.uid || resource.data.customerUserId == request.auth.uid));
+      allow write: if isAdmin() || isStaff();
     }
 
-    // --- EXPENSES ---
+    // --- EXPENSES (Confidential Accounting) ---
     match /expenses/{expenseId} {
-      allow read, write: if true;
+      allow read, write: if isAdmin() || isStaff();
     }
 
     // --- SETTINGS ---
@@ -107,11 +101,12 @@ service cloud.firestore {
 
     // --- REPORTS ---
     match /reports/{reportId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
-      allow create: if isOwner(incoming().userId);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin();
     }
+
     // --- CHATS ---
     match /chats/{chatId} {
       allow read: if isSignedIn() && (chatId == request.auth.uid || isAdmin());
@@ -135,7 +130,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
     match /store_orders/{orderId} {
-      allow get: if isSignedIn() && (isOwner(existing().userId) || isAdmin());
+      allow get: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
       allow create: if isSignedIn();
       allow update, delete: if isAdmin();

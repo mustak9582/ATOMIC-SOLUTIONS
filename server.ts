@@ -27,6 +27,44 @@ async function startServer() {
   }));
   app.use(express.json());
 
+  // --- SECURITY: In-memory Rate Limiting to prevent API Abuse / AI Quota Exhaustion ---
+  const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
+  const createRateLimiter = (maxRequests: number, windowMs: number) => {
+    return (req: express.Request, res: express.Response, next: express.NextFunction) => {
+      const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0].trim() || req.socket.remoteAddress || 'unknown';
+      const now = Date.now();
+      const userRecord = rateLimitMap.get(ip);
+
+      if (!userRecord || now > userRecord.resetTime) {
+        rateLimitMap.set(ip, { count: 1, resetTime: now + windowMs });
+        return next();
+      }
+
+      if (userRecord.count >= maxRequests) {
+        const retryAfterSec = Math.ceil((userRecord.resetTime - now) / 1000);
+        res.setHeader('Retry-After', retryAfterSec.toString());
+        return res.status(429).json({
+          error: 'Rate limit exceeded. Too many requests. Please wait a moment.',
+          retryAfter: retryAfterSec
+        });
+      }
+
+      userRecord.count += 1;
+      next();
+    };
+  };
+
+  // Housekeeping: Purge expired rate limit windows every 5 minutes
+  setInterval(() => {
+    const now = Date.now();
+    for (const [ip, record] of rateLimitMap.entries()) {
+      if (now > record.resetTime) rateLimitMap.delete(ip);
+    }
+  }, 5 * 60 * 1000);
+
+  const aiChatLimiter = createRateLimiter(25, 60 * 1000); // Max 25 AI queries/minute per IP
+  const generalApiLimiter = createRateLimiter(120, 60 * 1000); // Max 120 API calls/minute per IP
+
   // Health check — sanitized to not leak server internals
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok' });
@@ -151,7 +189,7 @@ async function startServer() {
   });
 
   // --- MULTILINGUAL AI PROXY: Gemini + Free LLM Fallback (100% Lifetime Uptime & Multi-Turn History) ---
-  app.post('/api/chat', async (req, res) => {
+  app.post('/api/chat', aiChatLimiter, async (req, res) => {
     try {
       let userQuery = '';
       let incomingMessages: Array<{ role: string; content?: string; text?: string }> = [];
@@ -171,6 +209,10 @@ async function startServer() {
       }
 
       const cleanQuery = userQuery.trim();
+      if (cleanQuery.length > 3000) {
+        return res.status(400).json({ error: 'Query exceeds allowed maximum length of 3000 characters.' });
+      }
+
       const geminiKey = process.env.GEMINI_API_KEY;
 
       const systemInstructionText = `You are Atomic AI, the official AI consultant & assistant for Atomic Solutions (HVAC, Electrical, Plumbing, Painting, Civil Construction, Deep Cleaning, Home Services & Billing in Deoghar & Jharkhand).

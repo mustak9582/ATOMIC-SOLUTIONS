@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from 'firebase/auth';
 import { 
   getFirestore, 
@@ -66,6 +67,34 @@ const initializeFirebase = async () => {
     app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
     db = getFirestore(app, (firebaseConfig as any)?.firestoreDatabaseId || '(default)');
+
+    // --- FIREBASE APP CHECK INITIALIZATION ---
+    // Protects backend resources (Firestore, Cloud Functions, AI logic) from unauthorized bots & abuse
+    const appCheckKey = import.meta.env.VITE_FIREBASE_APPCHECK_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY;
+    const configuredDebugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
+
+    if (typeof window !== 'undefined') {
+      try {
+        if (import.meta.env.DEV || configuredDebugToken) {
+          (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = configuredDebugToken || true;
+        }
+
+        const effectiveKey = (appCheckKey && !isInvalidValue(appCheckKey))
+          ? appCheckKey
+          : (import.meta.env.DEV ? '6Le-placeholder-debug-key' : null);
+
+        if (effectiveKey) {
+          initializeAppCheck(app, {
+            provider: new ReCaptchaV3Provider(effectiveKey),
+            isTokenAutoRefreshEnabled: true
+          });
+          console.log('[Firebase App Check] Protection active (Debug Token / reCAPTCHA)');
+        }
+      } catch (appCheckErr) {
+        console.warn('[Firebase App Check] Initialization warning:', appCheckErr);
+      }
+    }
+
     _resolveReady(true);
   } catch (error) {
     console.error("Firebase initialization failed:", error);
