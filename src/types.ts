@@ -199,6 +199,7 @@ export interface Invoice {
   bankTransactionId?: string;
   reconciledWithBank?: boolean;
   bankDetails: string;
+  includeBankDetails?: boolean;
   terms: string;
   declaration?: string;
   status: 'Draft' | 'Sent' | 'Paid' | 'Verification Pending' | 'Converted';

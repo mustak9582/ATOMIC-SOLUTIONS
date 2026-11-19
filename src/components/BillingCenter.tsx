@@ -73,7 +73,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const [upiId, setUpiId] = useState('');
   const [invoiceDate, setInvoiceDate] = useState(new Date().toISOString().split('T')[0]);
   const [documentType, setDocumentType] = useState<'Estimate' | 'Tax Invoice' | 'Quotation'>('Estimate');
-  const [invoiceSubtype, setInvoiceSubtype] = useState<'B2B' | 'B2C'>('B2B');
+  const [invoiceSubtype, setInvoiceSubtype] = useState<'B2B' | 'B2C'>('B2C');
   const [copyType, setCopyType] = useState<'Original Copy' | 'Duplicate Copy' | 'Triplicate Copy'>('Original Copy');
   const [quotationSubject, setQuotationSubject] = useState('');
   const [quotationValidUntil, setQuotationValidUntil] = useState('30 Days');
@@ -112,6 +112,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   
   // Footer Options
   const [bankDetails, setBankDetails] = useState('');
+  const [includeBankDetails, setIncludeBankDetails] = useState(false);
   const [terms, setTerms] = useState('1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.');
   const [declaration, setDeclaration] = useState('1. Subject to Deoghar (Jharkhand) jurisdiction\n2. Terms & conditions are subject to our trade policy\n3. Our risk & responsibility ceases after the delivery of goods.\nE. & O.E.');
 
@@ -389,7 +390,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     if (items.length === 0) return;
     if (isTaxInvoice && invoiceSubtype === 'B2B') {
       if (!customerGSTIN || !validateGSTIN(customerGSTIN)) {
-        toast.error('Valid 15-character Customer GSTIN is strictly required for B2B Tax Invoices!');
+        toast.error('Valid 15-character Customer GSTIN is required for B2B Tax Invoices, or switch to B2C (Consumer) for a bill without GSTIN.');
         return;
       }
     }
@@ -433,7 +434,8 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         balanceDue: isInvoice ? 0 : total,
         paymentMode: payMode,
         paymentStatus: isInvoice ? 'Paid' : 'Unpaid',
-        bankDetails,
+        bankDetails: includeBankDetails ? bankDetails : '',
+        includeBankDetails: includeBankDetails,
         terms,
         declaration,
         status: isInvoice ? 'Sent' : 'Draft',
@@ -508,12 +510,12 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         roundOff: roundOff
       },
       totalAmount: total,
-      bankDetails: bankDetails,
+      bankDetails: includeBankDetails ? bankDetails : '',
       terms: terms,
       declaration: declaration,
       logoUrl: logoUrl,
       signatureUrl: settings?.signatureUrl,
-      upiId: upiId
+      upiId: (upiId || settings?.upiId || '').trim()
     };
     if (documentType === 'Quotation') {
       return generateQuotationPDF(pdfData);
@@ -524,7 +526,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   const handleDownload = async () => {
     if (isTaxInvoice && invoiceSubtype === 'B2B') {
       if (!customerGSTIN || !validateGSTIN(customerGSTIN)) {
-        toast.error('Valid 15-character Customer GSTIN is strictly required for B2B Tax Invoices!');
+        toast.error('Valid 15-character Customer GSTIN is required for B2B Tax Invoices, or switch to B2C (Consumer) for a bill without GSTIN.');
         return;
       }
     }
@@ -548,7 +550,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
   };
 
   const handleWhatsAppShare = async () => {
-    const docType = isQuotation ? 'Quotation (कोटेशन)' : documentType;
+    const docType = isQuotation ? 'Quotation' : documentType;
     
     try {
       let savedId = estimateNumber;
@@ -560,7 +562,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
       }
       const shareUrl = `${window.location.origin}/invoice/${savedId}`;
       
-      const message = `Hi ${customerName || 'Valued Customer'},\n\nHope you're doing well! Your ${docType} (#${estimateNumber}) from *ATOMIC SOLUTIONS* is ready.\n\n*Grand Total: ₹ ${total.toLocaleString('en-IN')}*\n\n*View/Download here:* ${shareUrl}\n\nPlease find the details above. We bring comfort to your life!\n\nFounder: Mustak Ansari (PIN: 814149)\nAdmin: +91 95822 68658`;
+      const message = `Hi ${customerName || 'Valued Customer'},\n\nHope you're doing well! Your ${docType} (#${estimateNumber}) from *ATOMIC SOLUTIONS* is ready.\n\n*Grand Total: ₹${total.toLocaleString('en-IN')}*\n\n*View/Download here:* ${shareUrl}\n\nPlease find the details above. We bring comfort to your life!\n\nFounder: Mustak Ansari (PIN: 814149)\nAdmin: +91 95822 68658`;
       
       const targetPhone = (customerPhone || whatsapp);
       window.open(formatWhatsAppLink(targetPhone, message), '_blank');
@@ -621,7 +623,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                    documentType === 'Quotation' ? 'bg-teal text-navy shadow-md font-black' : 'text-white/60 hover:text-white'
                  }`}
                >
-                 Quotation (कोटेशन)
+                 Quotation
                </button>
                <button 
                  type="button"
@@ -743,13 +745,13 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
               </div>
               <div className="text-right space-y-4">
                 <div className="inline-block bg-navy px-6 py-2 rounded-xl">
-                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isQuotation ? 'Quotation (कोटेशन)' : isInvoice ? 'Tax Invoice' : 'Proforma Invoice'}</h3>
+                   <h3 className="text-sm font-black text-white uppercase tracking-widest">{isQuotation ? 'Quotation' : isInvoice ? 'Tax Invoice' : 'Proforma Invoice'}</h3>
                 </div>
 
                 {/* Copy Type Selection (Original / Duplicate / Triplicate) */}
                 <div className="flex flex-col items-end gap-1.5 pt-1">
                   <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">
-                    Copy Type (प्रति प्रकार):
+                    Copy Type:
                   </span>
                   <div className="flex bg-gray-100 p-1 rounded-xl gap-1 border border-gray-200">
                     {(['Original Copy', 'Duplicate Copy', 'Triplicate Copy'] as const).map(type => (
@@ -820,9 +822,43 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
                  {/* Bill To */}
                  <div className="space-y-6">
-                   <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                     <span className="w-2 h-2 bg-teal rounded-full" /> Bill To
-                   </h4>
+                   <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                     <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] flex items-center gap-2">
+                       <span className="w-2 h-2 bg-teal rounded-full" /> Bill To
+                     </h4>
+
+                     {/* B2C vs B2B Toggle for Tax Invoices */}
+                     {isTaxInvoice && (
+                       <div className="flex items-center gap-1 bg-gray-100 p-1 rounded-xl">
+                         <button
+                           type="button"
+                           onClick={() => {
+                             setInvoiceSubtype('B2C');
+                             setCustomerGSTIN('');
+                           }}
+                           className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                             invoiceSubtype === 'B2C'
+                               ? 'bg-navy text-white shadow-sm'
+                               : 'text-gray-500 hover:text-navy'
+                           }`}
+                         >
+                           B2C (Consumer)
+                         </button>
+                         <button
+                           type="button"
+                           onClick={() => setInvoiceSubtype('B2B')}
+                           className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                             invoiceSubtype === 'B2B'
+                               ? 'bg-teal text-navy shadow-sm font-black'
+                               : 'text-gray-500 hover:text-navy'
+                           }`}
+                         >
+                           B2B (Business / GST)
+                         </button>
+                       </div>
+                     )}
+                   </div>
+
                    <div className="space-y-4">
                      <input 
                        placeholder="Customer Full Name"
@@ -852,12 +888,31 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                        onChange={(e) => setCustomerState(e.target.value)}
                        onBlur={() => { if (customerState) setCustomerState(autoDetectStateCode(customerState)); }}
                      />
-                     <input 
-                       placeholder="GSTIN (Optional)"
-                       className="w-full text-sm font-black text-teal placeholder:text-gray-400 outline-none pb-2 border-b border-gray-50 focus:border-teal transition-all"
-                       value={customerGSTIN || ""}
-                       onChange={(e) => setCustomerGSTIN(e.target.value)}
-                     />
+                     <div className="space-y-1">
+                       <input 
+                         placeholder={
+                           isTaxInvoice
+                             ? (invoiceSubtype === 'B2B'
+                                 ? "Customer GSTIN (Required for B2B, e.g. 20XXXXX0000X1Z5)"
+                                 : "Customer GSTIN (Optional for B2C Retail Bill)")
+                             : "GSTIN (Optional)"
+                         }
+                         className="w-full text-sm font-black text-teal placeholder:text-gray-400 outline-none pb-2 border-b border-gray-50 focus:border-teal transition-all"
+                         value={customerGSTIN || ""}
+                         onChange={(e) => {
+                           const val = e.target.value.toUpperCase();
+                           setCustomerGSTIN(val);
+                           if (val.trim().length > 0 && invoiceSubtype === 'B2C' && isTaxInvoice) {
+                             setInvoiceSubtype('B2B');
+                           }
+                         }}
+                       />
+                       {isTaxInvoice && invoiceSubtype === 'B2C' && (
+                         <p className="text-[9px] text-gray-400 font-bold">
+                           💡 B2C Retail Invoice: Customer GST number is NOT required.
+                         </p>
+                       )}
+                     </div>
                    </div>
                  </div>
 
@@ -987,20 +1042,20 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             {isQuotation && (
               <div className="p-4 sm:p-6 md:p-8 border-b border-teal/20 bg-teal/5">
                 <h4 className="text-[10px] font-black text-navy uppercase tracking-[0.2em] mb-4 flex items-center gap-2">
-                  <span className="w-2 h-2 bg-teal rounded-full" /> Quotation & Work Proposal Scope (कंपनी कोटेशन विवरण)
+                  <span className="w-2 h-2 bg-teal rounded-full" /> Quotation & Work Proposal Scope
                 </h4>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   <div className="md:col-span-2">
-                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Subject / Project Reference (विषय / प्रोजेक्ट संदर्भ) *</label>
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Subject / Project Reference *</label>
                     <input 
-                      placeholder="उदा. Commercial Rate Proposal for VRF AC Installation and Copper Piping Work"
+                      placeholder="e.g. Commercial Rate Proposal for VRF AC Installation and Copper Piping Work"
                       className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
                       value={quotationSubject}
                       onChange={(e) => setQuotationSubject(e.target.value)}
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Proposal Validity (मान्यता अवधि)</label>
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Proposal Validity</label>
                     <input 
                       placeholder="e.g. 30 Days from issue"
                       className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
@@ -1009,9 +1064,9 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     />
                   </div>
                   <div>
-                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Kind Attn / Attention To (संपर्क अधिकारी)</label>
+                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block mb-2">Kind Attn / Attention To</label>
                     <input 
-                      placeholder="उदा. Mr. Rajesh Sharma, Project Manager"
+                      placeholder="e.g. Mr. Rajesh Sharma, Project Manager"
                       className="w-full bg-white border border-gray-200 rounded-xl px-3.5 py-2 text-xs font-bold text-navy outline-none focus:border-teal placeholder:text-gray-400"
                       value={quotationKindAttn}
                       onChange={(e) => setQuotationKindAttn(e.target.value)}
@@ -1021,202 +1076,96 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
               </div>
             )}
 
-            {/* Dynamic Items Table */}
+            {/* Dynamic Items Table (Spacious Horizontal Particulars Layout) */}
             <div className="flex-1 p-0">
                <div className="w-full">
-                  {/* DESKTOP TABLE VIEW */}
-                  <div className="hidden md:block overflow-x-auto">
-                    <div className="min-w-[760px]">
-                      <div className="bg-navy text-white text-[10px] font-black uppercase tracking-widest flex items-center py-4 px-6 md:px-12">
-                        <div className="w-12 text-center text-[8px] opacity-70">S.No</div>
-                        <div className="flex-1 px-4">PARTICULARS (Service Name & Details)</div>
-                        <div className="w-24 text-center">HSN</div>
-                        <div className="w-20 text-center">QTY</div>
-                        <div className="w-28 text-center">UNIT (UOM)</div>
-                        <div className="w-28 text-center">RATE (₹)</div>
-                        <div className="w-28 text-right">AMOUNT (₹)</div>
-                        <div className="w-12"></div>
-                      </div>
-                      
-                      <div className="divide-y divide-gray-50 bg-white">
-                        {items.map((item, index) => (
-                          <div key={item.id} className="flex items-start py-6 px-6 md:px-12 group hover:bg-gray-50/50 transition-colors">
-                            <div className="w-12 pt-2 text-center font-black text-navy text-sm">{index + 1}</div>
-                            <div className="flex-1 px-4 space-y-2">
-                              <input 
-                                className="w-full bg-transparent font-black text-base text-navy outline-none placeholder:text-gray-400"
-                                placeholder="Particulars (Service Name / Material)"
-                                value={item.name || ""}
-                                onChange={(e) => updateItem(item.id, 'name', e.target.value)}
-                              />
-                              <textarea 
-                                className="w-full bg-gray-50/50 border border-transparent focus:border-teal/30 focus:bg-white rounded-xl p-3 font-medium text-xs text-gray-500 outline-none transition-all placeholder:text-gray-400 resize-none"
-                                placeholder="Describe details..."
-                                rows={2}
-                                value={item.description || ""}
-                                onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                              />
-                            </div>
-                            <div className="w-24 pt-1 text-center">
-                              <input 
-                                className="w-20 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                placeholder="HSN/SAC"
-                                value={item.hsn || ''}
-                                onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleDetectHsn(item.id, item.name, item.type)}
-                                className="mt-1 text-[9px] font-black text-teal hover:underline flex items-center justify-center gap-0.5 mx-auto cursor-pointer"
-                                title="Search GST Portal & Google AI for HSN/SAC Code"
-                              >
-                                ✨ Detect
-                              </button>
-                            </div>
-                            <div className="w-20 pt-1 text-center">
-                              <input 
-                                type="number"
-                                className="w-16 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                value={(!item.quantity || isNaN(item.quantity)) ? '' : item.quantity}
-                                onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                              />
-                              <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">QTY</p>
-                            </div>
-                            <div className="w-28 pt-1 text-center px-1">
-                              <select
-                                className="w-full bg-white border border-gray-100 rounded-lg py-2 px-1 text-center font-bold text-xs outline-none focus:ring-2 focus:ring-teal/20 cursor-pointer"
-                                value={commonUnits.includes(item.unit || '') ? (item.unit || 'Unit') : 'Custom'}
-                                onChange={(e) => {
-                                  const val = e.target.value;
-                                  if (val === 'Custom') {
-                                    updateItem(item.id, 'unit', '');
-                                  } else {
-                                    updateItem(item.id, 'unit', val);
-                                  }
-                                }}
-                              >
-                                {commonUnits.map((u) => (
-                                  <option key={u} value={u}>{u}</option>
-                                ))}
-                                <option value="Custom">Custom...</option>
-                              </select>
-                              {(!commonUnits.includes(item.unit || '') || item.unit === '') && (
-                                <input 
-                                  className="mt-1 w-full bg-white border border-gray-100 rounded-lg py-1 px-2 text-[10px] font-bold text-center outline-none focus:ring-1 focus:ring-teal/20"
-                                  placeholder="Specify Unit"
-                                  value={item.unit || ''}
-                                  onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
-                                />
-                              )}
-                            </div>
-                            <div className="w-28 pt-1 text-center">
-                              <input 
-                                type="number"
-                                className="w-24 bg-white border border-gray-100 rounded-lg py-2 text-center font-bold text-sm outline-none focus:ring-2 focus:ring-teal/20"
-                                value={(!item.rate || isNaN(item.rate)) ? '' : item.rate}
-                                onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
-                                onFocus={(e) => e.target.select()}
-                              />
-                              <p className="text-[9px] font-black text-gray-300 mt-1 uppercase">Per {item.unit || 'Unit'}</p>
-                            </div>
-                            <div className="w-28 pt-3 text-right font-black text-navy text-base">
-                              ₹{(item.rate * item.quantity).toLocaleString('en-IN')}
-                            </div>
-                            <div className="w-12 pt-3 flex justify-end">
-                              <button 
-                                type="button"
-                                onClick={() => removeItem(item.id)}
-                                className="text-red-200 hover:text-red-500 transition-all p-2 rounded-lg hover:bg-red-50 cursor-pointer"
-                              >
-                                <Trash2 size={18} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
+                  {/* Section Header */}
+                  <div className="bg-navy text-white text-[10px] sm:text-xs font-black uppercase tracking-widest flex items-center justify-between py-3.5 px-4 sm:px-8 border-b border-teal/20">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2 h-2 bg-teal rounded-full" />
+                      <span>Particulars & Items List ({items.length})</span>
                     </div>
+                    <span className="text-[9px] sm:text-[10px] text-teal font-extrabold normal-case tracking-normal">
+                      Full-width Service Name • Auto GST & Amount
+                    </span>
                   </div>
 
-                  {/* MOBILE RESPONSIVE CARD VIEW (Prices & UOM 100% visible) */}
-                  <div className="md:hidden divide-y divide-gray-100 bg-white">
-                    <div className="bg-navy text-white text-[10px] font-black uppercase tracking-wider py-2.5 px-4 flex justify-between items-center">
-                      <span>Items List ({items.length})</span>
-                      <span className="text-teal font-extrabold text-[9px]">UOM & Rates Auto-Calculated</span>
-                    </div>
-
+                  {/* Items List */}
+                  <div className="divide-y divide-gray-100 bg-white">
                     {items.map((item, index) => (
-                      <div key={item.id} className="p-4 space-y-3 bg-white">
-                        {/* Row 1: S.No + Particulars + Delete */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="w-6 h-6 rounded-full bg-navy/10 text-navy font-black text-xs flex items-center justify-center shrink-0">
-                              {index + 1}
-                            </span>
+                      <div key={item.id} className="p-4 sm:p-6 hover:bg-slate-50/60 transition-colors space-y-3 group">
+                        {/* Row 1: S.No + Full Horizontal Particulars (Service Name) + Delete */}
+                        <div className="flex items-center gap-3">
+                          <span className="w-8 h-8 rounded-xl bg-navy text-teal font-black text-xs flex items-center justify-center shrink-0 shadow-sm border border-teal/30">
+                            #{index + 1}
+                          </span>
+                          <div className="flex-1">
                             <input 
-                              className="w-full bg-transparent font-black text-sm text-navy outline-none placeholder:text-gray-400 border-b border-gray-100 focus:border-teal pb-1"
-                              placeholder="Particulars (Service / Material)"
-                              value={item.name || ""}
+                              className="w-full bg-slate-50 hover:bg-white focus:bg-white border border-slate-200 focus:border-teal rounded-xl py-2 px-3.5 font-black text-sm sm:text-base text-navy outline-none placeholder:text-gray-400 transition-all shadow-inner"
+                              placeholder="Particulars (Service Name / Material) — Full service name displayed horizontally"
+                              value={item.name || ''}
                               onChange={(e) => updateItem(item.id, 'name', e.target.value)}
                             />
                           </div>
                           <button 
                             type="button"
                             onClick={() => removeItem(item.id)}
-                            className="text-red-400 hover:text-red-600 p-1.5 rounded-lg hover:bg-red-50 shrink-0 cursor-pointer"
+                            className="text-gray-300 hover:text-red-500 hover:bg-red-50 p-2 rounded-xl transition-all shrink-0 cursor-pointer"
                             title="Remove item"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={18} />
                           </button>
                         </div>
 
-                        {/* Description */}
-                        <textarea 
-                          className="w-full bg-gray-50/70 border border-gray-100 focus:border-teal/30 focus:bg-white rounded-xl p-2.5 font-medium text-xs text-gray-600 outline-none transition-all placeholder:text-gray-400 resize-none"
-                          placeholder="Description / work details..."
-                          rows={2}
-                          value={item.description || ""}
-                          onChange={(e) => updateItem(item.id, 'description', e.target.value)}
-                        />
+                        {/* Row 2: Description / Scope of Work (Full Horizontal Width) */}
+                        <div className="sm:pl-11">
+                          <textarea 
+                            className="w-full bg-slate-50/60 hover:bg-white focus:bg-white border border-slate-100 focus:border-teal/30 rounded-xl p-2.5 font-medium text-xs text-gray-600 outline-none transition-all placeholder:text-gray-400 resize-none"
+                            placeholder="Additional description / scope of work / notes (optional)..."
+                            rows={1}
+                            value={item.description || ''}
+                            onChange={(e) => updateItem(item.id, 'description', e.target.value)}
+                          />
+                        </div>
 
-                        {/* Grid 1: HSN & Quantity */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <div className="flex items-center justify-between mb-1">
-                              <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider">HSN / SAC</label>
-                              <button
-                                type="button"
-                                onClick={() => handleDetectHsn(item.id, item.name, item.type)}
-                                className="text-[9px] font-black text-teal hover:underline flex items-center gap-0.5 cursor-pointer"
-                              >
-                                ✨ Detect
-                              </button>
-                            </div>
+                        {/* Row 3: Horizontal Specs & Pricing Bar (HSN, QTY, UNIT, RATE, AMOUNT) */}
+                        <div className="sm:pl-11 flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
+                          {/* HSN/SAC */}
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                            <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">HSN/SAC:</span>
                             <input 
-                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy outline-none focus:border-teal"
+                              className="w-20 bg-transparent font-bold text-xs text-navy outline-none text-center"
                               placeholder="HSN/SAC"
                               value={item.hsn || ''}
                               onChange={(e) => updateItem(item.id, 'hsn', e.target.value)}
                             />
+                            <button
+                              type="button"
+                              onClick={() => handleDetectHsn(item.id, item.name, item.type)}
+                              className="text-[10px] font-black text-teal hover:underline cursor-pointer"
+                              title="Search GST Portal and Google AI for HSN/SAC Code"
+                            >
+                              ✨ Detect
+                            </button>
                           </div>
-                          <div>
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">Quantity (QTY)</label>
+
+                          {/* QTY */}
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                            <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Qty:</span>
                             <input 
                               type="number"
-                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy text-center outline-none focus:border-teal"
+                              className="w-14 bg-transparent font-bold text-xs text-navy outline-none text-center"
                               value={(!item.quantity || isNaN(item.quantity)) ? '' : item.quantity}
                               onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                               onFocus={(e) => e.target.select()}
                             />
                           </div>
-                        </div>
 
-                        {/* Grid 2: Unit (UOM) & Rate (₹) */}
-                        <div className="grid grid-cols-2 gap-3">
-                          <div>
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">Unit (UOM)</label>
+                          {/* UNIT */}
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                            <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Unit:</span>
                             <select
-                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2 text-xs font-bold text-navy outline-none focus:border-teal cursor-pointer"
+                              className="bg-transparent font-bold text-xs text-navy outline-none cursor-pointer"
                               value={commonUnits.includes(item.unit || '') ? (item.unit || 'Unit') : 'Custom'}
                               onChange={(e) => {
                                 const val = e.target.value;
@@ -1234,41 +1183,40 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                             </select>
                             {(!commonUnits.includes(item.unit || '') || item.unit === '') && (
                               <input 
-                                className="mt-1.5 w-full bg-white border border-gray-200 rounded-lg py-1 px-2 text-[10px] font-bold outline-none focus:border-teal"
-                                placeholder="Enter Unit"
+                                className="w-16 bg-white border border-gray-200 rounded-lg px-2 py-0.5 text-[10px] font-bold text-center outline-none"
+                                placeholder="Specify"
                                 value={item.unit || ''}
                                 onChange={(e) => updateItem(item.id, 'unit', e.target.value)}
                               />
                             )}
                           </div>
-                          <div>
-                            <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider block mb-1">
-                              Rate (₹) / {item.unit || 'Unit'}
-                            </label>
+
+                          {/* RATE */}
+                          <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5">
+                            <span className="text-[9px] font-black uppercase text-gray-400 tracking-wider">Rate (₹):</span>
                             <input 
                               type="number"
-                              className="w-full bg-gray-50 border border-gray-200 rounded-xl py-2 px-2.5 text-xs font-bold text-navy text-right outline-none focus:border-teal"
-                              placeholder="0"
+                              className="w-24 bg-transparent font-bold text-xs text-navy outline-none text-right"
+                              placeholder="0.00"
                               value={(!item.rate || isNaN(item.rate)) ? '' : item.rate}
                               onChange={(e) => updateItem(item.id, 'rate', e.target.value)}
                               onFocus={(e) => e.target.select()}
                             />
                           </div>
-                        </div>
 
-                        {/* Bottom Row: Amount Highlight */}
-                        <div className="flex items-center justify-between bg-teal/10 px-3.5 py-2.5 rounded-xl border border-teal/20">
-                          <span className="text-[10px] font-black text-teal uppercase tracking-wider">Item Total:</span>
-                          <span className="text-sm font-black text-navy">
-                            ₹{(item.rate * item.quantity).toLocaleString('en-IN')}
-                          </span>
+                          {/* TOTAL AMOUNT */}
+                          <div className="ml-auto flex items-center gap-2 bg-teal/10 border border-teal/20 px-4 py-1.5 rounded-xl">
+                            <span className="text-[9px] font-black uppercase text-teal tracking-wider">Amount:</span>
+                            <span className="text-sm font-black text-navy">
+                              ₹{((item.quantity || 0) * (item.rate || 0)).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                </div>
-
-               {/* Table Footer Controls */}
+{/* Table Footer Controls */}
                   <div className="p-12 border-t border-gray-50 flex flex-col md:flex-row justify-between gap-12">
                     <div className="space-y-6">
                         <div className="flex flex-wrap gap-4">
@@ -1379,7 +1327,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                         )}
                         <div className="bg-navy p-6 rounded-3xl flex justify-between items-center shadow-xl shadow-navy/10 mt-6 relative overflow-hidden">
                            <div className="absolute top-0 left-0 w-1 h-full bg-teal" />
-                           <span className="text-2xl font-black text-white relative z-10 ml-auto">₹{total.toLocaleString('en-IN')}</span>
+                           <div className="flex flex-col relative z-10"><span className="text-[10px] font-black uppercase text-teal tracking-widest">Total Payable</span><span className="text-[9px] text-white/50 font-medium">Grand Total</span></div><span className="text-2xl font-black text-white relative z-10 ml-auto">₹{total.toLocaleString('en-IN')}</span>
                         </div>
                      </div>
                   </div>
@@ -1388,37 +1336,53 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
             {/* Footer Terms & Bank */}
             <div className="p-4 sm:p-6 md:p-12 bg-gray-50/30 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-12">
                <div className="space-y-4">
-                  <h6 className="text-[10px] font-black text-navy uppercase tracking-widest">Bank Details & Billing Policy</h6>
+                  <div className="flex items-center justify-between">
+                     <h6 className="text-[10px] font-black text-navy uppercase tracking-widest">Bank Details & Billing Policy</h6>
+                     <label className="flex items-center gap-2 cursor-pointer select-none bg-white px-3 py-1.5 rounded-xl border border-gray-200 hover:border-teal transition-colors shadow-sm">
+                       <input 
+                         type="checkbox"
+                         checked={includeBankDetails}
+                         onChange={(e) => setIncludeBankDetails(e.target.checked)}
+                         className="w-4 h-4 rounded text-teal accent-teal focus:ring-teal cursor-pointer"
+                       />
+                       <span className={`text-[10px] font-black uppercase tracking-wider ${includeBankDetails ? 'text-teal' : 'text-gray-400'}`}>
+                         {includeBankDetails ? 'Bank Details Added' : 'Bank Details Hidden'}
+                       </span>
+                     </label>
+                   </div>
+                   {!includeBankDetails && (
+                     <p className="text-[10px] text-amber-700 font-bold bg-amber-50 p-2.5 rounded-xl border border-amber-200">
+                       Note: Bank details are unticked and will NOT appear on this Proforma Invoice. Check the box above if you want to include bank details.
+                     </p>
+                   )}
                   <textarea 
                     className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 outline-none focus:border-teal resize-none"
                     rows={4}
                     value={bankDetails}
                     onChange={(e) => setBankDetails(e.target.value)}
                   />
-                  <div className="space-y-1.5 pt-2">
-                    <label className="text-[9px] font-black text-navy uppercase tracking-widest block">
-                      Primary UPI ID (for dynamic QR code on Invoices):
-                    </label>
-                    <div className="flex items-center gap-2 w-full bg-white border border-gray-200 rounded-xl px-3 py-2 focus-within:border-teal focus-within:ring-1 focus-within:ring-teal/20 transition-all shadow-sm">
-                      <input 
-                        className="bg-transparent text-xs font-bold text-teal outline-none w-full tracking-wide"
-                        placeholder="e.g. 9582268658@ybl or your-upi-id@bank (Leave blank if not using)"
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                      />
-                      {upiId && (
-                        <button
-                          type="button"
-                          title="Copy UPI ID"
-                          onClick={() => {
-                            navigator.clipboard.writeText(upiId);
-                            toast.success('UPI ID copied to clipboard');
-                          }}
-                          className="shrink-0 p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-teal transition-colors"
-                        >
-                          <Copy size={13} />
-                        </button>
-                      )}
+                  <div className="pt-2">
+                    <div className="p-3.5 bg-teal/5 border border-teal/20 rounded-2xl flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-teal/15 text-teal flex items-center justify-center shrink-0">
+                          <QrCode size={18} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[9px] font-black uppercase tracking-wider text-navy">
+                            Saved UPI for Invoice QR Code
+                          </p>
+                          <p className="text-xs font-mono font-bold text-teal truncate">
+                            {(settings?.upiId || upiId || '').trim() || 'Not Configured (Set in Settings)'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/dashboard/settings')}
+                        className="text-[10px] font-black uppercase tracking-wider text-navy hover:text-teal underline shrink-0 cursor-pointer transition-colors"
+                      >
+                        Change in Settings →
+                      </button>
                     </div>
                   </div>
                </div>
@@ -1452,7 +1416,18 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
           {/* QR Code Toggle Row */}
           <div className="flex items-center justify-center mb-4">
             <button
-              onClick={() => setIncludeQR(prev => !prev)}
+              onClick={() => {
+                const activeUpi = (settings?.upiId || upiId || '').trim();
+                if (!includeQR && !activeUpi) {
+                  toast.error('No UPI ID found! Please configure your UPI ID in Admin Settings > Bank & UPI Details.');
+                  return;
+                }
+                const nextVal = !includeQR;
+                setIncludeQR(nextVal);
+                if (nextVal) {
+                  toast.success(`QR Code enabled! Will generate payment QR using UPI: ${activeUpi}`);
+                }
+              }}
               className={`flex items-center gap-3 px-6 py-3 rounded-2xl border-2 font-black text-xs uppercase tracking-widest transition-all duration-300 ${
                 includeQR
                   ? 'bg-teal/10 border-teal text-teal shadow-[0_0_20px_rgba(15,118,110,0.2)]'
@@ -1539,7 +1514,7 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
           }}
           className="bg-gradient-to-br from-[#002b54] to-[#001f3f] text-teal border border-teal/40 h-24 rounded-3xl font-black text-xs uppercase tracking-widest hover:scale-105 transition-transform flex flex-col items-center justify-center gap-1 shadow-lg shadow-navy/20"
         >
-          <span>कंपनी कोटेशन (Quotation)</span>
+          <span>Company Quotation</span>
           <span className="text-[9px] text-white/80 font-bold lowercase">QT-26-27-XX (Corporate)</span>
         </Button>
         <Button 
@@ -1567,3 +1542,4 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
     </div>
   );
 }
+

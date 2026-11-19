@@ -205,10 +205,10 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
       </Card>
 
       {/* Main Content Area */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div>
         
         {/* Left Column: Active Section Form (8 cols) */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="space-y-6 max-w-5xl mx-auto">
           
           {/* SECTION 1: Company & Branding */}
           {activeSection === 'company' && (
@@ -491,15 +491,28 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
                   </select>
                 </div>
 
+                <div className="space-y-1.5 sm:col-span-2 p-4 bg-teal/5 border border-teal/20 rounded-2xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <QrCode size={18} className="text-teal" />
+                    <span className="text-xs font-black uppercase text-navy tracking-wider">UPI Configuration for Invoices & QR</span>
+                  </div>
+                  <p className="text-[11px] text-gray-600 font-medium leading-relaxed">
+                    Enter your UPI ID or mobile number below. When you check <strong>"Include QR Code on PDF"</strong> in the Invoice Builder, a dynamic payment QR code with the invoice amount will automatically be generated using this UPI ID.
+                  </p>
+                </div>
+
                 <div className="space-y-1.5">
-                  <label className="text-[11px] font-black text-gray-500 tracking-wider uppercase block">Primary UPI ID (for QR & Invoices)</label>
+                  <label className="text-[11px] font-black text-navy tracking-wider uppercase block">
+                    Primary UPI ID / Number (for Invoice QR Code) *
+                  </label>
                   <input
                     type="text"
                     value={formData.upiId || ''}
                     onChange={(e) => handleChange('upiId', e.target.value)}
-                    placeholder="e.g. mustakansari9582-3@okhdfcbank"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-mono font-bold text-xs text-navy outline-none focus:border-teal focus:bg-white transition-all"
+                    placeholder="e.g. 9582268658@ybl or 9582268658@sbi"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-mono font-bold text-xs text-navy outline-none focus:border-teal focus:bg-white transition-all shadow-sm"
                   />
+                  <p className="text-[10px] text-gray-400 font-medium">Used for dynamic scan-and-pay QR on invoices & proforma bills</p>
                 </div>
 
                 <div className="space-y-1.5">
@@ -508,15 +521,16 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
                     type="text"
                     value={formData.upiIdSecondary || ''}
                     onChange={(e) => handleChange('upiIdSecondary', e.target.value)}
-                    placeholder="e.g. 9582268658@ybl"
-                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-mono font-bold text-xs text-navy outline-none focus:border-teal focus:bg-white transition-all"
+                    placeholder="e.g. 9582268658@sbi"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-mono font-bold text-xs text-navy outline-none focus:border-teal focus:bg-white transition-all shadow-sm"
                   />
+                  <p className="text-[10px] text-gray-400 font-medium">Secondary fallback / display UPI</p>
                 </div>
 
                 {/* Custom QR Code Upload */}
                 <div className="sm:col-span-2 p-5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-3">
                   <label className="text-[11px] font-black text-gray-600 tracking-wider uppercase block">Custom Bank QR Code Image (Optional)</label>
-                  <p className="text-[10px] text-gray-500">If omitted, an official Dynamic UPI QR Code is automatically generated from your UPI ID.</p>
+                  <p className="text-[10px] text-gray-500">If omitted, an official Dynamic UPI QR Code is automatically generated from your UPI ID above.</p>
                   <div className="flex items-center gap-4">
                     {formData.qrCodeUrl && (
                       <div className="w-16 h-16 bg-white rounded-xl border border-slate-200 p-1">
@@ -546,6 +560,21 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
                       </Button>
                     )}
                   </div>
+                </div>
+
+                {/* Direct Action Button to Save/Update Bank & UPI */}
+                <div className="sm:col-span-2 pt-4 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-200">
+                  <div className="text-xs text-gray-600 font-medium">
+                    Active UPI ID: <strong className="text-teal font-mono">{formData.upiId || 'Not Configured'}</strong>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleSaveAll}
+                    disabled={isSaving}
+                    className="w-full sm:w-auto bg-teal hover:bg-teal/90 text-navy font-black text-xs uppercase tracking-wider px-6 py-3 rounded-xl shadow-md flex items-center justify-center gap-2"
+                  >
+                    <Save size={14} /> {isSaving ? 'Updating...' : 'Update UPI & Bank Details'}
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -995,117 +1024,6 @@ export function TabSettings({ user, appSettings, setAppSettings, clearAllNotifs,
               <span>Commit & Save All System Settings</span>
             </Button>
           </div>
-        </div>
-
-        {/* Right Column: Live In-App & Invoice Preview Cards (4 cols) */}
-        <div className="lg:col-span-4 space-y-6">
-          
-          {/* Live Bank Summary Card */}
-          <Card className="rounded-[28px] border border-slate-100 shadow-md p-6 bg-white space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-teal font-black text-xs uppercase tracking-wider">
-                <CreditCard size={16} /> Live Bank Box Preview
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  navigator.clipboard.writeText(previewBankDetails);
-                  toast.success('Bank details copied');
-                }}
-                className="p-1.5 bg-slate-100 hover:bg-slate-200 rounded-lg text-gray-600 transition-colors"
-                title="Copy Bank Details"
-              >
-                <Copy size={13} />
-              </button>
-            </div>
-
-            <div className="bg-navy p-4 rounded-2xl text-white space-y-2.5 font-mono text-[11px] leading-relaxed shadow-inner">
-              <div className="text-[10px] text-teal font-bold uppercase tracking-widest border-b border-white/10 pb-1">
-                Printed on Every Invoice
-              </div>
-              {formData.bankName ? (
-                <p className="font-bold truncate text-white">{formData.bankName}</p>
-              ) : null}
-              {formData.bankAccountNumber ? (
-                <p className="text-slate-300 truncate">A/C: <span className="text-white font-bold">{formData.bankAccountNumber}</span></p>
-              ) : null}
-              {formData.bankIfsc ? (
-                <p className="text-slate-300 truncate">IFSC: <span className="text-white font-bold">{formData.bankIfsc}</span></p>
-              ) : null}
-              {formData.bankAccountHolder ? (
-                <p className="text-slate-300 truncate">NAME: <span className="text-white font-bold">{formData.bankAccountHolder}</span></p>
-              ) : null}
-              {formData.bankBranch ? (
-                <p className="text-slate-300 truncate">BRANCH: <span className="text-white font-bold">{formData.bankBranch}</span></p>
-              ) : null}
-              {formData.panNumber ? (
-                <p className="text-slate-300 truncate">PAN: <span className="text-teal font-bold">{formData.panNumber}</span></p>
-              ) : null}
-              {formData.upiId ? (
-                <p className="text-slate-300 truncate">UPI: <span className="text-teal font-bold">{formData.upiId}</span></p>
-              ) : null}
-              {!formData.bankName && !formData.bankAccountNumber && !formData.bankIfsc && !formData.bankAccountHolder && !formData.upiId && (
-                <p className="text-slate-400 italic text-[10px]">
-                  (Bank details currently blank — nothing will be printed on invoices)
-                </p>
-              )}
-            </div>
-
-            <p className="text-[10px] text-gray-400 font-medium italic">
-              * Any change saved in Bank Settings immediately reflects in new PDF downloads & Invoice Viewer.
-            </p>
-          </Card>
-
-          {/* Live Company & Founder Badge */}
-          <Card className="rounded-[28px] border border-slate-100 shadow-md p-6 bg-white space-y-4">
-            <div className="flex items-center gap-2 text-navy font-black text-xs uppercase tracking-wider">
-              <Building2 size={16} className="text-teal" /> Live Branding Preview
-            </div>
-
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
-              <div className="w-12 h-12 bg-white rounded-xl border border-slate-200 p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
-                {formData.logoUrl ? (
-                  <img src={formData.logoUrl} alt="Logo" className="w-full h-full object-contain" />
-                ) : (
-                  <Layers className="text-teal" size={24} />
-                )}
-              </div>
-              <div className="overflow-hidden">
-                <h4 className="font-black text-navy text-xs uppercase truncate">{formData.companyName || 'ATOMIC SOLUTIONS'}</h4>
-                <p className="text-[9px] font-bold text-teal uppercase tracking-widest truncate">{formData.companyTagline || 'We Bring Comfort Life'}</p>
-                <p className="text-[9px] text-gray-400 font-medium truncate mt-0.5">{formData.phone || '+91 95822 68658'}</p>
-              </div>
-            </div>
-
-            <div className="p-3.5 bg-teal/[0.04] rounded-2xl border border-teal/10 space-y-1">
-              <span className="text-[9px] font-black text-teal uppercase tracking-widest block">Founder Information</span>
-              <p className="font-black text-navy text-xs">{formData.founderName || 'Mustak Ansari'}</p>
-              <p className="text-[10px] text-gray-500 font-medium truncate">{formData.founderAddress || 'Binjha, Sonraithari, Deoghar, Jharkhand 814149'}</p>
-            </div>
-          </Card>
-
-          {/* Compliance Card */}
-          <Card className="rounded-[28px] border border-slate-100 shadow-md p-6 bg-white space-y-3">
-            <div className="flex items-center gap-2 text-navy font-black text-xs uppercase tracking-wider">
-              <FileText size={16} className="text-teal" /> Compliance Snapshot
-            </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">GSTIN</span>
-                <span className="font-mono font-bold text-navy text-[11px]">{formData.ownerGSTIN || 'Not Set'}</span>
-              </div>
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">PAN</span>
-                <span className="font-mono font-bold text-navy text-[11px]">{formData.panNumber || 'Not Set'}</span>
-              </div>
-              <div className="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl">
-                <span className="text-[10px] font-bold text-gray-400 uppercase">MSME</span>
-                <span className="font-mono font-bold text-navy text-[11px]">{formData.msmeNumber || 'Not Set'}</span>
-              </div>
-            </div>
-          </Card>
-
         </div>
       </div>
     </div>

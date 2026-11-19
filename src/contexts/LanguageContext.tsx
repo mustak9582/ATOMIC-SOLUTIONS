@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useEffect } from 'react';
 
 export type Language = 'en' | 'hi';
 
@@ -6,37 +6,34 @@ export interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   toggleLanguage: () => void;
-  t: (en: string, hi: string) => string;
+  t: (en: string, hi?: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [language, setLanguageState] = useState<Language>(() => {
+  // Always lock application language to English
+  useEffect(() => {
     try {
-      const saved = localStorage.getItem('atomic_app_language');
-      // Default English as requested by user
-      return (saved === 'hi' || saved === 'en') ? saved : 'en';
-    } catch {
-      return 'en';
-    }
-  });
-
-  const setLanguage = (lang: Language) => {
-    setLanguageState(lang);
-    try {
-      localStorage.setItem('atomic_app_language', lang);
+      localStorage.setItem('atomic_app_language', 'en');
     } catch (e) {
       console.error(e);
     }
+  }, []);
+
+  const language: Language = 'en';
+
+  const setLanguage = (_lang: Language) => {
+    // English only across entire portal
   };
 
   const toggleLanguage = () => {
-    setLanguage(language === 'en' ? 'hi' : 'en');
+    // English only across entire portal
   };
 
-  const t = (en: string, hi: string): string => {
-    return language === 'hi' ? hi : en;
+  // Strictly return the English string at all times
+  const t = (en: string, _hi?: string): string => {
+    return en;
   };
 
   return (
@@ -49,12 +46,11 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 export const useLanguage = (): LanguageContextType => {
   const context = useContext(LanguageContext);
   if (!context) {
-    // Graceful fallback if used outside provider
     return {
       language: 'en',
       setLanguage: () => {},
       toggleLanguage: () => {},
-      t: (en: string, _hi: string) => en
+      t: (en: string, _hi?: string) => en
     };
   }
   return context;

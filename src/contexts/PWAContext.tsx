@@ -31,13 +31,22 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return typeof window !== 'undefined' && !!(window as any).deferredPWAInstallPrompt;
   });
 
-  const [isInstalled, setIsInstalled] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    return (
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      localStorage.getItem('atomic_pwa_installed') === 'true'
+    );
+  });
   const [isIOSModalOpen, setIsIOSModalOpen] = useState(false);
 
   // Check standalone mode (already running as installed app)
   const isStandalone = typeof window !== 'undefined' && (
     window.matchMedia('(display-mode: standalone)').matches ||
-    (window.navigator as any).standalone === true
+    (window.navigator as any).standalone === true ||
+    (typeof document !== 'undefined' && document.referrer.includes('android-app://')) ||
+    (typeof window !== 'undefined' && window.location.search.includes('source=pwa'))
   );
 
   // Check iOS device
@@ -77,6 +86,9 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCanInstall(false);
       setDeferredPrompt(null);
       (window as any).deferredPWAInstallPrompt = null;
+      try {
+        localStorage.setItem('atomic_pwa_installed', 'true');
+      } catch (e) {}
       toast.success('🎉 Atomic Solutions app installed successfully!');
     };
 
@@ -108,6 +120,7 @@ export const PWAProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           toast.success('Installing Atomic Solutions App...');
           setIsInstalled(true);
           setCanInstall(false);
+          try { localStorage.setItem('atomic_pwa_installed', 'true'); } catch (e) {}
         }
         setDeferredPrompt(null);
         (window as any).deferredPWAInstallPrompt = null;

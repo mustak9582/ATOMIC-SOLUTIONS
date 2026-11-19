@@ -566,11 +566,6 @@ export default function Navbar() {
                     </div>
                   )}
 
-                  <div className="pb-3 border-b border-gray-100 flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-gray-400 tracking-widest">{t('Select Language', 'भाषा चुनें')}</span>
-                    <LanguageToggle />
-                  </div>
-
                   <div className="space-y-1">
                     <Link to="/" onClick={() => setIsMenuOpen(false)} className="block py-4 text-3xl font-black text-navy uppercase tracking-tighter hover:text-teal transition-all">
                       {t('Home', 'होम')}

@@ -160,7 +160,7 @@ const AppContent: React.FC = () => {
               user ? (
                 location.search.includes('type=professional') || location.search.includes('role=staff') || activeRole === 'staff' || (!isAdmin && (profile?.isStaff || profile?.staffStatus === 'approved')) ? (
                   <Navigate to="/professional" replace />
-                ) : activeRole === 'admin' ? (
+                ) : (activeRole === 'admin' || isAdmin || hasAdminPrivilege) ? (
                   <Navigate to="/admin" replace />
                 ) : (
                   <Navigate to="/my-account/bookings" replace />

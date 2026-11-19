@@ -98,7 +98,7 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
 
   let dynamicQrCodeUrl = data.qrCodeUrl;
   const targetUpi = (data.upiId || '').trim();
-  if (includeQR && !isEstimate && !dynamicQrCodeUrl && targetUpi) {
+  if (includeQR && !dynamicQrCodeUrl && targetUpi) {
     try {
       const QRCode = (await import('qrcode')).default;
       const upiString = targetUpi.startsWith('upi://')
@@ -111,11 +111,17 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   }
 
   if (isEstimate) {
-    return (await import('./estimateGenerator')).generateEstimatePDF(data);
+    return (await import('./estimateGenerator')).generateEstimatePDF(
+      { ...data, qrCodeUrl: dynamicQrCodeUrl || data.qrCodeUrl },
+      { includeQR }
+    );
   }
 
   if (data.type === 'Quotation' || (data.number && (data.number.trim().toUpperCase().startsWith('QT-') || data.number.trim().toUpperCase().startsWith('QT/')))) {
-    return (await import('./quotationGenerator')).generateQuotationPDF(data);
+    return (await import('./quotationGenerator')).generateQuotationPDF(
+      { ...data, qrCodeUrl: dynamicQrCodeUrl || data.qrCodeUrl },
+      { includeQR }
+    );
   }
 
   const doc = new jsPDF('p', 'mm', 'a4') as any;

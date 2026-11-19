@@ -23,7 +23,7 @@ const autoTable = (autoTablePkg as any).default || autoTablePkg;
  *    - Right: Sub Total (INR), GST Tax (directly above Grand Total), Grand Total (Navy highlight box), and 'ISSUED BY: ATOMIC SOLUTIONS'
  * 6. Page Footer: Bank Transfer Details & Enterprise Portal Notice.
  */
-export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
+export const generateQuotationPDF = (data: PDFInvoiceData, _options?: { includeQR?: boolean }): jsPDF => {
   const doc = new jsPDF({ format: 'a4', unit: 'mm' });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -298,7 +298,8 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
   });
 
   // Precise column widths totaling exactly 190mm (contentWidth)
-  const colWidths = [8, 46, 50, 18, 10, 15, 20, 23];
+  // SL. (10mm) | Item / Service (42mm) | Scope of Work (42mm) | HSN/SAC (16mm) | Quantity (15mm) | Unit (15mm) | Rate (24mm) | Amount (26mm)
+  const colWidths = [10, 42, 42, 16, 15, 15, 24, 26];
   let curColX = margin;
   const colPositions = [curColX];
   colWidths.forEach(w => {
@@ -308,7 +309,7 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
 
   autoTable(doc, {
     startY: currentY,
-    head: [['#', 'Item / Service', 'Description & Scope of Work', 'HSN/SAC', 'Qty', 'Unit', 'Rate (INR)', 'Amount (INR)']],
+    head: [['SL.', 'Item / Service', 'Scope of Work', 'HSN/SAC', 'Quantity', 'Unit', 'Rate', 'Amount']],
     body: tableData,
     margin: { left: margin, right: margin },
     theme: 'grid',
@@ -319,21 +320,25 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
       fontSize: 8,
       halign: 'center',
       cellPadding: 2.8,
-      minCellHeight: 8
+      minCellHeight: 8,
+      lineWidth: 0.15,
+      lineColor: [0, 0, 0]
     },
     bodyStyles: {
       fontSize: 8,
       cellPadding: 3,
-      textColor: [30, 41, 59],
-      valign: 'middle'
+      textColor: [0, 0, 0],
+      valign: 'middle',
+      lineWidth: 0.15,
+      lineColor: [0, 0, 0]
     },
     columnStyles: {
       0: { cellWidth: colWidths[0], halign: 'center' },
       1: { cellWidth: colWidths[1], fontStyle: 'bold', halign: 'left' },
       2: { cellWidth: colWidths[2], halign: 'left' },
-      3: { cellWidth: colWidths[3], halign: 'center' }, // 18mm width for HSN/SAC (never wraps!)
+      3: { cellWidth: colWidths[3], halign: 'center' },
       4: { cellWidth: colWidths[4], halign: 'center' },
-      5: { cellWidth: colWidths[5], halign: 'center' }, // 15mm width for Unit (never wraps!)
+      5: { cellWidth: colWidths[5], halign: 'center' },
       6: { cellWidth: colWidths[6], halign: 'right' },
       7: { cellWidth: colWidths[7], halign: 'right', fontStyle: 'bold' }
     },
@@ -347,12 +352,11 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
   let tableEndY = (doc as any).lastAutoTable.finalY;
 
   // ─────────────────────────────────────────────────────────────
-  // ─────────────────────────────────────────────────────────────
   // 7. ANCHORED BOTTOM SECTION & EXTENDED TABLE GRID LINES
-  //    (Seamlessly draws vertical column lines down to footer,
-  //     exactly as in Proforma & Tax Invoices)
+  //    (Seamlessly draws crisp solid vertical column lines down to footer)
   // ─────────────────────────────────────────────────────────────
-  const totalFooterHeight = 72;
+  const hasBank = Boolean(data.bankDetails && data.bankDetails.trim().length > 0);
+  const totalFooterHeight = hasBank ? 80 : 58;
   let footerBoxStartY = pageHeight - margin - totalFooterHeight;
 
   if (tableEndY > footerBoxStartY) {
@@ -362,15 +366,31 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
   }
 
   // Extend vertical table grid lines seamlessly down to the top of the footer box
+  // Dynamically uses exact computed column divider coordinates from autoTable
+  let activeColPositions: number[] = [];
+  try {
+    const headCells = (doc as any).lastAutoTable?.head?.[0]?.cells;
+    if (headCells && headCells[0]) {
+      activeColPositions.push(headCells[0].x);
+      for (let i = 0; headCells[i]; i++) {
+        activeColPositions.push(headCells[i].x + headCells[i].width);
+      }
+    }
+  } catch (e) {}
+
+  if (activeColPositions.length === 0) {
+    activeColPositions = colPositions;
+  }
+
   doc.setLineWidth(0.15);
-  doc.setDrawColor(218, 224, 233);
-  colPositions.forEach((x) => {
+  doc.setDrawColor(0, 0, 0); // Solid sharp black lines
+  activeColPositions.forEach((x) => {
     doc.line(x, tableEndY, x, footerBoxStartY);
   });
   // Horizontal line sealing the bottom of the table
-  doc.setLineWidth(0.35);
-  doc.setDrawColor(200, 210, 225);
-  doc.line(margin, footerBoxStartY, margin + contentWidth, footerBoxStartY);
+  doc.setLineWidth(0.2);
+  doc.setDrawColor(0, 0, 0);
+  doc.line(activeColPositions[0], footerBoxStartY, activeColPositions[activeColPositions.length - 1], footerBoxStartY);
 
   // ─────────────────────────────────────────────────────────────
   // 8. ANCHORED FOOTER CONTENT:
@@ -397,20 +417,22 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
   doc.text(wordsText, margin + 2, finalY + 8.2);
   const wordsH = Math.max(wordsText.length * 3.5, 4);
 
-  // 2. Dedicated Bank Transfer & Payment Details Card (Clean 2-Column Card)
-  let acName = data.companyName || 'ATOMIC SOLUTIONS';
-  let bankName = 'State Bank of India';
-  let ifscCode = 'SBIN0012551';
-  let acNumber = '45644909906';
-  let branch = 'Sonaraithari';
-  let panNo = 'CVVPA9010L';
+  // 2. Dedicated Bank Transfer & Payment Details Card (ONLY if bankDetails are explicitly provided/checked)
+  let termsY = finalY + 8.5 + wordsH + 2.5;
 
-  const compGSTIN = data.companyGSTIN || data.ownerGSTIN || '';
-  if (compGSTIN && compGSTIN.length >= 12) {
-    panNo = compGSTIN.substring(2, 12);
-  }
+  if (data.bankDetails && data.bankDetails.trim().length > 0) {
+    let acName = data.companyName || 'ATOMIC SOLUTIONS';
+    let bankName = 'State Bank of India';
+    let ifscCode = 'SBIN0012551';
+    let acNumber = '45644909906';
+    let branch = 'Sonaraithari';
+    let panNo = 'CVVPA9010L';
 
-  if (data.bankDetails) {
+    const compGSTIN = data.companyGSTIN || data.ownerGSTIN || '';
+    if (compGSTIN && compGSTIN.length >= 12) {
+      panNo = compGSTIN.substring(2, 12);
+    }
+
     const rawLines = data.bankDetails.split('\n').map(l => l.trim()).filter(Boolean);
     rawLines.forEach(line => {
       const idx = line.indexOf(':');
@@ -432,77 +454,78 @@ export const generateQuotationPDF = (data: PDFInvoiceData): jsPDF => {
         }
       }
     });
+
+    const cardX = margin;
+    const cardY = finalY + 8.5 + wordsH;
+    const cardW = leftWidth;
+    const cardH = 20.5;
+
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(218, 224, 233);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(cardX, cardY, cardW, cardH, 1.5, 1.5, 'FD');
+
+    doc.setFontSize(7.6);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...navyColor);
+    doc.text('Bank Transfer & Payment Details:', cardX + 3, cardY + 4.2);
+
+    const sub1X = cardX + 3;
+    const sub2X = cardX + 55;
+    const row1Y = cardY + 8.2;
+    const row2Y = cardY + 12.2;
+    const row3Y = cardY + 16.2;
+
+    // Row 1
+    doc.setFontSize(6.8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('A/C Name:', sub1X, row1Y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...slateDark);
+    doc.text(acName, sub1X + 16, row1Y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('IFSC Code:', sub2X, row1Y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...navyColor);
+    doc.text(ifscCode, sub2X + 16, row1Y);
+
+    // Row 2
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('Bank Name:', sub1X, row2Y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...slateDark);
+    doc.text(bankName, sub1X + 16, row2Y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('Branch:', sub2X, row2Y);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...slateDark);
+    doc.text(branch, sub2X + 16, row2Y);
+
+    // Row 3
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('A/C No.:', sub1X, row3Y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...slateDark);
+    doc.text(acNumber, sub1X + 16, row3Y);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...textMuted);
+    doc.text('PAN No.:', sub2X, row3Y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...navyColor);
+    doc.text(panNo, sub2X + 16, row3Y);
+
+    termsY = cardY + cardH + 2.5;
   }
 
-  const cardX = margin;
-  const cardY = finalY + 8.5 + wordsH;
-  const cardW = leftWidth;
-  const cardH = 20.5;
-
-  doc.setFillColor(248, 250, 252);
-  doc.setDrawColor(218, 224, 233);
-  doc.setLineWidth(0.3);
-  doc.roundedRect(cardX, cardY, cardW, cardH, 1.5, 1.5, 'FD');
-
-  doc.setFontSize(7.6);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...navyColor);
-  doc.text('Bank Transfer & Payment Details:', cardX + 3, cardY + 4.2);
-
-  const sub1X = cardX + 3;
-  const sub2X = cardX + 55;
-  const row1Y = cardY + 8.2;
-  const row2Y = cardY + 12.2;
-  const row3Y = cardY + 16.2;
-
-  // Row 1
-  doc.setFontSize(6.8);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('A/C Name:', sub1X, row1Y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...slateDark);
-  doc.text(acName, sub1X + 16, row1Y);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('IFSC Code:', sub2X, row1Y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...navyColor);
-  doc.text(ifscCode, sub2X + 16, row1Y);
-
-  // Row 2
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('Bank Name:', sub1X, row2Y);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...slateDark);
-  doc.text(bankName, sub1X + 16, row2Y);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('Branch:', sub2X, row2Y);
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...slateDark);
-  doc.text(branch, sub2X + 16, row2Y);
-
-  // Row 3
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('A/C No.:', sub1X, row3Y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...slateDark);
-  doc.text(acNumber, sub1X + 16, row3Y);
-
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...textMuted);
-  doc.text('PAN No.:', sub2X, row3Y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...navyColor);
-  doc.text(panNo, sub2X + 16, row3Y); // Complete 10-character PAN, 100% visible, never cut off!
-
   // 3. Commercial Terms & Proposal Guidelines
-  const termsY = cardY + cardH + 2.5;
   doc.setFontSize(7.6);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...navyColor);

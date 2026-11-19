@@ -146,11 +146,6 @@ export const AdminSidebar = ({ activeTab, onTabChange, className, onClose }: Sid
           </button>
         ))}
       </div>
-
-      <div className="p-4 border-t border-white/10 flex items-center justify-between">
-        <span className="text-[9px] font-black uppercase tracking-wider text-teal">{t('Language', 'भाषा')}</span>
-        <LanguageToggle theme="dark" />
-      </div>
     </div>
   );
 };

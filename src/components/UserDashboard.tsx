@@ -1167,7 +1167,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                     <Clock3 className="text-teal" size={30} /> My Bookings & Live Status
                   </h2>
                   <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px] mt-1">
-                    मेरी सभी बुकिंग्स, तकनीशियन स्टेटस, पहुंचने का समय और लाइव कार्य प्रगति
+                    {t('View all bookings, technician assignment, arrival time and live progress', 'मेरी सभी बुकिंग्स, तकनीशियन स्टेटस, पहुंचने का समय और लाइव कार्य प्रगति')}
                   </p>
                 </div>
                 <Button
@@ -1441,7 +1441,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                                 </div>
                                 <div>
                                   <h4 className="text-xs font-black uppercase tracking-wider">
-                                    Admin is allocating nearest specialist technician (तकनीशियन असाइन हो रहा है)
+                                    {t('Admin is allocating nearest specialist technician', 'तकनीशियन असाइन हो रहा है')}
                                   </h4>
                                   <p className="text-[10px] text-amber-800/80 font-medium leading-relaxed mt-0.5">
                                     Your service booking has been confirmed. Our operations team is assigning the best verified expert for your location.
@@ -1462,7 +1462,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                             {/* Expected Arrival / Reach Time */}
                             <div className="space-y-1">
                               <p className="text-[8px] font-black text-teal uppercase tracking-widest flex items-center gap-1">
-                                <Clock size={12} /> Reach Time / पहुंचने का समय
+                                <Clock size={12} /> {t('Expected Reach Time', 'पहुंचने का समय')}
                               </p>
                               <p className="text-xs font-black text-navy">
                                 {b.eta ? b.eta : (b.appointmentSlot || 'Standard Slot')}
@@ -1731,26 +1731,6 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                 <h2 className="text-3xl font-black text-navy uppercase tracking-tighter">Profile Settings</h2>
                 <p className="text-gray-400 font-bold uppercase tracking-widest text-[10px]">Manage your personal and billing information</p>
               </header>
-
-              {/* LANGUAGE PREFERENCE FOR CUSTOMERS / USERS */}
-              <div className="bg-gradient-to-r from-teal/15 via-slate-50 to-teal/10 p-6 rounded-[32px] border border-teal/25 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-teal/20 text-teal flex items-center justify-center">
-                      <Globe size={18} />
-                    </div>
-                    <h4 className="text-sm font-black text-navy uppercase tracking-tight">
-                      {t('Preferred Language', 'भाषा प्राथमिकता (Preferred Language)')}
-                    </h4>
-                  </div>
-                  <p className="text-xs text-gray-600 font-medium pl-10">
-                    {t('Select English or Hindi for your entire portal, service bookings, and invoices.', 'अपनी पूरी वेबसाइट, बुकिंग और बिलों के लिए अंग्रेजी या हिन्दी भाषा चुनें।')}
-                  </p>
-                </div>
-                <div className="shrink-0 pl-10 sm:pl-0">
-                  <LanguageToggle />
-                </div>
-              </div>
 
               {(!profile?.phone || !profile?.address) && (
                 <div className="bg-orange-50 border-2 border-orange-100 p-6 rounded-[32px] flex items-center gap-4 animate-pulse">
@@ -2053,7 +2033,7 @@ export default function UserDashboard({ initialSection }: { initialSection?: 'bo
                             <div className="bg-navy/5 p-4 rounded-3xl border border-navy/10 space-y-2">
                               <div className="flex items-center justify-between">
                                 <p className="text-[9px] font-black text-navy uppercase tracking-wider flex items-center gap-1.5">
-                                  <Clock size={12} className="text-teal" /> Set Reach Time / पहुंचने का समय
+                                  <Clock size={12} className="text-teal" /> {t('Set Reach Time', 'पहुंचने का समय')}
                                 </p>
                                 {job.eta && (
                                   <span className="text-[8px] font-black text-teal bg-teal/15 px-2.5 py-0.5 rounded-full border border-teal/20">

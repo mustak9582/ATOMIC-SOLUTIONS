@@ -19,8 +19,8 @@ export const InstallAppButton: React.FC<InstallAppButtonProps> = ({
   const { t } = useLanguage();
   const [isDismissed, setIsDismissed] = useState(false);
 
-  // If already installed and running as standalone app, don't show the banner or install prompt
-  if (isStandalone && (variant === 'banner' || variant === 'navbar')) {
+  // If already installed or running as standalone app, DO NOT show install prompt anywhere
+  if (isInstalled || isStandalone) {
     return null;
   }
 

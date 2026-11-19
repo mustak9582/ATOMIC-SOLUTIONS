@@ -3,7 +3,10 @@ import {
   onAuthStateChanged, 
   User, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
+  signInAnonymously,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   sendPasswordResetEmail,
@@ -47,10 +50,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const ADMIN_EMAILS = [
+export const ADMIN_EMAILS = [
   'mustakansari9582@gmail.com',
   'atomichvacsolutions@gmail.com',
-  'atomichvacsolution@gmail.com'
+  'atomichvacsolution@gmail.com',
+  'mustak9582@gmail.com'
 ];
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -118,6 +122,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Check for incoming redirect sign-in results (e.g. on mobile or after redirect fallback)
+      try {
+        const redirectRes = await getRedirectResult(auth);
+        if (redirectRes?.user) {
+          console.log('[AuthContext] Signed in via redirect:', redirectRes.user.email);
+        }
+      } catch (redirectErr: any) {
+        console.warn('[AuthContext] Redirect login result note:', redirectErr?.message);
+      }
+
       onAuthStateChanged(auth, async (u) => {
         clearTimeout(safetyTimeout);
         try {
@@ -168,6 +182,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const stored = localStorage.getItem('atomic_auth_user');
             if (stored && (stored.includes('admin_mustak_9582') || stored.includes('mustakansari9582@gmail.com'))) {
               // Preserve admin session (e.g. logged in via PIN or master email)
+              setActiveRoleState('admin');
+              setViewAsCustomer(false);
               return;
             }
             setUser(null);
@@ -194,8 +210,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!auth) throw new Error("Firebase Auth not initialized");
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (error) {
-      console.error("Google Login failed:", error);
+    } catch (error: any) {
+      console.warn("Google signInWithPopup error:", error?.code, error?.message);
+      // Fallback to signInWithRedirect if popup fails or is blocked
+      if (
+        error?.code === 'auth/popup-blocked' ||
+        error?.code === 'auth/cancelled-popup-request' ||
+        error?.code === 'auth/popup-closed-by-user' ||
+        error?.code === 'auth/internal-error'
+      ) {
+        try {
+          console.log("Attempting fallback signInWithRedirect...");
+          await signInWithRedirect(auth, googleProvider);
+          return;
+        } catch (redirectErr) {
+          console.error("signInWithRedirect fallback also failed:", redirectErr);
+          throw redirectErr;
+        }
+      }
       throw error;
     }
   };
@@ -237,10 +269,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const loginAsAdminWithPin = async (pin: string) => {
-    const validPins = ['95822', '9582268658', 'admin', 'admin123', 'mustak9582'];
-    if (!validPins.includes(pin.trim())) {
+    const cleanPin = pin.trim().toLowerCase();
+    const validPins = ['95822', '9582268658', 'admin', 'admin123', 'mustak9582', '9582'];
+    if (!validPins.includes(cleanPin)) {
       throw new Error("Invalid Admin Passcode");
     }
+    try {
+      if (auth && !auth.currentUser) {
+        await signInAnonymously(auth);
+      }
+    } catch (e) {}
     const adminUser = {
       uid: 'admin_mustak_9582',
       email: 'mustakansari9582@gmail.com',
@@ -262,8 +300,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     setUser(adminUser as any);
     setProfile(adminProfile);
+    setActiveRoleState('admin');
+    setViewAsCustomer(false);
     localStorage.setItem('atomic_auth_user', safeStringify(adminUser));
     localStorage.setItem('atomic_auth_profile', safeStringify(adminProfile));
+    localStorage.setItem('atomic_active_role', 'admin');
     localStorage.setItem('atomic_view_mode', 'admin');
   };
 

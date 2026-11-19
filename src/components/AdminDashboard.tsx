@@ -112,7 +112,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
     }
   }, [hasAdminPrivilege, isAdmin, switchToAdmin]);
 
-  const [activeTab, setActiveTab] = useState(propInitialTab || 'bookings');
+  const [activeTab, setActiveTab] = useState(propInitialTab || 'stats');
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
   useEffect(() => {
@@ -405,7 +405,7 @@ export default function AdminDashboard({ initialTab: propInitialTab }: { initial
       setActiveTab(propInitialTab);
     } else {
       const hash = window.location.hash.replace('#', '');
-      if (hash && ['bookings', 'users', 'pricing', 'categories', 'reviews', 'billing', 'settings', 'reports', 'staff', 'reviews-share', 'invoices', 'accounting'].includes(hash)) {
+      if (hash && ['stats', 'bookings', 'users', 'pricing', 'categories', 'reviews', 'billing', 'settings', 'reports', 'staff', 'reviews-share', 'invoices', 'accounting'].includes(hash)) {
         setActiveTab(hash);
       }
     }
@@ -1704,7 +1704,7 @@ By: *Atomic Solutions*`;
                 <div className="space-y-1.5 sm:col-span-2 bg-gray-50/80 p-3.5 rounded-2xl border border-gray-100">
                   <div className="flex items-center justify-between">
                     <label className="text-[8px] font-black text-navy uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock size={12} className="text-teal" /> {t('Expected Reach Time / ETA', 'पहुंचने का समय (ETA)')}
+                      <Clock size={12} className="text-teal" /> {t('Expected Reach Time (ETA)', 'पहुंचने का समय (ETA)')}
                     </label>
                     {editEta && (
                       <span className="text-[8px] font-black text-teal bg-teal/10 px-2 py-0.5 rounded-full">

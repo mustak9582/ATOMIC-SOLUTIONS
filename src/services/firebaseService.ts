@@ -37,6 +37,7 @@ const rawStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
 const rawSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
 const rawAppId = import.meta.env.VITE_FIREBASE_APP_ID;
 const rawMeasurementId = import.meta.env.VITE_FIREBASE_MEASUREMENT_ID;
+const rawDatabaseURL = import.meta.env.VITE_FIREBASE_DATABASE_URL;
 
 const firebaseConfig = {
   apiKey: !isInvalidValue(rawApiKey) ? rawApiKey : "AIzaSyDPFEKzp4HoS8D3F2D3wrQYTJGtTUNzL3k",
@@ -44,8 +45,9 @@ const firebaseConfig = {
   projectId: !isInvalidValue(rawProjectId) ? rawProjectId : "atomic-solution",
   storageBucket: !isInvalidValue(rawStorageBucket) ? rawStorageBucket : "atomic-solution.firebasestorage.app",
   messagingSenderId: !isInvalidValue(rawSenderId) ? rawSenderId : "876246031512",
-  appId: !isInvalidValue(rawAppId) ? rawAppId : "1:876246031512:web:893f89aecb8ebe2dab44ed",
-  measurementId: !isInvalidValue(rawMeasurementId) ? rawMeasurementId : "G-QLWLMV8Z6W"
+  appId: !isInvalidValue(rawAppId) ? rawAppId : "1:876246031512:web:5bea159b0202cc95ab44ed",
+  measurementId: !isInvalidValue(rawMeasurementId) ? rawMeasurementId : "G-G5X6GM2RNW",
+  databaseURL: !isInvalidValue(rawDatabaseURL) ? rawDatabaseURL : "https://atomic-solution-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 
 const getFirebaseConfig = async () => {
@@ -69,29 +71,28 @@ const initializeFirebase = async () => {
     db = getFirestore(app, (firebaseConfig as any)?.firestoreDatabaseId || '(default)');
 
     // --- FIREBASE APP CHECK INITIALIZATION ---
-    // Protects backend resources (Firestore, Cloud Functions, AI logic) from unauthorized bots & abuse
     const appCheckKey = import.meta.env.VITE_FIREBASE_APPCHECK_KEY || import.meta.env.VITE_RECAPTCHA_SITE_KEY;
     const configuredDebugToken = import.meta.env.VITE_FIREBASE_APPCHECK_DEBUG_TOKEN;
 
     if (typeof window !== 'undefined') {
       try {
-        if (import.meta.env.DEV || configuredDebugToken) {
+        if (configuredDebugToken || import.meta.env.DEV) {
           (self as any).FIREBASE_APPCHECK_DEBUG_TOKEN = configuredDebugToken || true;
         }
 
-        const effectiveKey = (appCheckKey && !isInvalidValue(appCheckKey))
+        const effectiveKey = (appCheckKey && !isInvalidValue(appCheckKey) && !appCheckKey.includes('placeholder'))
           ? appCheckKey
-          : (import.meta.env.DEV ? '6Le-placeholder-debug-key' : null);
+          : null;
 
         if (effectiveKey) {
           initializeAppCheck(app, {
             provider: new ReCaptchaV3Provider(effectiveKey),
             isTokenAutoRefreshEnabled: true
           });
-          console.log('[Firebase App Check] Protection active (Debug Token / reCAPTCHA)');
+          console.log('[Firebase App Check] Protection active with reCAPTCHA key');
         }
       } catch (appCheckErr) {
-        console.warn('[Firebase App Check] Initialization warning:', appCheckErr);
+        console.warn('[Firebase App Check] Initialization skipped:', appCheckErr);
       }
     }
 
@@ -183,8 +184,9 @@ export const dataService = {
 
   async setDoc(path: string, id: string, data: any) {
     unmarkIdDeleted(path, id);
+    const now = Date.now();
     const sanitized = sanitizeForFirestore(data);
-    const full = { ...sanitized, id };
+    const full = { ...sanitized, id, _updatedAt: now };
 
     try {
       if (typeof window !== 'undefined') {
@@ -208,11 +210,13 @@ export const dataService = {
       }
     } catch (e) {}
 
+    await firebaseReady;
     if (db) {
       try {
-        await setDoc(doc(db, path, id), sanitized, { merge: true });
+        await setDoc(doc(db, path, id), { ...sanitized, _updatedAt: now }, { merge: true });
+        console.log(`[Firestore] Successfully persisted ${path}/${id}`);
       } catch (err: any) {
-        console.warn(`Firestore setDoc fallback on ${path}:`, err?.message || err);
+        console.warn(`Firestore setDoc error on ${path}:`, err?.message || err);
       }
     }
   },
@@ -272,7 +276,23 @@ export const dataService = {
 
       const map = new Map<string, any>();
       localDocs.filter(isValid).forEach(d => { if (d && d.id) map.set(d.id, d); });
-      fsDocs.filter(isValid).forEach(d => { if (d && d.id) map.set(d.id, { ...(map.get(d.id) || {}), ...d }); });
+
+      fsDocs.filter(isValid).forEach(fsItem => {
+        if (!fsItem || !fsItem.id) return;
+        const localItem = map.get(fsItem.id);
+        if (!localItem) {
+          map.set(fsItem.id, fsItem);
+        } else {
+          const localTime = Number(localItem._updatedAt || 0);
+          const fsTime = Number(fsItem._updatedAt || 0);
+          // If local has newer timestamp, keep local changes so stale snapshots never wipe them
+          if (localTime > fsTime) {
+            map.set(fsItem.id, { ...fsItem, ...localItem });
+          } else {
+            map.set(fsItem.id, { ...localItem, ...fsItem });
+          }
+        }
+      });
 
       let list = Array.from(map.values()).filter(isValid);
       if (constraints && constraints.length > 0) {

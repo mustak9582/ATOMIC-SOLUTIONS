@@ -150,7 +150,7 @@ export function TabInvoices({
               onClick={() => navigate('/admin/accounting')}
               className="bg-teal hover:bg-teal/90 text-navy rounded-2xl px-5 h-12 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-teal/15"
             >
-              {t('Accounting & GST Hub', 'व्यापार अकाउंटिंग (GST Suite)')}
+              {t('Accounting & GST Hub', 'व्यापार अकाउंटिंग व जीएसटी')}
             </Button>
             <Button 
               onClick={() => navigate('/admin/invoice-generator')}

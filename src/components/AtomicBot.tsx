@@ -109,7 +109,7 @@ function BookingCardComponent({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !phone.trim() || !address.trim()) {
-      alert('कृपया अपना नाम, मोबाइल नंबर और पता भरें।');
+      alert('Please fill in your name, mobile number, and address.');
       return;
     }
     setIsSubmitting(true);
@@ -482,7 +482,7 @@ function AtomicBotInner() {
     if (bookingIntent) {
       const botMsg: Message = {
         id: (Date.now() + 1).toString(),
-        text: `⚡ **सर्विस बुकिंग विंडो (Direct Service Booking)**\n\nआप नीचे दिए गए स्लाइडर से कोई भी सर्विस (जैसे AC, इलेक्ट्रिकल, प्लंबिंग, पेंटिंग, सिविल वर्क, सफ़ाई) चुन सकते हैं और तारीख/समय सेट करके बुक कर सकते हैं:`,
+        text: `⚡ **Service Booking Window (Direct Service Booking)**\n\nUse the slider below to choose any service (e.g. AC, Electrical, Plumbing, Painting, Civil Work, Cleaning), set a date/time, and book:`,
         isBot: true,
         time: new Date(),
         bookingCard: {
@@ -592,7 +592,7 @@ function AtomicBotInner() {
       try {
         const webRes = await searchWebKnowledge(text);
         if (webRes && webRes.text) {
-          replyText = `💡 **जानकारी (${webRes.source})**:\n\n${webRes.text}`;
+          replyText = `💡 **Info (${webRes.source})**:\n\n${webRes.text}`;
         }
       } catch (e) {}
     }
