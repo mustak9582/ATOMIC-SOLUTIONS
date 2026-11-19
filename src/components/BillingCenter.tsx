@@ -195,7 +195,11 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
         if (s.upiId !== undefined) setUpiId(s.upiId);
         if (s.defaultTerms !== undefined) setTerms(s.defaultTerms);
         if (s.defaultDeclaration !== undefined) setDeclaration(s.defaultDeclaration);
-        setBankDetails(formatBankDetailsString(s));
+        const formattedBank = formatBankDetailsString(s);
+        setBankDetails(formattedBank);
+        if (formattedBank.trim().length > 0) {
+          setIncludeBankDetails(true);
+        }
       }
     });
 
@@ -1359,7 +1363,12 @@ export default function BillingCenter({ services: propServices, whatsapp: propWh
                     className="w-full bg-white border border-gray-100 rounded-2xl p-4 text-[10px] font-bold text-gray-400 outline-none focus:border-teal resize-none"
                     rows={4}
                     value={bankDetails}
-                    onChange={(e) => setBankDetails(e.target.value)}
+                    onChange={(e) => {
+                      setBankDetails(e.target.value);
+                      if (e.target.value.trim().length > 0 && !includeBankDetails) {
+                        setIncludeBankDetails(true);
+                      }
+                    }}
                   />
                   <div className="pt-2">
                     <div className="p-3.5 bg-teal/5 border border-teal/20 rounded-2xl flex items-center justify-between gap-3">

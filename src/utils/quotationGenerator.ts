@@ -313,6 +313,11 @@ export const generateQuotationPDF = (data: PDFInvoiceData, _options?: { includeQ
     body: tableData,
     margin: { left: margin, right: margin },
     theme: 'grid',
+    didParseCell: (hookData: any) => {
+      if (hookData.column && colWidths[hookData.column.index] !== undefined) {
+        hookData.cell.styles.cellWidth = colWidths[hookData.column.index];
+      }
+    },
     headStyles: {
       fillColor: navyColor,
       textColor: [255, 255, 255],

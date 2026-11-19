@@ -59,8 +59,9 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.setFont('helvetica', 'bold');
   doc.text('Address:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
-  doc.text(data.companyAddress || '', leftValX, currentY);
-  currentY += 4;
+  const splitCompanyAddr = doc.splitTextToSize(data.companyAddress || '', 80);
+  doc.text(splitCompanyAddr, leftValX, currentY);
+  currentY += Math.max(splitCompanyAddr.length * 3.8, 4);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Phone No.:', leftColX, currentY);
@@ -263,6 +264,11 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     head: [['S.No.', 'Item Name & Description', 'HSN/SAC', 'Qty', 'Unit', 'Price / Unit\n(without tax)', 'GST', 'Amount']],
     body: tableData,
     theme: 'grid',
+    didParseCell: (hookData: any) => {
+      if (hookData.column && colWidths[hookData.column.index] !== undefined) {
+        hookData.cell.styles.cellWidth = colWidths[hookData.column.index];
+      }
+    },
     headStyles: {
       fillColor: yellowColor,
       textColor: [0, 0, 0],
@@ -270,7 +276,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
       halign: 'center',
       valign: 'middle',
       fontSize: 8,
-      cellPadding: 2.5,
+      cellPadding: 2.2,
       minCellHeight: 8,
       lineWidth: 0.15,
       lineColor: [0, 0, 0]
@@ -278,7 +284,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     bodyStyles: {
       textColor: [0, 0, 0],
       fontSize: 7.5,
-      cellPadding: 2.5,
+      cellPadding: 2.2,
       lineWidth: 0.15,
       lineColor: [0, 0, 0],
       valign: 'middle'
@@ -300,6 +306,23 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.setPage(pageCount);
   let tableEndY = (doc as any).lastAutoTable.finalY;
 
+  // Dynamically extract the exact column positions rendered by AutoTable
+  // to ensure 100% pixel-perfect vertical alignment with table headers & columns
+  let activeColPositions: number[] = [];
+  try {
+    const headCells = (doc as any).lastAutoTable?.head?.[0]?.cells;
+    if (headCells && headCells[0]) {
+      activeColPositions.push(headCells[0].x);
+      for (let i = 0; headCells[i]; i++) {
+        activeColPositions.push(headCells[i].x + headCells[i].width);
+      }
+    }
+  } catch (e) {}
+
+  if (activeColPositions.length === 0) {
+    activeColPositions = colPositions;
+  }
+
   // Outer border dimensions:
   const borderBottom = margin - 2 + (pageHeight - margin * 2 + 4); // = 289mm
 
@@ -310,15 +333,15 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
 
   const wordsText = doc.splitTextToSize(numberToWords(data.totalAmount), leftWidth - 4);
   const wordsLinesCount = Array.isArray(wordsText) ? wordsText.length : 1;
-  const wordsBoxHeight = 5 + (wordsLinesCount * 3.4) + 1.5;
+  const wordsBoxHeight = 5 + 1.5 + (wordsLinesCount * 3.4) + 2;
 
   const hasBank = Boolean(data.bankDetails && data.bankDetails.trim().length > 0);
   const bankLines = hasBank ? data.bankDetails.split('\n').filter((l) => l.trim().length > 0) : [];
-  const bankBoxHeight = hasBank ? (5 + (bankLines.length * 3.2) + 1.5) : 0;
+  const bankBoxHeight = hasBank ? (5 + 1.5 + (bankLines.length * 3.2) + 2) : 0;
 
   const defaultTerms = '1. 50% Advance with order.\n2. Balance against delivery.\n3. Goods once sold will not be taken back.';
   const termsLines = (data.terms || defaultTerms).split('\n').filter((l) => l.trim().length > 0);
-  const termsBoxHeight = 5 + (termsLines.length * 3.2) + 1.5;
+  const termsBoxHeight = 5 + 1.5 + (termsLines.length * 3.2);
 
   const totalLeftHeight = wordsBoxHeight + (hasBank ? bankBoxHeight : 0) + termsBoxHeight;
 
@@ -351,7 +374,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     estimateSummaryRows.push({ label: 'Round Off:', value: 'Rs. ' + sign + data.summary.roundOff.toFixed(2) });
   }
 
-  const totalRightHeight = (estimateSummaryRows.length * 4) + 10 + 22;
+  const totalRightHeight = (estimateSummaryRows.length * 4.2) + 9 + 22;
   const totalFooterHeight = Math.max(totalLeftHeight, totalRightHeight) + 4;
 
   let footerBoxStartY = borderBottom - totalFooterHeight - 2;
@@ -363,21 +386,23 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   }
 
   // Draw crisp solid vertical grid lines extending down to the top of the footer box
+  // matching AutoTable column headers with 100% precision
   doc.setLineWidth(0.15);
   doc.setDrawColor(0, 0, 0);
-  colPositions.forEach((x) => {
+  activeColPositions.forEach((x) => {
     doc.line(x, tableEndY, x, footerBoxStartY);
   });
-  doc.line(colPositions[0], footerBoxStartY, colPositions[colPositions.length - 1], footerBoxStartY);
+  doc.line(activeColPositions[0], footerBoxStartY, activeColPositions[activeColPositions.length - 1], footerBoxStartY);
 
   const finalY = footerBoxStartY;
 
   // --- LEFT COLUMN ---
-  // Words Box
+  // 1. Words Box
   doc.setFillColor(...yellowColor);
   doc.rect(margin, finalY + 1.2, leftWidth, 5, 'F');
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
   doc.text('Proforma Invoice Amount in Words:', margin + 2, finalY + 4.5);
   
   doc.setFont('helvetica', 'normal');
@@ -386,36 +411,49 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
 
   let nextLeftY = finalY + 9.5 + (wordsLinesCount * 3.4) + 1.5;
 
+  // 2. Bank Details Box (auto-adjusts when present)
   if (hasBank) {
     doc.setFillColor(...yellowColor);
     doc.rect(margin, nextLeftY, leftWidth, 5, 'F');
     doc.setFontSize(8);
     doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
     doc.text('Bank & Payment Details:', margin + 2, nextLeftY + 3.8);
 
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(7.2);
-    let bY = nextLeftY + 7.5;
+    let bY = nextLeftY + 8.0;
     bankLines.forEach((line) => {
-      doc.text(line, margin + 2, bY);
+      if (line.includes(':')) {
+        const colonIdx = line.indexOf(':');
+        const label = line.substring(0, colonIdx).trim();
+        const val = line.substring(colonIdx + 1).trim();
+        doc.setFont('helvetica', 'bold');
+        doc.text(label + ':', margin + 2, bY);
+        doc.setFont('helvetica', 'normal');
+        doc.text(val, margin + 24, bY);
+      } else {
+        doc.setFont('helvetica', 'normal');
+        doc.text(line, margin + 2, bY);
+      }
       bY += 3.2;
     });
     nextLeftY = bY + 1.5;
   }
 
-  // Terms Box - placed cleanly below Words/Bank Box
+  // 3. Terms Box - placed cleanly below Words/Bank Box
   const termsY = nextLeftY;
   doc.setFillColor(...yellowColor);
   doc.rect(margin, termsY, leftWidth, 5, 'F');
   doc.setFontSize(8);
   doc.setFont('helvetica', 'bold');
+  doc.setTextColor(0, 0, 0);
   doc.text('Terms and Conditions:', margin + 2, termsY + 3.8);
   
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.2);
   termsLines.forEach((line, i) => {
-    const lineY = termsY + 7.5 + (i * 3.2);
-    if (lineY <= borderBottom - 3) {
+    const lineY = termsY + 8.0 + (i * 3.2);
+    if (lineY <= borderBottom - 2) {
       doc.text(line, margin + 2, lineY);
     }
   });
@@ -434,16 +472,21 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
 
   // Final Amount Box
   doc.setFillColor(...yellowColor);
-  doc.rect(rightColStart, rightY - 2, rightWidth, 6.2, 'F');
+  doc.rect(rightColStart, rightY - 1.5, rightWidth, 6.2, 'F');
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(8.5);
-  doc.text('Final Amount:', rightColStart + 2, rightY + 2.2);
-  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY + 2.2, { align: 'right' });
+  doc.text('Final Amount:', rightColStart + 2, rightY + 2.5);
+  doc.text('Rs. ' + data.totalAmount.toFixed(2), margin + contentWidth - 2, rightY + 2.5, { align: 'right' });
 
-  // Outer border
-  doc.setLineWidth(0.2);
-  doc.setDrawColor(0, 0, 0);
-  doc.rect(margin - 2, margin - 2, contentWidth + 4, pageHeight - margin * 2 + 4);
+  // Outer border on all pages
+  const totalPages = (doc as any).internal.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    doc.setPage(p);
+    doc.setLineWidth(0.2);
+    doc.setDrawColor(0, 0, 0);
+    doc.rect(margin - 2, margin - 2, contentWidth + 4, pageHeight - margin * 2 + 4);
+  }
+  doc.setPage(totalPages);
 
   // Bottom Signature & QR Code Area
   const sigY = borderBottom - 10;

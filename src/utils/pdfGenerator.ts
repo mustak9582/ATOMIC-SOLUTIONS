@@ -228,7 +228,8 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
     doc.setTextColor(0, 0, 0);
     doc.text('Name:', margin + 2, topBoxY + 10);
     doc.setFont('helvetica', 'normal');
-    doc.text(data.customerName || '', margin + 14, topBoxY + 10);
+    const splitCustName = doc.splitTextToSize(data.customerName || '', col1Width - 16);
+    doc.text(splitCustName, margin + 14, topBoxY + 10);
     
     doc.setFont('helvetica', 'bold');
     doc.text('Address:', margin + 2, topBoxY + 15);
@@ -258,7 +259,8 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       doc.setTextColor(0, 0, 0);
       doc.text('Name:', v1X + 2, topBoxY + 10);
       doc.setFont('helvetica', 'normal');
-      doc.text(data.shippingName ?? data.customerName ?? '', v1X + 14, topBoxY + 10);
+      const splitShippingName = doc.splitTextToSize(data.shippingName ?? data.customerName ?? '', col2Width - 16);
+      doc.text(splitShippingName, v1X + 14, topBoxY + 10);
       
       doc.setFont('helvetica', 'bold');
       doc.text('Address:', v1X + 2, topBoxY + 15);
@@ -417,6 +419,12 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
       left: margin, 
       right: margin 
     },
+    didParseCell: (hookData: any) => {
+      const colArray = Object.values(colW) as number[];
+      if (hookData.column && colArray[hookData.column.index] !== undefined) {
+        hookData.cell.styles.cellWidth = colArray[hookData.column.index];
+      }
+    },
     didDrawPage: (hookData: any) => {
       if (hookData.pageNumber === 1) {
         drawHeader();
@@ -460,9 +468,25 @@ export const generateInvoicePDF = async (data: PDFInvoiceData, options?: { inclu
   }
 
   // Extend vertical table grid lines seamlessly down to the top of the footer box
+  // Dynamically uses exact computed column divider coordinates from autoTable
+  let activeColPositions: number[] = [];
+  try {
+    const headCells = (doc as any).lastAutoTable?.head?.[0]?.cells;
+    if (headCells && headCells[0]) {
+      activeColPositions.push(headCells[0].x);
+      for (let i = 0; headCells[i]; i++) {
+        activeColPositions.push(headCells[i].x + headCells[i].width);
+      }
+    }
+  } catch (e) {}
+
+  if (activeColPositions.length === 0) {
+    activeColPositions = colX;
+  }
+
   doc.setLineWidth(0.2);
   doc.setDrawColor(0, 0, 0);
-  colX.forEach((x) => {
+  activeColPositions.forEach((x) => {
     doc.line(x, tableEndY, x, footerBoxStartY);
   });
   doc.line(margin, footerBoxStartY, margin + contentWidth, footerBoxStartY);
