@@ -27,11 +27,11 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.setFont('helvetica', 'bold');
   doc.text(data.originalDup || 'Original Copy', margin + contentWidth - 3, currentY + 5.5, { align: 'right' });
   
-  currentY += 12;
+  currentY += 10;
 
   // Brand Header: Logo + ATOMIC SOLUTIONS prominently aligned side-by-side
   const logoImg = (data.logoUrl && data.logoUrl.startsWith('data:')) ? data.logoUrl : logoBase64;
-  const logoSize = 12; // 12mm x 12mm professional size
+  const logoSize = 11; // 11mm professional compact size
   let companyTitleX = margin;
 
   if (logoImg) {
@@ -43,44 +43,45 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
 
   // Company Name in prominent, large bold font matching logo height
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(15);
+  doc.setFontSize(14.5);
   doc.setTextColor(15, 23, 42); // Navy
-  doc.text(data.companyName || 'ATOMIC SOLUTIONS', companyTitleX, currentY + 8);
+  doc.text(data.companyName || 'ATOMIC SOLUTIONS', companyTitleX, currentY + 7.5);
 
-  currentY += logoSize + 3;
+  currentY += logoSize + 2;
   const companyInfoStartY = currentY;
 
   // Company Info (Address, Phone, Email, GSTIN, MSME, State)
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
   const leftColX = margin;
-  const leftValX = margin + 26;
+  const leftValX = margin + 24;
 
+  const cleanCompanyAddr = (data.companyAddress || '').replace(/\r?\n+/g, ' ').replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
   doc.setFont('helvetica', 'bold');
   doc.text('Address:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
-  const splitCompanyAddr = doc.splitTextToSize(data.companyAddress || '', 80);
+  const splitCompanyAddr = doc.splitTextToSize(cleanCompanyAddr, 82);
   doc.text(splitCompanyAddr, leftValX, currentY);
-  currentY += Math.max(splitCompanyAddr.length * 3.8, 4);
+  currentY += Math.max(splitCompanyAddr.length * 3.4, 3.5);
 
   doc.setFont('helvetica', 'bold');
   doc.text('Phone No.:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
   doc.text(data.companyPhone || '', leftValX, currentY);
-  currentY += 4;
+  currentY += 3.5;
 
   doc.setFont('helvetica', 'bold');
   doc.text('Email ID:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
   doc.text(data.companyEmail || '', leftValX, currentY);
-  currentY += 4;
+  currentY += 3.5;
 
   if (data.companyGSTIN) {
     doc.setFont('helvetica', 'bold');
     doc.text('GSTIN:', leftColX, currentY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.companyGSTIN, leftValX, currentY);
-    currentY += 4;
+    currentY += 3.5;
   }
 
   if (data.msmeNumber) {
@@ -88,24 +89,24 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     doc.text('MSME/Udyam:', leftColX, currentY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.msmeNumber, leftValX, currentY);
-    currentY += 4;
+    currentY += 3.5;
   }
 
   doc.setFont('helvetica', 'bold');
   doc.text('State:', leftColX, currentY);
   doc.setFont('helvetica', 'normal');
   doc.text('Jharkhand 20', leftValX, currentY);
-  currentY += 5;
+  currentY += 3.8;
 
   const leftSideEndY = currentY;
 
   // ── TOP-RIGHT METADATA (Proforma Inv No., Date, State of supply) ──
-  // Starts directly at the level of the company Address on the left (under the red line)
+  // Starts directly at the level of the company Address on the left
   const topRightColX = 120;
-  const topRightValX = 154;
+  const topRightValX = 152;
   let topMetaY = companyInfoStartY;
 
-  doc.setFontSize(8.5);
+  doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
 
   // 1. Proforma Inv No.
@@ -113,7 +114,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text('Proforma Inv No.:', topRightColX, topMetaY);
   doc.setFont('helvetica', 'bold');
   doc.text(data.number || 'PI/26-27/01', topRightValX, topMetaY);
-  topMetaY += 4.2;
+  topMetaY += 3.5;
 
   // 2. Date
   doc.setFont('helvetica', 'bold');
@@ -121,7 +122,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.setFont('helvetica', 'normal');
   const formattedDate = data.date ? new Date(data.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
   doc.text(formattedDate, topRightValX, topMetaY);
-  topMetaY += 4.2;
+  topMetaY += 3.5;
 
   // 3. State of supply
   const stateSupplyStr = autoDetectStateCode(data.stateSupply || data.shippingState || data.customerState || 'Jharkhand 20');
@@ -129,7 +130,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text('State of supply:', topRightColX, topMetaY);
   doc.setFont('helvetica', 'normal');
   doc.text(stateSupplyStr, topRightValX, topMetaY);
-  topMetaY += 4.2;
+  topMetaY += 3.5;
 
   // Optional Buyer Order / PO
   if (data.buyerOrder) {
@@ -137,37 +138,39 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     doc.text('Buyer Order:', topRightColX, topMetaY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.buyerOrder, topRightValX, topMetaY);
-    topMetaY += 4.2;
+    topMetaY += 3.5;
   }
 
   // Customer Info (Bill To) starts cleanly below the header section
-  let customerY = Math.max(leftSideEndY, topMetaY) + 3;
+  let customerY = Math.max(leftSideEndY, topMetaY) + 2.5;
   const maxLeftValWidth = 150;
 
   // Proforma Invoice For (Bill To) Header
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(9.5);
   doc.text('Proforma Invoice For (Bill To):', leftColX, customerY);
-  customerY += 4.5;
+  customerY += 3.8;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8);
 
   // Customer Name
   doc.setFont('helvetica', 'bold');
   doc.text('Customer Name:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
-  const splitCustName = doc.splitTextToSize(data.customerName || '', maxLeftValWidth);
+  const cleanCustName = (data.customerName || '').replace(/\r?\n+/g, ' ').replace(/\s+/g, ' ').trim();
+  const splitCustName = doc.splitTextToSize(cleanCustName, maxLeftValWidth);
   doc.text(splitCustName, leftValX, customerY);
-  customerY += Math.max(splitCustName.length * 4, 4.5);
+  customerY += Math.max(splitCustName.length * 3.4, 3.5);
 
   // Address
   if (data.customerAddress) {
     doc.setFont('helvetica', 'bold');
     doc.text('Address:', leftColX, customerY);
     doc.setFont('helvetica', 'normal');
-    const splitCustAddr = doc.splitTextToSize(data.customerAddress || '', maxLeftValWidth);
+    const cleanCustAddr = data.customerAddress.replace(/\r?\n+/g, ', ').replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
+    const splitCustAddr = doc.splitTextToSize(cleanCustAddr, maxLeftValWidth);
     doc.text(splitCustAddr, leftValX, customerY);
-    customerY += Math.max(splitCustAddr.length * 4, 4.5);
+    customerY += Math.max(splitCustAddr.length * 3.4, 3.5);
   }
 
   // Phone No.
@@ -176,7 +179,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     doc.text('Phone No.:', leftColX, customerY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.customerPhone || '', leftValX, customerY);
-    customerY += 4.5;
+    customerY += 3.5;
   }
 
   // GSTIN (if present)
@@ -185,7 +188,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     doc.text('GSTIN:', leftColX, customerY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.customerGSTIN, leftValX, customerY);
-    customerY += 4.5;
+    customerY += 3.5;
   }
 
   // State
@@ -194,29 +197,31 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text('State:', leftColX, customerY);
   doc.setFont('helvetica', 'normal');
   doc.text(custStateStr, leftValX, customerY);
-  customerY += 5;
+  customerY += 3.8;
 
   // Ship To Details (if present and different/provided)
   const hasShipTo = data.shippingName || data.shippingAddress;
   if (hasShipTo) {
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
+    doc.setFontSize(8.5);
     doc.text('Ship To:', leftColX, customerY);
-    customerY += 4;
-    doc.setFontSize(9);
+    customerY += 3.5;
+    doc.setFontSize(8);
 
     doc.setFont('helvetica', 'bold');
     doc.text('Name:', leftColX, customerY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.shippingName || data.customerName || '', leftValX, customerY);
-    customerY += 4;
+    customerY += 3.5;
 
     if (data.shippingAddress) {
       doc.setFont('helvetica', 'bold');
       doc.text('Address:', leftColX, customerY);
       doc.setFont('helvetica', 'normal');
-      doc.text(data.shippingAddress, leftValX, customerY);
-      customerY += 4;
+      const cleanShipAddr = data.shippingAddress.replace(/\r?\n+/g, ', ').replace(/\s+/g, ' ').trim().replace(/,\s*$/, '');
+      const splitShipAddr = doc.splitTextToSize(cleanShipAddr, maxLeftValWidth);
+      doc.text(splitShipAddr, leftValX, customerY);
+      customerY += Math.max(splitShipAddr.length * 3.4, 3.5);
     }
 
     if (data.shippingGSTIN) {
@@ -224,7 +229,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
       doc.text('GSTIN:', leftColX, customerY);
       doc.setFont('helvetica', 'normal');
       doc.text(data.shippingGSTIN, leftValX, customerY);
-      customerY += 4;
+      customerY += 3.5;
     }
 
     if (data.shippingState) {
@@ -232,9 +237,9 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
       doc.text('State:', leftColX, customerY);
       doc.setFont('helvetica', 'normal');
       doc.text(autoDetectStateCode(data.shippingState), leftValX, customerY);
-      customerY += 4;
+      customerY += 3.5;
     }
-    customerY += 2;
+    customerY += 1.5;
   }
 
   // Table
