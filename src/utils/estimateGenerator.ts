@@ -48,6 +48,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text(data.companyName || 'ATOMIC SOLUTIONS', companyTitleX, currentY + 8);
 
   currentY += logoSize + 3;
+  const companyInfoStartY = currentY;
 
   // Company Info (Address, Phone, Email, GSTIN, MSME, State)
   doc.setFontSize(8.5);
@@ -98,12 +99,12 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   const leftSideEndY = currentY;
 
   // ── TOP-RIGHT METADATA (Proforma Inv No., Date, State of supply) ──
-  // Placed at the top right opposite company details (below top banner)
+  // Starts directly at the level of the company Address on the left (under the red line)
   const topRightColX = 120;
-  const topRightValX = 155;
-  let topMetaY = 24.5;
+  const topRightValX = 154;
+  let topMetaY = companyInfoStartY;
 
-  doc.setFontSize(9);
+  doc.setFontSize(8.5);
   doc.setTextColor(0, 0, 0);
 
   // 1. Proforma Inv No.
@@ -111,7 +112,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text('Proforma Inv No.:', topRightColX, topMetaY);
   doc.setFont('helvetica', 'bold');
   doc.text(data.number || 'PI/26-27/01', topRightValX, topMetaY);
-  topMetaY += 5;
+  topMetaY += 4.2;
 
   // 2. Date
   doc.setFont('helvetica', 'bold');
@@ -119,7 +120,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.setFont('helvetica', 'normal');
   const formattedDate = data.date ? new Date(data.date).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
   doc.text(formattedDate, topRightValX, topMetaY);
-  topMetaY += 5;
+  topMetaY += 4.2;
 
   // 3. State of supply
   const stateSupplyStr = autoDetectStateCode(data.stateSupply || data.shippingState || data.customerState || 'Jharkhand 20');
@@ -127,7 +128,7 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
   doc.text('State of supply:', topRightColX, topMetaY);
   doc.setFont('helvetica', 'normal');
   doc.text(stateSupplyStr, topRightValX, topMetaY);
-  topMetaY += 5;
+  topMetaY += 4.2;
 
   // Optional Buyer Order / PO
   if (data.buyerOrder) {
@@ -135,11 +136,11 @@ export const generateEstimatePDF = (data: PDFInvoiceData, options?: { includeQR?
     doc.text('Buyer Order:', topRightColX, topMetaY);
     doc.setFont('helvetica', 'normal');
     doc.text(data.buyerOrder, topRightValX, topMetaY);
-    topMetaY += 5;
+    topMetaY += 4.2;
   }
 
   // Customer Info (Bill To) starts cleanly below the header section
-  let customerY = Math.max(leftSideEndY, topMetaY) + 4;
+  let customerY = Math.max(leftSideEndY, topMetaY) + 3;
   const maxLeftValWidth = 150;
 
   // Proforma Invoice For (Bill To) Header
